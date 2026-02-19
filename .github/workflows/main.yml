@@ -1,0 +1,72 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install Linting Tools
+        run: |
+          pip install flake8
+          
+      - name: Lint Backend
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 backend --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings.
+          flake8 backend --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+  backend-test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install Dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install pytest httpx
+          
+      - name: Run Backend Tests
+        run: |
+          cd backend
+          pytest
+
+  build-checks:
+    runs-on: ubuntu-latest
+    needs: backend-test
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Build Backend Container
+        run: |
+          docker build backend -t montage-backend:test
+          
+      - name: Build Frontend Container
+        run: |
+          docker build frontend -t montage-frontend:test
+          
+      - name: Build Video Service Container
+        run: |
+          docker build video-service -t montage-video-service:test

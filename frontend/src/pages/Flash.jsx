@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getVideos, likeVideo, shareVideo, toggleFollow } from '../api';
+import { getVideos, likeVideo, shareVideo, toggleFollow, getAds } from '../api';
 import FlashCard from '../components/FlashCard';
+import FlashAdCard from '../components/FlashAdCard';
 import CommentsDrawer from '../components/CommentsDrawer';
-import { ChevronUp, ChevronDown, Volume2, VolumeX, Play, Pause } from 'lucide-react';
+import { ChevronUp, ChevronDown, Volume2, VolumeX, Play, Pause, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
+import { FlashSkeleton } from '../components/Skeleton';
 
 const Flash = () => {
     const { showNotification } = useNotification();
@@ -15,7 +17,13 @@ const Flash = () => {
     const [muted, setMuted] = useState(true);
     const [osd, setOsd] = useState({ visible: false, icon: null, text: '', key: 0 });
     const osdTimeout = useRef(null);
-    const { token } = useAuth();
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [skip, setSkip] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const [ads, setAds] = useState([]);
+    const { token, user } = useAuth();
+
+    const isPremiumOrAdmin = user?.is_premium || user?.role === 'admin';
 
     const showOSD = (icon, text) => {
         if (osdTimeout.current) clearTimeout(osdTimeout.current);
@@ -51,9 +59,6 @@ const Flash = () => {
         if (!isDragging.current) return;
         isDragging.current = false;
         containerRef.current.classList.remove('dragging');
-
-        // Optional: Manual snap logic if needed, but CSS snap usually takes over once user releases
-        // Just let it settle
     };
 
     const handleMouseMove = (e) => {
@@ -64,26 +69,59 @@ const Flash = () => {
         containerRef.current.scrollTop = scrollTop.current - walk;
     };
 
-    useEffect(() => {
-        const fetchClips = async () => {
-            try {
-                // Pass token to get personalized data (liked_by_user)
-                const data = await getVideos('flash', token);
-                setClips(data.map(video => ({
+    // Fetching logic
+    const fetchClips = async (isInitial = false) => {
+        if (isInitial) setLoading(true);
+        else setLoadingMore(true);
+
+        try {
+            const currentSkip = isInitial ? 0 : skip;
+            const limit = isInitial ? 5 : 2; // Initial load a few, then 2 at a time
+            const data = await getVideos('flash', token, currentSkip, limit);
+
+            if (Array.isArray(data)) {
+                const formatted = data.map(video => ({
                     ...video,
                     liked: video.liked_by_user,
-                    owner_followed: video.owner?.is_following || false, // Should be added by backend ideally
+                    owner_followed: video.owner?.is_following || false,
                     song: "Original Audio"
-                })));
-                if (data.length > 0 && !activeVideoId) setActiveVideoId(data[0].id);
+                }));
+
+                if (isInitial) {
+                    setClips(formatted);
+                    if (formatted.length > 0) setActiveVideoId(formatted[0].id);
+                } else {
+                    setClips(prev => [...prev, ...formatted]);
+                }
+
+                setHasMore(data.length === limit);
+            }
+        } catch (err) {
+            console.error("Failed to load clips", err);
+        } finally {
+            if (isInitial) setLoading(false);
+            else setLoadingMore(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchClips(true);
+        const fetchAds = async () => {
+            try {
+                const data = await getAds();
+                setAds(data);
             } catch (err) {
-                console.error("Failed to load clips", err);
-            } finally {
-                setLoading(false);
+                console.error("Ads error:", err);
             }
         };
-        fetchClips();
-    }, [token]);
+        if (!isPremiumOrAdmin) fetchAds();
+    }, [token, isPremiumOrAdmin]);
+
+    useEffect(() => {
+        if (skip > 0) {
+            fetchClips(false);
+        }
+    }, [skip]);
 
     useEffect(() => {
         if (loading) return;
@@ -93,12 +131,17 @@ const Flash = () => {
                 if (entry.isIntersecting) {
                     const id = parseInt(entry.target.getAttribute('data-id'));
                     setActiveVideoId(id);
+
+                    // If it's the last element, trigger load more
+                    if (entry.target.getAttribute('data-last') === 'true' && hasMore && !loadingMore) {
+                        setSkip(clips.length);
+                    }
                 }
             });
         };
 
         observer.current = new IntersectionObserver(handleIntersection, {
-            root: null, // viewport
+            root: null,
             threshold: 0.6
         });
 
@@ -106,7 +149,7 @@ const Flash = () => {
         items.forEach(el => observer.current.observe(el));
 
         return () => observer.current?.disconnect();
-    }, [loading, clips]);
+    }, [loading, clips, hasMore, loadingMore]);
 
     const scrollToVideo = (direction) => {
         const currentIndex = clips.findIndex(c => c.id === activeVideoId);
@@ -239,7 +282,17 @@ const Flash = () => {
         }
     };
 
-    if (loading) return <div className="loading-screen">Loading Feed...</div>;
+    if (loading) return (
+        <div className="flash-container">
+            <div className="flash-feed">
+                {[...Array(3)].map((_, i) => (
+                    <div key={i} className="flash-item-container">
+                        <FlashSkeleton />
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
 
     return (
         <div
@@ -252,20 +305,56 @@ const Flash = () => {
         >
             <div className="flash-feed">
                 {clips.length > 0 ? (
-                    clips.map(clip => (
-                        <div className="flash-item-container" key={clip.id} data-id={clip.id}>
-                            <FlashCard
-                                video={clip}
-                                isActive={activeVideoId === clip.id}
-                                onLike={handleLike}
-                                onComment={setShowCommentsId}
-                                onShare={handleShare}
-                                onFollow={() => handleFollow(clip.owner?.id)}
-                                muted={muted}
-                                toggleMute={() => setMuted(!muted)}
-                            />
-                        </div>
-                    ))
+                    <>
+                        {(() => {
+                            const items = [];
+                            let adIndex = 0;
+                            let clipsSinceLastAd = 0;
+                            const nextAdAt = 5; // Fixed interval of 5 or can be random 4-7
+
+                            clips.forEach((clip, index) => {
+                                items.push(
+                                    <div
+                                        className="flash-item-container"
+                                        key={`clip-${clip.id}`}
+                                        data-id={clip.id}
+                                        data-last={index === clips.length - 1}
+                                    >
+                                        <FlashCard
+                                            video={clip}
+                                            isActive={activeVideoId === clip.id}
+                                            onLike={handleLike}
+                                            onComment={setShowCommentsId}
+                                            onShare={handleShare}
+                                            onFollow={() => handleFollow(clip.owner?.id)}
+                                            muted={muted}
+                                            toggleMute={() => setMuted(!muted)}
+                                        />
+                                    </div>
+                                );
+
+                                if (!isPremiumOrAdmin) {
+                                    clipsSinceLastAd++;
+                                    if (clipsSinceLastAd >= nextAdAt) {
+                                        const currentAd = ads.length > 0 ? ads[adIndex % ads.length] : null;
+                                        items.push(
+                                            <div className="flash-item-container ad" key={`ad-${index}`}>
+                                                <FlashAdCard ad={currentAd} />
+                                            </div>
+                                        );
+                                        clipsSinceLastAd = 0;
+                                        adIndex++;
+                                    }
+                                }
+                            });
+                            return items;
+                        })()}
+                        {loadingMore && (
+                            <div className="flash-item-container loading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Loader2 className="animate-spin" size={48} color="white" />
+                            </div>
+                        )}
+                    </>
                 ) : (
                     <div className="empty-feed">
                         <p>No videos found. Check back later!</p>

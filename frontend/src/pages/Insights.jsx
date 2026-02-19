@@ -35,12 +35,12 @@ const Insights = () => {
     if (loading) return <div className="loading-screen"><div className="loader"></div></div>;
 
     const statCards = [
-        { label: 'Total Views', value: stats?.total_views || 0, icon: TrendingUp, color: '#3b82f6', glow: 'rgba(59, 130, 246, 0.4)' },
-        { label: 'Total Likes', value: stats?.total_likes || 0, icon: Heart, color: '#ec4899', glow: 'rgba(236, 72, 153, 0.4)' },
-        { label: 'Estimated Earnings', value: `$${(stats?.total_earnings || 0).toFixed(2)}`, icon: DollarSign, color: '#10b981', glow: 'rgba(16, 185, 129, 0.4)' },
-        { label: 'Total Shares', value: stats?.total_shares || 0, icon: Share2, color: '#f59e0b', glow: 'rgba(245, 158, 11, 0.4)' },
-        { label: 'Followers', value: stats?.followers || 0, icon: Users, color: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.4)' },
-        { label: 'Following', value: stats?.following || 0, icon: Users, color: '#64748b', glow: 'rgba(100, 116, 139, 0.4)' },
+        { id: 'views', label: 'Total Views', value: stats?.total_views || 0, icon: TrendingUp, color: '#3b82f6', glow: 'rgba(59, 130, 246, 0.4)' },
+        { id: 'likes', label: 'Total Likes', value: stats?.total_likes || 0, icon: Heart, color: '#ec4899', glow: 'rgba(236, 72, 153, 0.4)' },
+        { id: 'earnings', label: 'Estimated Earnings', value: `$${(stats?.total_earnings || 0).toFixed(2)}`, icon: DollarSign, color: '#10b981', glow: 'rgba(16, 185, 129, 0.4)' },
+        { id: 'shares', label: 'Total Shares', value: stats?.total_shares || 0, icon: Share2, color: '#f59e0b', glow: 'rgba(245, 158, 11, 0.4)' },
+        { id: 'followers', label: 'Followers', value: stats?.followers || 0, icon: Users, color: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.4)' },
+        { id: 'following', label: 'Following', value: stats?.following || 0, icon: Users, color: '#64748b', glow: 'rgba(100, 116, 139, 0.4)' },
     ];
 
     const totalViews = stats?.total_views || 0;
@@ -94,10 +94,15 @@ const Insights = () => {
                 marginBottom: '3rem'
             }}>
                 {statCards.map((stat, idx) => (
-                    <div key={idx} className="glass hover-scale" style={{
-                        padding: '2rem', borderRadius: '24px', position: 'relative', overflow: 'hidden',
-                        display: 'flex', flexDirection: 'column', gap: '1rem'
-                    }}>
+                    <div
+                        key={idx}
+                        className="glass hover-scale"
+                        onClick={() => navigate(`/performance?metric=${stat.id}`)}
+                        style={{
+                            padding: '2rem', borderRadius: '24px', position: 'relative', overflow: 'hidden',
+                            display: 'flex', flexDirection: 'column', gap: '1rem', cursor: 'pointer'
+                        }}
+                    >
                         <div style={{
                             width: '50px', height: '50px', borderRadius: '16px',
                             background: `rgba(${parseInt(stat.color.slice(1, 3), 16)}, ${parseInt(stat.color.slice(3, 5), 16)}, ${parseInt(stat.color.slice(5, 7), 16)}, 0.1)`,
@@ -109,6 +114,18 @@ const Insights = () => {
                         <div>
                             <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>{stat.label}</div>
                             <div style={{ fontSize: '2rem', fontWeight: 800 }}>{stat.value}</div>
+                        </div>
+                        <div style={{
+                            position: 'absolute',
+                            bottom: '1rem',
+                            right: '1.5rem',
+                            fontSize: '0.75rem',
+                            color: 'var(--text-muted)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                        }}>
+                            View details <ChevronRight size={14} />
                         </div>
                     </div>
                 ))}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload as UploadIcon, Video, Layout, CheckCircle, FileVideo, Plus, X, ArrowRight, Gauge } from 'lucide-react';
-import { API_BASE_URL } from '../api';
+import { API_BASE_URL, getUserInsights } from '../api';
 
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -20,23 +20,38 @@ const Upload = () => {
 
     useEffect(() => {
         if (user) {
-            setQuotas({
+            setQuotas(prev => ({
+                ...prev,
                 flash: {
+                    ...prev.flash,
                     used: user.flash_uploads || 0,
                     total: user.flash_quota_limit || 50,
-                    icon: <FileVideo size={24} />,
-                    color: 'hsl(345, 100%, 55%)'
                 },
                 home: {
+                    ...prev.home,
                     used: user.home_uploads || 0,
                     total: user.home_quota_limit || 20,
-                    icon: <Video size={24} />,
-                    color: 'hsl(210, 100%, 55%)'
-                },
-                posts: { used: 0, total: Infinity, icon: <Layout size={24} />, color: 'hsl(280, 100%, 65%)' }
-            });
+                }
+            }));
         }
     }, [user]);
+
+    useEffect(() => {
+        const fetchInsights = async () => {
+            if (token) {
+                try {
+                    const data = await getUserInsights(token);
+                    setQuotas(prev => ({
+                        ...prev,
+                        posts: { ...prev.posts, used: data.posts_count || 0 }
+                    }));
+                } catch (err) {
+                    console.error("Failed to fetch user insights:", err);
+                }
+            }
+        };
+        fetchInsights();
+    }, [token]);
 
     const [showModal, setShowModal] = useState(false);
     const [currentType, setCurrentType] = useState(null);

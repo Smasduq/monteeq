@@ -12,6 +12,7 @@ from app.crud import video as crud_video
 from app.schemas import schemas
 from app.core.dependencies import get_current_user, get_current_user_optional
 from app.core import config
+from app.core.storage import storage
 from app.core.config import FLASH_QUOTA_LIMIT, HOME_QUOTA_LIMIT
 from app.models.models import Video, User
 
@@ -21,11 +22,13 @@ router = APIRouter()
 def read_videos(
     video_type: str = None, 
     status: str = "approved", 
+    skip: int = 0,
+    limit: int = 20,
     db: Session = Depends(get_db), 
     current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     user_id = current_user.id if current_user else None
-    return crud_video.get_videos(db, video_type=video_type, filter_status=status, current_user_id=user_id)
+    return crud_video.get_videos(db, video_type=video_type, filter_status=status, current_user_id=user_id, skip=skip, limit=limit)
 
 @router.get("/search", response_model=List[schemas.Video])
 async def search_videos(
@@ -184,12 +187,9 @@ async def background_process_video(
                 if not os.path.exists(src):
                     return None
                     
-                # Local Storage
-                dest_dir = os.path.join(config.STATIC_DIR, "videos")
-                os.makedirs(dest_dir, exist_ok=True)
-                dest_path = os.path.join(dest_dir, f"{base_filename}_{suffix}.mp4")
-                shutil.copy2(src, dest_path)
-                return f"{config.BASE_URL}/static/videos/{base_filename}_{suffix}.mp4"
+                # Storage Abstraction (Local or S3/B2)
+                s3_key = f"videos/{base_filename}_{suffix}.mp4"
+                return storage.upload_file(src, s3_key)
 
             url_480p = save_resolution("480p")
             url_720p = save_resolution("720p")
@@ -204,12 +204,9 @@ async def background_process_video(
             thumbnail_url = None
             
             if not thumbnail_provided and os.path.exists(temp_thumb_path):
-                # Local Storage
-                dest_dir = os.path.join(config.STATIC_DIR, "thumbs")
-                os.makedirs(dest_dir, exist_ok=True)
-                dest_path = os.path.join(dest_dir, f"{base_filename}.jpg")
-                shutil.copy2(temp_thumb_path, dest_path)
-                thumbnail_url = f"{config.BASE_URL}/static/thumbs/{base_filename}.jpg"
+                # Storage Abstraction (Local or S3/B2)
+                s3_key = f"thumbs/{base_filename}.jpg"
+                thumbnail_url = storage.upload_file(temp_thumb_path, s3_key)
 
             # Get Duration
             duration = 0
@@ -240,6 +237,26 @@ async def background_process_video(
                 if thumbnail_url:
                     video.thumbnail_url = thumbnail_url
                 
+                # Automated Video Recognition
+                try:
+                    import subprocess
+                    import json
+                    recognition_script = os.path.join("c:\\Users\\Smasduq\\Documents\\Montage\\video-service", "scripts", "video_recognition.py")
+                    if os.path.exists(recognition_script):
+                        rec_result = subprocess.run(
+                            [sys.executable, recognition_script, temp_file_path],
+                            capture_output=True, text=True, timeout=60
+                        )
+                        if rec_result.returncode == 0:
+                            auto_tags = json.loads(rec_result.stdout)
+                            if auto_tags:
+                                # Merge with existing tags if any
+                                existing_tags = [t.strip() for t in (video.tags or "").split(",") if t.strip()]
+                                all_tags = list(set(existing_tags + auto_tags))
+                                video.tags = ",".join(all_tags)
+                except Exception as e:
+                    print(f"Video recognition failed: {e}")
+
                 db.commit()
         except Exception as e:
             print(f"Error in post-processing: {e}")

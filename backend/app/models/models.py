@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float, Text, DateTime, func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from app.db.base import Base
 import enum
 from app.core.config import BASE_URL, FLASH_QUOTA_LIMIT, HOME_QUOTA_LIMIT
@@ -32,6 +32,11 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     is_onboarded = Column(Boolean, default=False)
     profile_pic = Column(String, nullable=True) # Will use dynamic UI-Avatars if null
+    
+    # Personalization data
+    interests = Column(Text, nullable=True) # Comma-separated tags or JSON
+    referral_source = Column(String, nullable=True)
+    goals = Column(Text, nullable=True)
     
     # Quotas for free users
     flash_uploads = Column(Integer, default=0)
@@ -97,6 +102,8 @@ class Video(Base):
     duration = Column(Integer, default=0)
     processing_key = Column(String, nullable=True)
     tags = Column(Text, nullable=True) # Comma-separated tags
+    discovery_score = Column(Float, default=0.0)
+    last_owner_interaction_at = Column(DateTime, nullable=True)
     failed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=func.now())
 
@@ -148,6 +155,8 @@ class Post(Base):
     owner = relationship("User", back_populates="posts")
     original_post = relationship("Post", remote_side=[id])
     is_active = Column(Boolean, default=True)
+    discovery_score = Column(Float, default=0.0)
+    last_owner_interaction_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=func.now())
     
     likes = relationship("Like", back_populates="post", cascade="all, delete-orphan")
@@ -160,12 +169,14 @@ class Comment(Base):
     content = Column(Text)
     video_id = Column(Integer, ForeignKey("videos.id"), nullable=True)
     post_id = Column(Integer, ForeignKey("posts.id"), nullable=True)
+    parent_id = Column(Integer, ForeignKey("comments.id"), nullable=True) # Threaded replies
     owner_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=func.now())
 
     owner = relationship("User", back_populates="comments")
     video = relationship("Video", back_populates="comments")
     post = relationship("Post", back_populates="comments")
+    replies = relationship("Comment", backref=backref("parent", remote_side=[id]), cascade="all, delete-orphan")
 
 class Follow(Base):
     __tablename__ = "follows"

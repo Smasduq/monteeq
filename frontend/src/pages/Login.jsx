@@ -16,7 +16,11 @@ const Login = () => {
         setError('');
         try {
             const user = await login({ username, password });
-            navigate('/');
+            if (user && !user.is_onboarded) {
+                navigate('/onboarding');
+            } else {
+                navigate('/');
+            }
         } catch (err) {
             setError(err.response?.data?.detail || 'Failed to login');
         }
@@ -67,7 +71,11 @@ const Login = () => {
                         onSuccess={credentialResponse => {
                             googleLogin(credentialResponse.credential)
                                 .then((user) => {
-                                    navigate('/');
+                                    if (user && !user.is_onboarded) {
+                                        navigate('/onboarding');
+                                    } else {
+                                        navigate('/');
+                                    }
                                 })
                                 .catch(err => setError(err.response?.data?.detail || 'Google Login Failed'));
                         }}

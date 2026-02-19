@@ -169,6 +169,22 @@ const FlashCard = ({ video, isActive, onLike, onComment, onShare, onFollow, mute
                     </div>
                 </div>
                 <p className="info-description">{video.title}</p>
+                {video.tags && (
+                    <div className="info-tags" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                        {video.tags.split(',').map((tag, i) => (
+                            <span
+                                key={i}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/search?q=${encodeURIComponent('#' + tag.trim())}`);
+                                }}
+                                style={{ color: 'var(--accent-primary)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+                            >
+                                #{tag.trim()}
+                            </span>
+                        ))}
+                    </div>
+                )}
                 <div className="info-music">
                     <Music size={14} />
                     <div className="marquee">

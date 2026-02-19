@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
 import { Zap } from 'lucide-react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -21,6 +21,8 @@ import ManageContent from './pages/ManageContent';
 import Achievements from './pages/Achievements';
 import Notifications from './pages/Notifications';
 import Insights from './pages/Insights';
+import Performance from './pages/Performance';
+import Onboarding from './pages/Onboarding';
 import NotificationManager from './components/NotificationManager';
 
 import Header from './components/Header';
@@ -41,11 +43,25 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   return children;
 };
 
+import AdSidebar from './components/AdSidebar';
+
 function AppContent() {
   const { user, logout, token } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const isFlashPage = location.pathname === '/flash';
+  const isHomePage = location.pathname === '/';
+  const isPremiumOrAdmin = user?.is_premium || user?.role === 'admin';
+  const isOnboardingPage = location.pathname === '/onboarding';
+  const showAdColumn = !isHomePage && !isFlashPage && !isOnboardingPage && user && !isPremiumOrAdmin;
+
+  // Onboarding redirection
+  React.useEffect(() => {
+    if (token && user && !user.is_onboarded && location.pathname !== '/onboarding') {
+      navigate('/onboarding');
+    }
+  }, [token, user, location.pathname]);
 
   return (
     <div className="app-container">
@@ -56,25 +72,39 @@ function AppContent() {
       <div className="app-layout">
         <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
         <main className={`main-stage ${isFlashPage ? 'no-padding' : ''}`}>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/flash" element={<Flash />} />
-            <Route path="/watch/:id" element={<Watch />} />
-            <Route path="/search" element={<Search />} />
-            <Route path="/profile/:username" element={<Profile />} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/posts" element={<Posts />} />
-            <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
-            <Route path="/manage" element={<ProtectedRoute><ManageContent /></ProtectedRoute>} />
-            <Route path="/manage-videos" element={<ProtectedRoute><ManageContent /></ProtectedRoute>} />
-            <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
-            <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-            <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
-            {/* Admin and Moderator routes removed */}
-
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-          </Routes>
+          <div style={{
+            display: 'flex',
+            gap: '2rem',
+            width: '100%',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ flex: showAdColumn ? 2 : 1, minWidth: '300px' }}>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/flash" element={<Flash />} />
+                <Route path="/watch/:id" element={<Watch />} />
+                <Route path="/search" element={<Search />} />
+                <Route path="/profile/:username" element={<Profile />} />
+                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                <Route path="/posts" element={<Posts />} />
+                <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+                <Route path="/manage" element={<ProtectedRoute><ManageContent /></ProtectedRoute>} />
+                <Route path="/manage-videos" element={<ProtectedRoute><ManageContent /></ProtectedRoute>} />
+                <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
+                <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+                <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
+                <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+              </Routes>
+            </div>
+            {showAdColumn && (
+              <div style={{ flex: 1, minWidth: '300px' }}>
+                <AdSidebar />
+              </div>
+            )}
+          </div>
         </main>
       </div>
       <BottomNav />

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Flame, TrendingUp, Heart, Zap } from 'lucide-react';
+import { Play, Flame, TrendingUp, Heart, Zap, Loader2 } from 'lucide-react';
 import { getVideos, likeVideo } from '../api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import VideoPreviewCard from '../components/VideoPreviewCard';
+import { VideoSkeleton, FlashSkeleton } from '../components/Skeleton';
 
 const Home = () => {
     const navigate = useNavigate();
@@ -13,40 +14,72 @@ const Home = () => {
     const [videos, setVideos] = useState([]);
     const [flashVideos, setFlashVideos] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState(null);
+    const [skip, setSkip] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const observer = React.useRef();
+
+    const lastVideoElementRef = React.useCallback(node => {
+        if (loading || loadingMore) return;
+        if (observer.current) observer.current.disconnect();
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                setSkip(prevSkip => prevSkip + 12);
+            }
+        });
+        if (node) observer.current.observe(node);
+    }, [loading, loadingMore, hasMore]);
 
     const featured = {
         title: "Origins of the Peak",
-        desc: "The Home for Editors and Creators.",
+        desc: "A Home for Editors.",
         image: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1600&q=80"
     };
 
-    const fetchVideos = async () => {
+    const fetchInitialData = async () => {
+        setLoading(true);
         try {
             const [homeData, flashData] = await Promise.all([
-                getVideos('home', token),
-                getVideos('flash', token)
+                getVideos('home', token, 0, 12),
+                getVideos('flash', token, 0, 18)
             ]);
             setVideos(Array.isArray(homeData) ? homeData : []);
             setFlashVideos(Array.isArray(flashData) ? flashData : []);
-
-            if (!Array.isArray(homeData) || !Array.isArray(flashData)) {
-                console.error("API returned non-array data:", { homeData, flashData });
-                setError("Partial loading error. Some content might be missing.");
-            }
+            setHasMore(homeData.length === 12);
         } catch (err) {
-            console.error("Failed to fetch videos:", err);
-            setError("Failed to load videos. Please try again.");
-            setVideos([]);
-            setFlashVideos([]);
+            console.error("Initial fetch error:", err);
+            setError("Failed to load content.");
         } finally {
             setLoading(false);
         }
     };
 
+    const fetchMoreVideos = async () => {
+        if (loadingMore || !hasMore) return;
+        setLoadingMore(true);
+        try {
+            const newData = await getVideos('home', token, skip, 12);
+            if (Array.isArray(newData)) {
+                setVideos(prev => [...prev, ...newData]);
+                setHasMore(newData.length === 12);
+            }
+        } catch (err) {
+            console.error("Load more error:", err);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
     useEffect(() => {
-        fetchVideos();
+        fetchInitialData();
     }, [token]);
+
+    useEffect(() => {
+        if (skip > 0) {
+            fetchMoreVideos();
+        }
+    }, [skip]);
 
     const handleVideoClick = (id) => {
         navigate(`/watch/${id}`);
@@ -79,18 +112,6 @@ const Home = () => {
         if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
         if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
         return num;
-    };
-
-    const formatDuration = (seconds) => {
-        if (!seconds) return "0:00";
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = Math.floor(seconds % 60);
-
-        if (h > 0) {
-            return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        }
-        return `${m}:${s.toString().padStart(2, '0')}`;
     };
 
     const formatTimeAgo = (dateStr) => {
@@ -137,7 +158,13 @@ const Home = () => {
                 </div>
 
                 <div className="video-grid">
-                    {loading && <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem' }}>Loading videos...</div>}
+                    {loading && (
+                        <>
+                            {[...Array(8)].map((_, i) => (
+                                <VideoSkeleton key={`skel-${i}`} />
+                            ))}
+                        </>
+                    )}
                     {error && <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--accent-primary)' }}>{error}</div>}
 
                     {!loading && !error && videos.length === 0 && (
@@ -146,8 +173,13 @@ const Home = () => {
                         </div>
                     )}
 
-                    {videos.slice(0, 8).map(video => (
-                        <div key={video.id} className="video-item" style={{ cursor: 'pointer' }}>
+                    {videos.map((video, index) => (
+                        <div
+                            key={video.id}
+                            className="video-item"
+                            style={{ cursor: 'pointer' }}
+                            ref={videos.length === index + 1 ? lastVideoElementRef : null}
+                        >
                             <div style={{ position: 'relative' }}>
                                 <VideoPreviewCard
                                     video={video}
@@ -180,8 +212,8 @@ const Home = () => {
                                         )}
                                     </div>
                                     <div>
-                                        <div style={{ fontWeight: 600, fontSize: '1rem', lineHeight: '1.2', marginBottom: '0.2rem' }}>{video.title}</div>
-                                        <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                                        <div style={{ fontWeight: 600, fontSize: '0.95rem', lineHeight: '1.2', marginBottom: '0.2rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{video.title}</div>
+                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                                             <span
                                                 onClick={(e) => { e.stopPropagation(); navigate(`/profile/${video.owner?.username}`); }}
                                                 style={{ cursor: 'pointer' }}
@@ -223,7 +255,14 @@ const Home = () => {
                         gap: '1rem',
                         marginTop: '1.5rem'
                     }}>
-                        {flashVideos.slice(0, 18).map(flash => (
+                        {loading && (
+                            <>
+                                {[...Array(6)].map((_, i) => (
+                                    <FlashSkeleton key={`flash-skel-${i}`} />
+                                ))}
+                            </>
+                        )}
+                        {!loading && flashVideos.slice(0, 18).map(flash => (
                             <div key={flash.id} className="flash-shelf-item hover-scale" onClick={handleFlashClick} style={{ cursor: 'pointer', textAlign: 'left' }}>
                                 <div style={{
                                     aspectRatio: '9/16',
@@ -256,30 +295,17 @@ const Home = () => {
                 </div>
             )}
 
-            {/* More Long Form */}
-            {videos.length > 8 && (
-                <div style={{ padding: '2rem 0', paddingBottom: '4rem' }}>
-                    <div className="section-title">
-                        <TrendingUp size={28} color="var(--accent-primary)" />
-                        <h2 style={{ margin: 0 }}>More for you</h2>
-                    </div>
-                    <div className="video-grid">
-                        {videos.slice(8).map(video => (
-                            <div key={video.id} className="video-item" style={{ cursor: 'pointer' }}>
-                                <VideoPreviewCard
-                                    video={video}
-                                    onClick={() => handleVideoClick(video.id)}
-                                />
-                                <div className="video-details" style={{ marginTop: '0.8rem' }}>
-                                    <div style={{ fontWeight: 600 }}>{video.title}</div>
-                                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                        {video.owner?.username} • {formatViews(video.views)} views
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
+            {/* Loading More State */}
+            {loadingMore && (
+                <div className="video-grid" style={{ marginTop: '2rem' }}>
+                    {[...Array(4)].map((_, i) => (
+                        <VideoSkeleton key={`more-skel-${i}`} />
+                    ))}
+                </div>
+            )}
+            {!hasMore && videos.length > 0 && (
+                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                    You've reached the end of the line!
                 </div>
             )}
         </div>

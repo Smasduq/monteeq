@@ -144,7 +144,7 @@ def like_post(
 @router.post("/{post_id}/comment", response_model=schemas.Comment)
 def comment_post(
     post_id: int,
-    comment: schemas.CommentBase,
+    comment: schemas.CommentCreate,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):

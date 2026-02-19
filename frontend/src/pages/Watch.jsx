@@ -5,10 +5,11 @@ import { Heart, Share2, Send, MessageSquare, Download, X, Check } from 'lucide-r
 import VideoPlayer from '../components/VideoPlayer';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
+import CommentItem from '../components/CommentItem';
+import { WatchSkeleton } from '../components/Skeleton';
 
 const DownloadModal = ({ video, onClose, user }) => {
     const { showNotification } = useNotification();
-    // ... rest of component
     // Helper to identify resolution availability
     const resolutions = [
         { label: '4K', value: '4k', src: video.url_4k, premium: true },
@@ -87,6 +88,7 @@ const DownloadModal = ({ video, onClose, user }) => {
     );
 };
 
+
 const Watch = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -99,8 +101,10 @@ const Watch = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [showDownloadModal, setShowDownloadModal] = useState(false);
+    const [replyingTo, setReplyingTo] = useState(null); // ID of comment being replied to
+    const [replyComment, setReplyComment] = useState("");
 
-    const [viewCounted, setViewCounted] = useState(false);
+
 
     useEffect(() => {
         const fetchVideoData = async () => {
@@ -127,39 +131,64 @@ const Watch = () => {
         fetchVideoData();
     }, [id, location.search]);
 
+    const [viewCounted, setViewCounted] = useState(false);
+    const [dwellThresholdMet, setDwellThresholdMet] = useState(false);
+
     const handleTimeUpdate = (e) => {
-        if (viewCounted || !video) return;
+        if (!video) return;
 
         const { currentTime, duration } = e.target;
-        if (duration > 0) {
-            let thresholdMet = false;
 
-            // If video > 10 minutes (600s), count after 1 minute (60s)
+        // 1. View Count Logic
+        if (!viewCounted && duration > 0) {
+            let thresholdMet = false;
             if (duration > 600) {
                 if (currentTime >= 60) thresholdMet = true;
             } else {
-                // Otherwise count after 15%
                 if ((currentTime / duration) > 0.15) thresholdMet = true;
             }
 
             if (thresholdMet) {
                 setViewCounted(true);
                 viewVideo(id).catch(console.error);
-                // Optimistic update
                 setVideo(prev => ({ ...prev, views: (prev.views || 0) + 1 }));
+            }
+        }
+
+        // 2. Personalization Dwell Time Logic
+        if (!dwellThresholdMet && currentTime >= 20 && token) {
+            setDwellThresholdMet(true);
+            if (!viewCounted) {
+                viewVideo(id).catch(console.error);
             }
         }
     };
 
-    const handleCommentSubmit = async (e) => {
+    const handleCommentSubmit = async (e, parentId = null) => {
         e.preventDefault();
-        if (!newComment.trim()) return;
+        const content = parentId ? replyComment : newComment;
+        if (!content.trim()) return;
         if (!token) return showNotification('info', "Please login to comment");
 
         try {
-            const addedComment = await postComment(id, newComment, token);
-            setComments([addedComment, ...comments]); // Prepend new comment
-            setNewComment("");
+            const addedComment = await postComment({ videoId: id, content, parent_id: parentId }, token);
+
+            if (parentId) {
+                // Nested update: find parent and add to its replies
+                const updateReplies = (list) => list.map(c => {
+                    if (c.id === parentId) {
+                        return { ...c, replies: [...(c.replies || []), addedComment] };
+                    }
+                    if (c.replies) return { ...c, replies: updateReplies(c.replies) };
+                    return c;
+                });
+                setComments(updateReplies(comments));
+                setReplyingTo(null);
+                setReplyComment("");
+            } else {
+                setComments([addedComment, ...comments]);
+                setNewComment("");
+            }
         } catch (err) {
             console.error("Failed to post comment", err);
             showNotification('error', "Failed to post comment");
@@ -220,7 +249,7 @@ const Watch = () => {
         return () => window.removeEventListener('keydown', handleGlobalKeyDown);
     }, [id, token, navigate]);
 
-    if (loading) return <div className="page-loading">Loading...</div>;
+    if (loading) return <WatchSkeleton />;
 
     if (error || !video) return <div className="page-error">{error || "Video not found"}</div>;
 
@@ -238,7 +267,34 @@ const Watch = () => {
             </div>
 
             <div className="watch-meta" style={{ padding: '1.5rem 1rem' }}>
-                <h1 style={{ marginBottom: '1rem', fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.3 }}>{video.title}</h1>
+                <h1 style={{ marginBottom: '0.8rem', fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.3 }}>{video.title}</h1>
+
+                {/* Video Info Section */}
+                <div className="glass" style={{ padding: '1.2rem', borderRadius: '12px', marginBottom: '2rem', background: 'rgba(255,255,255,0.03)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>
+                            {video.views?.toLocaleString()} views • {video.created_at ? new Date(video.created_at).toLocaleDateString() : 'Recently'}
+                        </div>
+                    </div>
+
+                    <p style={{ color: 'var(--text-primary)', fontSize: '0.95rem', lineHeight: '1.5', whiteSpace: 'pre-wrap', marginBottom: '1rem' }}>
+                        {video.description || "No description provided."}
+                    </p>
+
+                    {video.tags && (
+                        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                            {video.tags.split(',').map((tag, i) => (
+                                <span
+                                    key={i}
+                                    onClick={() => navigate(`/search?q=${encodeURIComponent('#' + tag.trim())}`)}
+                                    style={{ color: 'var(--accent-primary)', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}
+                                >
+                                    #{tag.trim()}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -266,7 +322,7 @@ const Watch = () => {
                                 @{video.owner?.username || 'Unknown'}
                             </div>
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                {video.views?.toLocaleString()} views • {video.created_at ? new Date(video.created_at).toLocaleDateString() : 'Recently'}
+                                {video.owner?.followers_count || 0} followers
                             </div>
                         </div>
                     </div>
@@ -340,18 +396,15 @@ const Watch = () => {
                     {/* Comments List */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         {comments.map(comment => (
-                            <div key={comment.id} className="comment-item" style={{ display: 'flex', gap: '1rem' }}>
-                                <div className="avatar-placeholder" style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#444' }} />
-                                <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
-                                        <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>@{comment.owner?.username || 'User'}</span>
-                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                            {comment.created_at ? new Date(comment.created_at).toLocaleDateString() : 'Just now'}
-                                        </span>
-                                    </div>
-                                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.4' }}>{comment.content}</p>
-                                </div>
-                            </div>
+                            <CommentItem
+                                key={comment.id}
+                                comment={comment}
+                                onReply={(id) => setReplyingTo(id)}
+                                replyingTo={replyingTo}
+                                replyComment={replyComment}
+                                setReplyComment={setReplyComment}
+                                onSubmitReply={(parentId) => handleCommentSubmit({ preventDefault: () => { } }, parentId || comment.id)}
+                            />
                         ))}
                         {comments.length === 0 && (
                             <div style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No comments yet. Be the first to share your thoughts!</div>

@@ -7,6 +7,9 @@ class UserBase(BaseModel):
     email: str
     full_name: Optional[str] = None
     profile_pic: Optional[str] = None
+    interests: Optional[str] = None
+    referral_source: Optional[str] = None
+    goals: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -36,6 +39,9 @@ class UserUpdate(BaseModel):
     profile_pic: Optional[str] = None
     bio: Optional[str] = None
     is_onboarded: Optional[bool] = None
+    interests: Optional[str] = None
+    referral_source: Optional[str] = None
+    goals: Optional[str] = None
 
 class User(UserBase):
     id: int
@@ -132,7 +138,7 @@ class Video(VideoBase):
     model_config = ConfigDict(from_attributes=True)
 
 class PostBase(BaseModel):
-    content: str
+    content: Optional[str] = None
     image_url: Optional[str] = None
     tags: Optional[str] = None
 
@@ -168,14 +174,17 @@ class CommentBase(BaseModel):
     content: str
 
 class CommentCreate(CommentBase):
-    pass
+    parent_id: Optional[int] = None
 
 class Comment(CommentBase):
     id: int
-    video_id: int
+    video_id: Optional[int] = None
+    post_id: Optional[int] = None
+    parent_id: Optional[int] = None
     owner_id: int
     owner: Optional[UserBase] = None
     created_at: Optional[datetime] = None
+    replies: List["Comment"] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -189,3 +198,29 @@ class Achievement(BaseModel):
 class UnifiedSearchResponse(BaseModel):
     videos: List[Video]
     users: List[User]
+    posts: List[Post]
+
+class UserInsights(BaseModel):
+    total_views: int
+    total_likes: int
+    total_earnings: float
+    total_shares: int
+    home_videos: int
+    flash_videos: int
+    posts_count: int
+    followers: int
+    following: int
+    next_milestone: int
+    new_milestone_reached: Optional[str] = None
+    achievements: List[str]
+
+class PerformanceDataPoint(BaseModel):
+    date: str
+    views: int
+    likes: int
+    followers: int
+    earnings: float
+
+class UserPerformance(BaseModel):
+    data: List[PerformanceDataPoint]
+    metric: str # views, likes, followers, earnings
