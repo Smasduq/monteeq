@@ -2,19 +2,22 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, User } from 'lucide-react';
 import { getComments, postComment } from '../api';
 import { useAuth } from '../context/AuthContext';
+import CommentItem from './CommentItem';
 
-const CommentsDrawer = ({ videoId, onClose }) => {
+const CommentsDrawer = ({ videoId = null, postId = null, onClose }) => {
     const { user, token } = useAuth();
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [loading, setLoading] = useState(true);
+    const [replyingTo, setReplyingTo] = useState(null);
+    const [replyComment, setReplyComment] = useState('');
     const commentsBottomRef = useRef(null);
 
     useEffect(() => {
         const fetchComments = async () => {
             setLoading(true);
             try {
-                const data = await getComments(videoId);
+                const data = await getComments(videoId, postId);
                 setComments(data);
             } catch (err) {
                 console.error("Failed comments", err);
@@ -22,30 +25,44 @@ const CommentsDrawer = ({ videoId, onClose }) => {
                 setLoading(false);
             }
         };
-        if (videoId) fetchComments();
-    }, [videoId]);
+        if (videoId || postId) fetchComments();
+    }, [videoId, postId]);
 
     useEffect(() => {
         // Auto-scroll to bottom on load/new comment
-        if (commentsBottomRef.current) {
+        if (commentsBottomRef.current && !replyingTo) {
             commentsBottomRef.current.scrollIntoView({ behavior: "smooth" });
         }
-    }, [comments]);
+    }, [comments, replyingTo]);
 
-    const handlePost = async (e) => {
-        e.preventDefault();
-        if (!newComment.trim() || !user) return;
+    const handlePost = async (e, parentId = null) => {
+        if (e) e.preventDefault();
+        const content = parentId ? replyComment : newComment;
+        if (!content.trim() || !user) return;
 
         try {
-            await postComment(videoId, newComment, token);
-            const mockComment = {
-                id: Date.now(),
-                content: newComment,
-                owner: { username: user.username },
-                created_at: new Date().toISOString()
-            };
-            setComments(prev => [...prev, mockComment]);
-            setNewComment('');
+            const addedComment = await postComment({
+                videoId,
+                postId,
+                content,
+                parent_id: parentId
+            }, token);
+
+            if (parentId) {
+                const updateReplies = (list) => list.map(c => {
+                    if (c.id === parentId) {
+                        return { ...c, replies: [...(c.replies || []), addedComment] };
+                    }
+                    if (c.replies) return { ...c, replies: updateReplies(c.replies) };
+                    return c;
+                });
+                setComments(updateReplies(comments));
+                setReplyingTo(null);
+                setReplyComment('');
+            } else {
+                setComments(prev => [...prev, addedComment]);
+                setNewComment('');
+            }
         } catch (err) {
             console.error(err);
         }
@@ -70,22 +87,15 @@ const CommentsDrawer = ({ videoId, onClose }) => {
                         </div>
                     ) : (
                         comments.map(c => (
-                            <div key={c.id} className="comment-item">
-                                <div className="comment-avatar avatar-placeholder">
-                                    {c.owner?.profile_pic ? (
-                                        <img src={c.owner.profile_pic} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                                    ) : (
-                                        <span>{c.owner?.username?.[0].toUpperCase() || '?'}</span>
-                                    )}
-                                </div>
-                                <div className="comment-body">
-                                    <div className="comment-meta">
-                                        <span className="username">@{c.owner?.username || 'user'}</span>
-                                        <span className="date">{new Date(c.created_at).toLocaleDateString()}</span>
-                                    </div>
-                                    <p className="comment-text">{c.content}</p>
-                                </div>
-                            </div>
+                            <CommentItem
+                                key={c.id}
+                                comment={c}
+                                onReply={(id) => setReplyingTo(id)}
+                                replyingTo={replyingTo}
+                                replyComment={replyComment}
+                                setReplyComment={setReplyComment}
+                                onSubmitReply={(pid) => handlePost(null, pid)}
+                            />
                         ))
                     )}
                     <div ref={commentsBottomRef} />

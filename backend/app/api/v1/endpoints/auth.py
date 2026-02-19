@@ -48,7 +48,7 @@ def register_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="Username already taken")
     
-    user = crud_user.create_user(db, user=user_in, is_onboarded=True)
+    user = crud_user.create_user(db, user=user_in, is_onboarded=False)
     
     # Generate verification code
     code = crud_user.create_verification_code(db, email=user.email)
@@ -104,7 +104,7 @@ async def google_auth(auth_data: schemas.UserGoogleAuth, db: Session = Depends(g
                 password=None # Google auth users don't have passwords
             )
             # Google users are auto-verified
-            user = crud_user.create_user(db, user=user_create, google_id=google_id, is_onboarded=True)
+            user = crud_user.create_user(db, user=user_create, google_id=google_id, is_onboarded=False)
             user.is_verified = True
             db.commit()
             db.refresh(user)

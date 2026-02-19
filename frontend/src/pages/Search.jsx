@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Search as SearchIcon, Users, Play, Zap, Sparkles, AlertCircle } from 'lucide-react';
 import { searchUnified } from '../api';
+import { SearchUserSkeleton, SearchVideoSkeleton } from '../components/Skeleton';
 
 const Search = () => {
     const location = useLocation();
@@ -65,9 +66,17 @@ const Search = () => {
             </div>
 
             {loading ? (
-                <div style={{ textAlign: 'center', padding: '5rem' }}>
-                    <div className="loader" style={{ margin: 'auto' }}></div>
-                    <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>Gathering results...</p>
+                <div className="search-results-content">
+                    <div className="results-section" style={{ marginBottom: '4rem' }}>
+                        <div style={{ display: 'flex', gap: '2rem', overflowX: 'auto', paddingBottom: '1rem' }}>
+                            {[1, 2, 3].map(i => <SearchUserSkeleton key={i} />)}
+                        </div>
+                    </div>
+                    <div className="results-section">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            {[1, 2, 3].map(i => <SearchVideoSkeleton key={i} />)}
+                        </div>
+                    </div>
                 </div>
             ) : error ? (
                 <div style={{ textAlign: 'center', padding: '5rem', background: 'rgba(255,0,0,0.05)', borderRadius: '1rem' }}>
@@ -109,6 +118,43 @@ const Search = () => {
                                         </div>
                                         <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{u.full_name || u.username}</div>
                                         <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>@{u.username}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Posts Section */}
+                    {results.posts?.length > 0 && (
+                        <div className="results-section" style={{ marginBottom: '4rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--border-glass)', paddingBottom: '0.8rem' }}>
+                                <MessageSquare size={24} color="var(--accent-primary)" />
+                                <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Community Posts</h2>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                {results.posts.map(post => (
+                                    <div
+                                        key={post.id}
+                                        className="search-result-item glass hover-scale"
+                                        onClick={() => navigate('/posts')}
+                                        style={{
+                                            padding: '1.5rem',
+                                            borderRadius: '20px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1rem' }}>
+                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--accent-primary)', overflow: 'hidden' }}>
+                                                {post.owner?.profile_pic && <img src={post.owner.profile_pic} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                                            </div>
+                                            <span style={{ fontWeight: 600 }}>{post.owner?.username}</span>
+                                        </div>
+                                        <p style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{post.content}</p>
+                                        {post.tags && (
+                                            <div style={{ marginTop: '1rem', color: 'var(--accent-primary)', fontSize: '0.9rem' }}>
+                                                {post.tags.split(',').map(t => `#${t.trim()}`).join(' ')}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>

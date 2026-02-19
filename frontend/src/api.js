@@ -14,12 +14,12 @@ export const login = async (username, password) => {
     return response.json();
 };
 
-export const getVideos = async (type, token = null) => {
+export const getVideos = async (type, token = null, skip = 0, limit = 20) => {
     const headers = {};
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
-    const response = await fetch(`${API_BASE_URL}/videos/?video_type=${type}`, { headers });
+    const response = await fetch(`${API_BASE_URL}/videos/?video_type=${type}&skip=${skip}&limit=${limit}`, { headers });
     return response.json();
 };
 
@@ -33,19 +33,25 @@ export const getVideoById = async (id, token = null) => {
     return response.json();
 };
 
-export const getComments = async (videoId) => {
-    const response = await fetch(`${API_BASE_URL}/videos/${videoId}/comments`);
+export const getComments = async (videoId = null, postId = null) => {
+    const endpoint = videoId
+        ? `${API_BASE_URL}/videos/${videoId}/comments`
+        : `${API_BASE_URL}/posts/${postId}/comments`;
+    const response = await fetch(endpoint);
     return response.json();
 };
 
-export const postComment = async (videoId, content, token) => {
-    const response = await fetch(`${API_BASE_URL}/videos/${videoId}/comments`, {
+export const postComment = async ({ videoId = null, postId = null, content, parent_id = null }, token) => {
+    const endpoint = videoId
+        ? `${API_BASE_URL}/videos/${videoId}/comments`
+        : `${API_BASE_URL}/posts/${postId}/comment`;
+    const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ content })
+        body: JSON.stringify({ content, parent_id })
     });
     return response.json();
 };
@@ -63,8 +69,12 @@ export const uploadVideo = async (token, videoData) => {
     return response.json();
 };
 
-export const getPosts = async () => {
-    const response = await fetch(`${API_BASE_URL}/posts/`);
+export const getPosts = async (token = null, skip = 0, limit = 20) => {
+    const headers = {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${API_BASE_URL}/posts/?skip=${skip}&limit=${limit}`, { headers });
     return response.json();
 };
 
@@ -214,3 +224,18 @@ export const getAllNotifications = async (token) => {
     if (!response.ok) throw new Error('Failed to fetch notifications');
     return response.json();
 };
+
+export const getAds = async () => {
+    const response = await fetch(`${API_BASE_URL}/ads`);
+    return response.json();
+};
+
+export const getUserPerformance = async (token, metric = "views", days = 30) => {
+    const response = await fetch(`${API_BASE_URL}/users/me/performance?metric=${metric}&days=${days}`, {
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    });
+    return response.json();
+};
+

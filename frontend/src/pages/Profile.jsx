@@ -4,6 +4,7 @@ import { Users, Eye, Play, Zap, Grid, Heart, MessageSquare, Share2, Plus, Bell }
 import { getUserProfile, toggleFollow } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
+import { ProfileHeaderSkeleton, VideoSkeleton } from '../components/Skeleton';
 
 const Profile = () => {
     const { username } = useParams();
@@ -62,7 +63,16 @@ const Profile = () => {
         return `${m}:${s.toString().padStart(2, '0')}`;
     };
 
-    if (loading) return <div className="page-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading Profile...</div>;
+    if (loading) return (
+        <div className="profile-page page-container">
+            <ProfileHeaderSkeleton />
+            <div className="video-grid" style={{ marginTop: '2rem' }}>
+                {[...Array(4)].map((_, i) => (
+                    <VideoSkeleton key={i} />
+                ))}
+            </div>
+        </div>
+    );
     if (!profile) return <div className="page-container" style={{ textAlign: 'center', padding: '5rem' }}>User not found</div>;
 
     const isOwnProfile = currentUser?.username === profile.username;

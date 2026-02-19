@@ -3,6 +3,7 @@ import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Check, Fas
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import ShortcutGuide from './ShortcutGuide';
+import AdPreRoll from './AdPreRoll';
 
 const VideoPlayer = ({ video, autoPlay = false, onTimeUpdate }) => {
     const videoRef = useRef(null);
@@ -22,6 +23,9 @@ const VideoPlayer = ({ video, autoPlay = false, onTimeUpdate }) => {
     const [showGuide, setShowGuide] = useState(false);
     const [osd, setOsd] = useState({ visible: false, icon: null, text: '', key: 0 });
     const osdTimeout = useRef(null);
+
+    const isPremiumOrAdmin = user?.is_premium || user?.role === 'admin';
+    const [adComplete, setAdComplete] = useState(isPremiumOrAdmin);
 
     const showOSD = (icon, text) => {
         if (osdTimeout.current) clearTimeout(osdTimeout.current);
@@ -78,19 +82,22 @@ const VideoPlayer = ({ video, autoPlay = false, onTimeUpdate }) => {
     useEffect(() => {
         if (videoRef.current && currentSrc) {
             videoRef.current.load();
-            if (autoPlay) {
-                videoRef.current.play()
-                    .then(() => setIsPlaying(true))
-                    .catch((err) => {
-                        console.warn("Autoplay failed, user interaction required:", err);
-                        setIsPlaying(false);
-                    });
-            }
         }
-    }, [autoPlay, currentSrc]);
+    }, [currentSrc]);
+
+    useEffect(() => {
+        if (videoRef.current && autoPlay && adComplete) {
+            videoRef.current.play()
+                .then(() => setIsPlaying(true))
+                .catch((err) => {
+                    console.warn("Autoplay failed, user interaction required:", err);
+                    setIsPlaying(false);
+                });
+        }
+    }, [autoPlay, adComplete]);
 
     const changeResolution = (resObject) => {
-        if (resObject.premium && !user?.is_premium) {
+        if (resObject.premium && !isPremiumOrAdmin) {
             showNotification('info', "Premium Quality", { message: "This quality is available for Premium users only." });
             return;
         }
@@ -271,8 +278,12 @@ const VideoPlayer = ({ video, autoPlay = false, onTimeUpdate }) => {
                 playsInline
                 muted={autoPlay && !isPlaying}
                 crossOrigin="anonymous"
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                style={{ width: '100%', height: '100%', objectFit: 'contain', filter: adComplete ? 'none' : 'blur(20px)' }}
             />
+
+            {!adComplete && (
+                <AdPreRoll onComplete={() => setAdComplete(true)} />
+            )}
 
             {showGuide && <ShortcutGuide onDismiss={handleDismissGuide} />}
 
@@ -307,7 +318,7 @@ const VideoPlayer = ({ video, autoPlay = false, onTimeUpdate }) => {
                     type="range"
                     min="0"
                     max="100"
-                    value={progress}
+                    value={isNaN(progress) ? 0 : progress}
                     onChange={handleSeek}
                     style={{
                         width: '100%',
@@ -341,7 +352,7 @@ const VideoPlayer = ({ video, autoPlay = false, onTimeUpdate }) => {
                                 min="0"
                                 max="1"
                                 step="0.1"
-                                value={isMuted ? 0 : volume}
+                                value={isMuted ? 0 : (isNaN(volume) ? 1 : volume)}
                                 onChange={handleVolumeChange}
                                 style={{ width: '60px', accentColor: 'white' }}
                             />
@@ -389,13 +400,13 @@ const VideoPlayer = ({ video, autoPlay = false, onTimeUpdate }) => {
                                                 padding: '0.5rem',
                                                 background: 'none',
                                                 border: 'none',
-                                                color: res.premium && !user?.is_premium ? '#666' : 'white',
-                                                cursor: res.premium && !user?.is_premium ? 'not-allowed' : 'pointer',
+                                                color: res.premium && !isPremiumOrAdmin ? '#666' : 'white',
+                                                cursor: res.premium && !isPremiumOrAdmin ? 'not-allowed' : 'pointer',
                                                 textAlign: 'left',
                                                 borderRadius: '4px',
                                             }}
                                             onMouseEnter={(e) => {
-                                                if (!res.premium || user?.is_premium) e.target.style.background = 'rgba(255,255,255,0.1)'
+                                                if (!res.premium || isPremiumOrAdmin) e.target.style.background = 'rgba(255,255,255,0.1)'
                                             }}
                                             onMouseLeave={(e) => e.target.style.background = 'none'}
                                         >

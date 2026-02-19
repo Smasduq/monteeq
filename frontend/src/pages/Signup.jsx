@@ -86,8 +86,12 @@ const Signup = () => {
             if (!response.ok) throw new Error(data.detail || 'Verification failed');
 
             // Login after verification
-            await login({ username, password });
-            navigate('/');
+            const user = await login({ username, password });
+            if (user && !user.is_onboarded) {
+                navigate('/onboarding');
+            } else {
+                navigate('/');
+            }
         } catch (err) {
             setError(err.message || 'Verification failed');
         }
@@ -256,8 +260,12 @@ const Signup = () => {
                     <GoogleLogin
                         onSuccess={credentialResponse => {
                             googleLogin(credentialResponse.credential)
-                                .then(() => {
-                                    navigate('/');
+                                .then((user) => {
+                                    if (user && !user.is_onboarded) {
+                                        navigate('/onboarding');
+                                    } else {
+                                        navigate('/');
+                                    }
                                 })
                                 .catch(err => setError(err.response?.data?.detail || 'Google Login Failed'));
                         }}

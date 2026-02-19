@@ -25,3 +25,11 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./montage.db")
 # Quota Limits
 FLASH_QUOTA_LIMIT = 50
 HOME_QUOTA_LIMIT = 20
+
+# Storage Configuration
+STORAGE_MODE = os.getenv("STORAGE_MODE", "local") # 'local' or 's3'
+S3_ENDPOINT = os.getenv("S3_ENDPOINT", "")
+S3_ACCESS_KEY = os.getenv("S3_ACCESS_KEY", "")
+S3_SECRET_KEY = os.getenv("S3_SECRET_KEY", "")
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "")
+S3_REGION = os.getenv("S3_REGION", "us-east-1")

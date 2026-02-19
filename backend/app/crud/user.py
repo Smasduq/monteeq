@@ -62,6 +62,12 @@ def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
         user.bio = user_update.bio
     if user_update.is_onboarded is not None:
         user.is_onboarded = user_update.is_onboarded
+    if user_update.interests is not None:
+        user.interests = user_update.interests
+    if user_update.referral_source is not None:
+        user.referral_source = user_update.referral_source
+    if user_update.goals is not None:
+        user.goals = user_update.goals
     
     db.commit()
     db.refresh(user)

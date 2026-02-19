@@ -11,3 +11,4 @@ google-auth
 httpx
 psycopg2-binary
 sqlalchemy
+boto3

@@ -5,7 +5,7 @@ from app.schemas import schemas
 from datetime import datetime
 from typing import Optional
 
-def get_videos(db: Session, video_type: str = None, filter_status: str = "approved", current_user_id: int = None):
+def get_videos(db: Session, video_type: str = None, filter_status: str = "approved", current_user_id: int = None, skip: int = 0, limit: int = 100):
     query = db.query(Video)
     from datetime import timedelta
     twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
@@ -20,7 +20,40 @@ def get_videos(db: Session, video_type: str = None, filter_status: str = "approv
     if filter_status:
         query = query.filter(Video.status == filter_status)
     
-    videos = query.all()
+    # Personalization: Boost videos with tags matching user interests
+    if current_user_id:
+        user = db.query(User).filter(User.id == current_user_id).first()
+        if user and user.interests:
+            user_tags = [t.strip().lower() for t in user.interests.split(",") if t.strip()]
+            if user_tags:
+                from sqlalchemy import case, literal_column
+                # Simple boost: if ANY interest matches ANY tag in video tags
+                # This is a bit complex for SQLite/SQLAlchemy raw, so we'll do 
+                # a discovery score boost logic if it matches.
+                # Actually, discovery score is already used. We'll add a secondary sort or weight.
+                pass
+
+    # Order by discovery score by default
+    query = query.order_by(desc(Video.discovery_score))
+    
+    # Personalization: Boost videos with tags matching user interests
+    user_interests = []
+    if current_user_id:
+        user = db.query(User).filter(User.id == current_user_id).first()
+        if user and user.interests:
+            user_interests = [t.strip().lower() for t in user.interests.split(",") if t.strip()]
+
+    videos = query.offset(skip).limit(limit).all()
+    
+    # Re-sort in memory for complex interest matching
+    if user_interests:
+        for video in videos:
+            video_tags = [t.strip().lower() for t in (video.tags or "").split(",") if t.strip()]
+            # Count matches
+            match_count = sum(1 for t in user_interests if t in video_tags)
+            video.interest_match_score = match_count
+            
+        videos.sort(key=lambda x: (getattr(x, 'interest_match_score', 0), x.discovery_score), reverse=True)
     
     for video in videos:
         video.likes_count = db.query(func.count(Like.video_id)).filter(Like.video_id == video.id).scalar() or 0
@@ -39,7 +72,19 @@ def search_videos(db: Session, query_str: str, status: str = "approved", current
         query = query.filter(Video.status == status)
     
     if query_str:
-        query = query.filter(Video.title.ilike(f"%{query_str}%"))
+        # Check if it's a tag search (starts with #)
+        if query_str.startswith("#"):
+            tag = query_str[1:].strip()
+            query = query.filter(Video.tags.ilike(f"%{tag}%"))
+        else:
+            from sqlalchemy import or_
+            query = query.filter(
+                or_(
+                    Video.title.ilike(f"%{query_str}%"),
+                    Video.description.ilike(f"%{query_str}%"),
+                    Video.tags.ilike(f"%{query_str}%")
+                )
+            )
         
     videos = query.all()
     
@@ -53,6 +98,36 @@ def search_videos(db: Session, query_str: str, status: str = "approved", current
             video.liked_by_user = False
             
     return videos
+
+def search_posts(db: Session, query_str: str, current_user_id: int = None):
+    query = db.query(Post)
+    
+    if query_str:
+        # Check if it's a tag search (starts with #)
+        if query_str.startswith("#"):
+            tag = query_str[1:].strip()
+            query = query.filter(Post.tags.ilike(f"%{tag}%"))
+        else:
+            from sqlalchemy import or_
+            query = query.filter(
+                or_(
+                    Post.content.ilike(f"%{query_str}%"),
+                    Post.tags.ilike(f"%{query_str}%")
+                )
+            )
+            
+    posts = query.order_by(desc(Post.discovery_score), Post.created_at.desc()).all()
+    
+    for post in posts:
+        post.likes_count = db.query(func.count(Like.id)).filter(Like.post_id == post.id).scalar() or 0
+        post.comments_count = db.query(func.count(Comment.id)).filter(Comment.post_id == post.id).scalar() or 0
+        
+        if current_user_id:
+            post.liked_by_user = db.query(Like).filter(Like.post_id == post.id, Like.user_id == current_user_id).first() is not None
+        else:
+            post.liked_by_user = False
+            
+    return posts
 
 def get_video(db: Session, video_id: int, current_user_id: int = None):
     video = db.query(Video).filter(Video.id == video_id).first()
@@ -111,6 +186,13 @@ def toggle_like(db: Session, user_id: int, video_id: Optional[int] = None, post_
         db.add(new_like)
         db.commit()
 
+        # Update Discovery Score
+        update_discovery_score(db, video_id=video_id, post_id=post_id)
+
+        # Personalization: Update user interests (Top 3 tags)
+        if video_id:
+             update_user_interests_from_video(db, user_id, video_id)
+
         # Notify owner
         try:
             target = None
@@ -165,7 +247,15 @@ def increment_view(db: Session, user_id: Optional[int] = None, video_id: Optiona
                 
         new_view = View(video_id=video_id, post_id=post_id, user_id=user_id)
         db.add(new_view)
+        if video_id:
+             update_user_interests_from_video(db, user_id, video_id)
+             
         db.commit() 
+    else:
+        # Record anonymous views too for analytics
+        new_view = View(video_id=video_id, post_id=post_id, user_id=None)
+        db.add(new_view)
+        db.commit()
         
     if video_id:
         target = db.query(Video).filter(Video.id == video_id).first()
@@ -180,8 +270,60 @@ def increment_view(db: Session, user_id: Optional[int] = None, video_id: Optiona
             target.views_count = (target.views_count or 0) + 1
             db.commit()
             db.refresh(target)
+            update_discovery_score(db, post_id=post_id)
             return target
+    
+    # Trigger score update for video even if no user_id (anonymous views)
+    if video_id:
+        update_discovery_score(db, video_id=video_id)
+        
     return None
+
+def update_discovery_score(db: Session, video_id: Optional[int] = None, post_id: Optional[int] = None):
+    """
+    Discovery Algorithm:
+    - Base Score = (Likes * 10) + (Comments * 20) + (Shares * 30) + (Views * 1)
+    - Creator Boost: +50 if the owner interacted with the comments
+    - Recency Decay: Gravity factor (1.8) applied to age in hours
+    """
+    target = None
+    if video_id:
+        target = db.query(Video).filter(Video.id == video_id).first()
+    elif post_id:
+        target = db.query(Post).filter(Post.id == post_id).first()
+    
+    if not target:
+        return
+        
+    # Engagement stats
+    likes_count = db.query(func.count(Like.id)).filter(
+        Like.video_id == video_id if video_id else Like.post_id == post_id
+    ).scalar() or 0
+    
+    comments_count = db.query(func.count(Comment.id)).filter(
+        Comment.video_id == video_id if video_id else Comment.post_id == post_id
+    ).scalar() or 0
+    
+    shares_count = target.shares if video_id else 0
+    views_count = target.views if video_id else target.views_count
+    
+    # Base Engagement Score
+    score = (likes_count * 10) + (comments_count * 20) + (shares_count * 30) + (views_count * 1)
+    
+    # Creator Interaction Boost (+50)
+    if target.last_owner_interaction_at:
+        score += 50
+        
+    # Recency Decay
+    # age = hours since creation
+    age_seconds = (datetime.now() - target.created_at).total_seconds()
+    age_hours = max(age_seconds / 3600, 0)
+    
+    gravity = 1.8
+    final_score = score / pow((age_hours + 2), gravity)
+    
+    target.discovery_score = final_score
+    db.commit()
 
 def get_posts(db: Session):
     return db.query(Post).all()
@@ -192,9 +334,25 @@ def get_ads(db: Session):
 def create_comment(db: Session, comment: schemas.CommentBase, user_id: int, video_id: Optional[int] = None, post_id: Optional[int] = None):
     comment_data = comment.model_dump()
     db_comment = Comment(**comment_data, video_id=video_id, post_id=post_id, owner_id=user_id)
+    # The parent_id is now handled automatically because it's in comment_data (schemas.CommentCreate)
     db.add(db_comment)
     db.commit()
     db.refresh(db_comment)
+
+    # Check for Creator Boost: if owner is replying to a comment
+    target = None
+    if video_id:
+        target = db.query(Video).filter(Video.id == video_id).first()
+    elif post_id:
+        target = db.query(Post).filter(Post.id == post_id).first()
+    
+    if target and target.owner_id == user_id:
+        # Creator interaction detected
+        target.last_owner_interaction_at = func.now()
+        db.commit()
+
+    # Update Discovery Score
+    update_discovery_score(db, video_id=video_id, post_id=post_id)
 
     # Notify owner
     try:
@@ -222,12 +380,12 @@ def create_comment(db: Session, comment: schemas.CommentBase, user_id: int, vide
     return db_comment
 
 def get_comments(db: Session, video_id: Optional[int] = None, post_id: Optional[int] = None):
-    query = db.query(Comment)
+    query = db.query(Comment).filter(Comment.parent_id == None) # Only get root comments
     if video_id:
         query = query.filter(Comment.video_id == video_id)
     elif post_id:
         query = query.filter(Comment.post_id == post_id)
-    return query.all()
+    return query.order_by(Comment.created_at.desc()).all()
 
 def delete_video(db: Session, video_id: int):
     video = db.query(Video).filter(Video.id == video_id).first()
@@ -236,3 +394,23 @@ def delete_video(db: Session, video_id: int):
         db.commit()
         return True
     return False
+
+def update_user_interests_from_video(db: Session, user_id: int, video_id: int):
+    user = db.query(User).filter(User.id == user_id).first()
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not user or not video or not video.tags:
+        return
+    
+    # Get first 3 tags from video
+    new_tags = [t.strip().lower() for t in video.tags.split(",") if t.strip()][:3]
+    if not new_tags:
+        return
+        
+    current_interests = [t.strip().lower() for t in (user.interests or "").split(",") if t.strip()]
+    
+    # Add new tags if not present, keeping it as a set to avoid duplicates
+    updated_interests = list(dict.fromkeys(current_interests + new_tags))
+    
+    # Keep interests list at a reasonable size (e.g., top 20 latest)
+    user.interests = ",".join(updated_interests[-20:])
+    db.commit()

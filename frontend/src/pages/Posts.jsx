@@ -2,36 +2,66 @@ import React from 'react';
 import { Heart, MessageSquare, Repeat2, Send, MoreHorizontal, Loader2 } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
-import { API_BASE_URL } from '../api';
+import { API_BASE_URL, getPosts } from '../api';
+import { useNavigate } from 'react-router-dom';
+import CommentsDrawer from '../components/CommentsDrawer';
+import { PostSkeleton } from '../components/Skeleton';
 
 const Posts = () => {
     const { showNotification } = useNotification();
     const { token } = useAuth();
+    const navigate = useNavigate();
     const [posts, setPosts] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
-    const [commentModalPost, setCommentModalPost] = React.useState(null);
-    const [commentText, setCommentText] = React.useState('');
-    const [submittingComment, setSubmittingComment] = React.useState(false);
+    const [loadingMore, setLoadingMore] = React.useState(false);
+    const [skip, setSkip] = React.useState(0);
+    const [hasMore, setHasMore] = React.useState(true);
+    const [activeCommentPostId, setActiveCommentPostId] = React.useState(null);
+    const observer = React.useRef();
 
-    const fetchPosts = async () => {
-        setLoading(true);
+    const lastPostElementRef = React.useCallback(node => {
+        if (loading || loadingMore) return;
+        if (observer.current) observer.current.disconnect();
+        observer.current = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && hasMore) {
+                setSkip(prevSkip => prevSkip + 10);
+            }
+        });
+        if (node) observer.current.observe(node);
+    }, [loading, loadingMore, hasMore]);
+
+    const fetchPosts = async (isInitial = false) => {
+        if (isInitial) setLoading(true);
+        else setLoadingMore(true);
+
         try {
-            const response = await fetch(`${API_BASE_URL}/posts`, {
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-            });
-            const data = await response.json();
-            setPosts(data);
+            const data = await getPosts(token, isInitial ? 0 : skip, 10);
+            if (Array.isArray(data)) {
+                if (isInitial) {
+                    setPosts(data);
+                } else {
+                    setPosts(prev => [...prev, ...data]);
+                }
+                setHasMore(data.length === 10);
+            }
         } catch (error) {
             console.error("Error fetching posts:", error);
             showNotification('error', 'Failed to load community feed');
         } finally {
-            setLoading(false);
+            if (isInitial) setLoading(false);
+            else setLoadingMore(false);
         }
     };
 
     React.useEffect(() => {
-        fetchPosts();
+        fetchPosts(true);
     }, [token]);
+
+    React.useEffect(() => {
+        if (skip > 0) {
+            fetchPosts(false);
+        }
+    }, [skip]);
 
     const formatTime = (dateStr) => {
         if (!dateStr) return 'some time ago';
@@ -80,7 +110,8 @@ const Posts = () => {
             });
             if (response.ok) {
                 showNotification('success', 'Reposted to your profile!');
-                fetchPosts(); // Refresh to see the new repost
+                setSkip(0);
+                fetchPosts(true); // Refresh to see the new repost
             } else {
                 showNotification('error', 'Failed to repost');
             }
@@ -89,29 +120,9 @@ const Posts = () => {
         }
     };
 
-    const handleCommentSubmit = async () => {
-        if (!commentText.trim() || !commentModalPost) return;
-        setSubmittingComment(true);
-        try {
-            const response = await fetch(`${API_BASE_URL}/posts/${commentModalPost.id}/comment`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ content: commentText })
-            });
-            if (response.ok) {
-                showNotification('success', 'Comment posted!');
-                setCommentText('');
-                setCommentModalPost(null);
-                fetchPosts(); // Refresh counts
-            }
-        } catch (error) {
-            showNotification('error', 'Failed to post comment');
-        } finally {
-            setSubmittingComment(false);
-        }
+    const handleTagClick = (tag) => {
+        const query = tag.startsWith('#') ? tag : `#${tag}`;
+        navigate(`/search?q=${encodeURIComponent(query)}`);
     };
 
     return (
@@ -119,8 +130,10 @@ const Posts = () => {
             <h2 style={{ fontSize: '2rem', marginBottom: '2.5rem' }}>Community Feed</h2>
 
             {loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
-                    <Loader2 className="animate-spin" size={40} color="var(--accent-primary)" />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    {[...Array(3)].map((_, i) => (
+                        <PostSkeleton key={i} />
+                    ))}
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -129,13 +142,18 @@ const Posts = () => {
                             <p style={{ color: 'var(--text-secondary)' }}>No posts yet. Be the first to share something!</p>
                         </div>
                     ) : (
-                        posts.map(post => {
+                        posts.map((post, index) => {
                             const isRepost = !!post.original_post;
                             const displayData = isRepost ? post.original_post : post;
                             const reposter = isRepost ? post.owner : null;
 
                             return (
-                                <div key={post.id} className="glass hover-scale" style={{ padding: '2rem', borderRadius: '24px' }}>
+                                <div
+                                    key={post.id}
+                                    className="glass hover-scale"
+                                    style={{ padding: '2rem', borderRadius: '24px' }}
+                                    ref={posts.length === index + 1 ? lastPostElementRef : null}
+                                >
                                     {isRepost && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-primary)', fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 600 }}>
                                             <Repeat2 size={14} /> Reposted by {reposter.username}
@@ -176,7 +194,11 @@ const Posts = () => {
                                     {displayData.tags && (
                                         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
                                             {displayData.tags.split(',').map((tag, i) => (
-                                                <span key={i} style={{ color: 'var(--accent-primary)', fontSize: '0.85rem', fontWeight: 600 }}>
+                                                <span
+                                                    key={i}
+                                                    onClick={() => handleTagClick(tag.trim())}
+                                                    style={{ color: 'var(--accent-primary)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+                                                >
                                                     #{tag.trim()}
                                                 </span>
                                             ))}
@@ -191,7 +213,7 @@ const Posts = () => {
                                             <Heart size={18} fill={displayData.liked_by_user ? 'var(--accent-primary)' : 'none'} /> {displayData.likes_count || 0}
                                         </button>
                                         <button
-                                            onClick={() => setCommentModalPost(displayData)}
+                                            onClick={() => setActiveCommentPostId(displayData.id)}
                                             className="btn-active"
                                             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.9rem' }}>
                                             <MessageSquare size={18} /> {displayData.comments_count || 0}
@@ -219,65 +241,23 @@ const Posts = () => {
                 </div>
             )}
 
-            {/* Comment Modal */}
-            {commentModalPost && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.8)',
-                    backdropFilter: 'blur(8px)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000,
-                    padding: '1rem'
-                }}>
-                    <div className="glass" style={{ width: '100%', maxWidth: '500px', padding: '2rem', borderRadius: '24px' }}>
-                        <h3 style={{ marginBottom: '1.5rem' }}>Add Comment</h3>
-                        <textarea
-                            value={commentText}
-                            onChange={(e) => setCommentText(e.target.value)}
-                            placeholder="Share your thoughts..."
-                            style={{
-                                width: '100%',
-                                height: '120px',
-                                background: 'rgba(255,255,255,0.05)',
-                                border: '1px solid var(--border-glass)',
-                                borderRadius: '12px',
-                                padding: '1rem',
-                                color: 'white',
-                                marginBottom: '1.5rem',
-                                resize: 'none',
-                                outline: 'none'
-                            }}
-                        />
-                        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                            <button
-                                onClick={() => setCommentModalPost(null)}
-                                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleCommentSubmit}
-                                disabled={submittingComment || !commentText.trim()}
-                                style={{
-                                    background: 'var(--accent-primary)',
-                                    color: 'white',
-                                    border: 'none',
-                                    padding: '0.8rem 1.5rem',
-                                    borderRadius: '12px',
-                                    fontWeight: 600,
-                                    cursor: 'pointer',
-                                    opacity: (submittingComment || !commentText.trim()) ? 0.5 : 1
-                                }}>
-                                {submittingComment ? 'Posting...' : 'Post Comment'}
-                            </button>
-                        </div>
-                    </div>
+            {loadingMore && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', marginTop: '2rem' }}>
+                    <PostSkeleton />
                 </div>
+            )}
+
+            {!hasMore && posts.length > 0 && (
+                <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                    You've reached the end of the feed!
+                </div>
+            )}
+
+            {activeCommentPostId && (
+                <CommentsDrawer
+                    postId={activeCommentPostId}
+                    onClose={() => setActiveCommentPostId(null)}
+                />
             )}
         </div>
     );
