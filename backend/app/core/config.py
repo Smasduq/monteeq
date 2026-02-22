@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 # Load .env file from the backend directory
 env_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
-load_dotenv(dotenv_path=env_path)
+load_dotenv(dotenv_path=env_path, override=True)
 
 SECRET_KEY = os.getenv("SECRET_KEY", "SUPER_SECRET_KEY_CHANGE_ME")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")

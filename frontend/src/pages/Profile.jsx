@@ -4,7 +4,7 @@ import { Users, Eye, Play, Zap, Grid, Heart, MessageSquare, Share2, Plus, Bell }
 import { getUserProfile, toggleFollow } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
-import { ProfileHeaderSkeleton, VideoSkeleton } from '../components/Skeleton';
+import { ProfileHeaderSkeleton, VideoSkeleton, TabsSkeleton } from '../components/Skeleton';
 
 const Profile = () => {
     const { username } = useParams();
@@ -66,6 +66,7 @@ const Profile = () => {
     if (loading) return (
         <div className="profile-page page-container">
             <ProfileHeaderSkeleton />
+            <TabsSkeleton />
             <div className="video-grid" style={{ marginTop: '2rem' }}>
                 {[...Array(4)].map((_, i) => (
                     <VideoSkeleton key={i} />
@@ -148,21 +149,42 @@ const Profile = () => {
                                 )}
                             </div>
                         ) : (
-                            <button
-                                className={`btn-active ${isFollowing ? 'glass' : ''}`}
-                                onClick={handleFollow}
-                                style={{
-                                    padding: '0.6rem 2.5rem',
-                                    borderRadius: '50px',
-                                    background: isFollowing ? 'rgba(255,255,255,0.1)' : 'var(--accent-primary)',
-                                    border: isFollowing ? '1px solid var(--border-glass)' : 'none',
-                                    color: 'white',
-                                    fontWeight: 700,
-                                    fontSize: '0.95rem'
-                                }}
-                            >
-                                {isFollowing ? 'Following' : 'Follow'}
-                            </button>
+                            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                <button
+                                    className={`btn-active ${isFollowing ? 'glass' : ''}`}
+                                    onClick={handleFollow}
+                                    style={{
+                                        padding: '0.6rem 2.5rem',
+                                        borderRadius: '50px',
+                                        background: isFollowing ? 'rgba(255,255,255,0.1)' : 'var(--accent-primary)',
+                                        border: isFollowing ? '1px solid var(--border-glass)' : 'none',
+                                        color: 'white',
+                                        fontWeight: 700,
+                                        fontSize: '0.95rem'
+                                    }}
+                                >
+                                    {isFollowing ? 'Following' : 'Follow'}
+                                </button>
+                                <button
+                                    className="btn-active glass"
+                                    onClick={() => navigate('/chat', { state: { startChatWith: profile.username } })}
+                                    style={{
+                                        padding: '0.6rem 2rem',
+                                        borderRadius: '50px',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid var(--border-glass)',
+                                        color: 'white',
+                                        fontSize: '0.9rem',
+                                        fontWeight: 600,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem'
+                                    }}
+                                >
+                                    <MessageSquare size={16} />
+                                    Message
+                                </button>
+                            </div>
                         )}
                     </div>
 

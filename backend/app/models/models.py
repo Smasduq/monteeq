@@ -42,6 +42,7 @@ class User(Base):
     flash_uploads = Column(Integer, default=0)
     home_uploads = Column(Integer, default=0)
     bio = Column(String, nullable=True)
+    public_key = Column(Text, nullable=True) # PEM encoded public key for E2EE
 
     @property
     def flash_quota_limit(self):
@@ -241,3 +242,30 @@ class PushSubscription(Base):
     created_at = Column(DateTime, default=func.now())
 
     user = relationship("User")
+
+class Conversation(Base):
+    __tablename__ = "conversations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user1_id = Column(Integer, ForeignKey("users.id"))
+    user2_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=func.now())
+
+    user1 = relationship("User", foreign_keys=[user1_id])
+    user2 = relationship("User", foreign_keys=[user2_id])
+    messages = relationship("ChatMessage", back_populates="conversation", cascade="all, delete-orphan")
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    conversation_id = Column(Integer, ForeignKey("conversations.id"))
+    sender_id = Column(Integer, ForeignKey("users.id"))
+    encrypted_content = Column(Text) # AES-GCM encrypted blob
+    iv = Column(String) # Initialization Vector
+    recipient_key = Column(Text) # AES key wrapped with recipient's public key
+    sender_key = Column(Text) # AES key wrapped with sender's public key
+    created_at = Column(DateTime, default=func.now())
+
+    conversation = relationship("Conversation", back_populates="messages")
+    sender = relationship("User")

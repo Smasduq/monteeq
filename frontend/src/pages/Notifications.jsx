@@ -4,6 +4,7 @@ import { getAllNotifications, markNotificationRead } from '../api';
 import { useNotification } from '../context/NotificationContext';
 import { Bell, CheckCircle, Info, AlertCircle, Calendar, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { NotificationSkeleton } from '../components/Skeleton';
 
 const Notifications = () => {
     const { token, user } = useAuth();
@@ -66,13 +67,7 @@ const Notifications = () => {
     };
 
     if (loading) {
-        return (
-            <div className="page-container">
-                <div style={{ padding: '4rem', display: 'flex', justifyContent: 'center' }}>
-                    <div className="loader"></div>
-                </div>
-            </div>
-        );
+        return <NotificationSkeleton />;
     }
 
     return (

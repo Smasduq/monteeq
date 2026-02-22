@@ -22,37 +22,19 @@ class Storage:
         Uploads a file to the configured storage and returns its URL.
         """
         if self.mode == "local":
-            # Fallback to current local logic
-            dest_dir = os.path.dirname(os.path.join(config.STATIC_DIR, s3_key))
-            os.makedirs(dest_dir, exist_ok=True)
             dest_path = os.path.join(config.STATIC_DIR, s3_key)
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
             
             import shutil
             shutil.copy2(local_path, dest_path)
-            return f"{config.BASE_URL}/static/{s3_key}"
+            # Ensure URL uses forward slashes
+            url_key = s3_key.replace(os.sep, "/")
+            return f"{config.BASE_URL}/static/{url_key}"
         
         else:
-            # Upload to S3/Backblaze B2
             try:
                 self.s3_client.upload_file(local_path, self.bucket_name, s3_key)
-                
-                # For Backblaze B2, the public URL typically follows this format:
-                # https://f000.backblazeb2.com/file/bucket-name/object-key
-                # However, S3 endpoints often work as:
-                # {endpoint}/{bucket}/{key}
-                
-                # We'll construct a generic S3-style URL first, 
-                # but B2 specific ones might need custom logic if not using a friendly URL
-                
-                # Check if it's a B2 native endpoint to construct a "friendly" URL if possible
-                if "backblazeb2.com" in config.S3_ENDPOINT:
-                    # Construct B2 direct download URL (Friendly URL style)
-                    # example: https://s3.us-west-004.backblazeb2.com/my-bucket/video.mp4
-                    # Native B2: https://f00x.backblazeb2.com/file/my-bucket/video.mp4
-                    return f"{config.S3_ENDPOINT}/{self.bucket_name}/{s3_key}"
-                
-                return f"{config.S3_ENDPOINT}/{self.bucket_name}/{s3_key}"
-                
+                return self.get_url(s3_key)
             except Exception as e:
                 print(f"S3 Upload failed: {e}")
                 raise e
@@ -61,9 +43,32 @@ class Storage:
         """
         Returns the public URL for a given key.
         """
+        url_key = s3_key.replace(os.sep, "/")
         if self.mode == "local":
-            return f"{config.BASE_URL}/static/{s3_key}"
+            return f"{config.BASE_URL}/static/{url_key}"
         else:
-            return f"{config.S3_ENDPOINT}/{self.bucket_name}/{s3_key}"
+            # Backblaze B2 S3-Compatible URLs:
+            # {endpoint}/{bucket}/{key}
+            endpoint = config.S3_ENDPOINT.rstrip('/')
+            return f"{endpoint}/{self.bucket_name}/{url_key}"
+
+    def delete_file(self, s3_key: str):
+        """
+        Deletes a file from storage.
+        """
+        if self.mode == "local":
+            local_path = os.path.join(config.STATIC_DIR, s3_key.replace("/", os.sep))
+            if os.path.exists(local_path):
+                try:
+                    os.remove(local_path)
+                    print(f"Deleted local file: {local_path}")
+                except Exception as e:
+                    print(f"Failed to delete local file {local_path}: {e}")
+        else:
+            try:
+                self.s3_client.delete_object(Bucket=self.bucket_name, Key=s3_key)
+                print(f"Deleted S3/B2 object: {s3_key}")
+            except Exception as e:
+                print(f"Failed to delete B2 object {s3_key}: {e}")
 
 storage = Storage()

@@ -258,7 +258,7 @@ const Flash = () => {
 
     const handleFollow = async (userId) => {
         if (!token) {
-            showNotification('info', "Please login to follow creators!");
+            showNotification('info', "Please login to follow editors!");
             return;
         }
 
@@ -350,8 +350,8 @@ const Flash = () => {
                             return items;
                         })()}
                         {loadingMore && (
-                            <div className="flash-item-container loading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Loader2 className="animate-spin" size={48} color="white" />
+                            <div className="flash-item-container loading">
+                                <FlashSkeleton />
                             </div>
                         )}
                     </>

@@ -242,7 +242,7 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
                                             )}
                                             <span style={{ color: isHistory ? 'var(--text-muted)' : 'white' }}>{s}</span>
                                         </div>
-                                        {isUser && <span className="user-badge-mini">CREATOR</span>}
+                                        {isUser && <span className="user-badge-mini">EDITOR</span>}
                                     </div>
                                 );
                             })}

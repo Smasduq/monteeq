@@ -6,7 +6,7 @@ import {
     Scissors, Music, Video, Star
 } from 'lucide-react';
 
-export const creatorTips = [
+export const editorTips = [
     {
         title: "Hook them fast!",
         content: "The first 3 seconds of your Flash clips are critical. Use a strong visual hook or a compelling question to keep viewers watching.",
@@ -15,7 +15,7 @@ export const creatorTips = [
     },
     {
         title: "Consistency is King",
-        content: "Creators who post at least 3 times a week see 40% higher engagement. Stick to a schedule your audience can rely on.",
+        content: "Editors who post at least 3 times a week see 40% higher engagement. Stick to a schedule your audience can rely on.",
         icon: Target,
         color: "#10b981"
     },
@@ -57,7 +57,7 @@ export const creatorTips = [
     },
     {
         title: "Profile Polish",
-        content: "Your bio is your elevator pitch. Make sure it clearly states what kind of content you create to help convert viewers into followers.",
+        content: "Your bio is your elevator pitch. Make sure it clearly states what kind of content you edit to help convert viewers into followers.",
         icon: Users,
         color: "#f43f5e"
     },
@@ -147,7 +147,7 @@ export const creatorTips = [
     },
     {
         title: "Collaborate More",
-        content: "Dueting or collaborating with other creators exposes your content to an entirely new audience. It's mutual growth at its best.",
+        content: "Dueting or collaborating with other editors exposes your content to an entirely new audience. It's mutual growth at its best.",
         icon: Video,
         color: "#06b6d4"
     },
