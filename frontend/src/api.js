@@ -239,3 +239,48 @@ export const getUserPerformance = async (token, metric = "views", days = 30) => 
     return response.json();
 };
 
+export const uploadPublicKey = async (publicKey, token) => {
+    const response = await fetch(`${API_BASE_URL}/chat/keys`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ public_key: publicKey })
+    });
+    return response.json();
+};
+
+export const getUserPublicKey = async (username, token) => {
+    const response = await fetch(`${API_BASE_URL}/chat/keys/${username}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return response.json();
+};
+
+export const sendChatMessage = async (messageData, token) => {
+    const response = await fetch(`${API_BASE_URL}/chat/messages`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(messageData)
+    });
+    return response.json();
+};
+
+export const getConversations = async (token) => {
+    const response = await fetch(`${API_BASE_URL}/chat/conversations`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return response.json();
+};
+
+export const getChatMessages = async (conversationId, token) => {
+    const response = await fetch(`${API_BASE_URL}/chat/messages/${conversationId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return response.json();
+};
+

@@ -272,7 +272,7 @@ async def background_process_video(
                 print(f"Error cleaning up temp dir {temp_dir}: {e}")
 
 def delete_video_files(video: Video):
-    """Utility to delete all local files associated with a video."""
+    """Utility to delete all files (local or B2) associated with a video."""
     urls = [
         video.video_url,
         video.url_480p,
@@ -284,19 +284,22 @@ def delete_video_files(video: Video):
     ]
     
     for url in urls:
-        if url and url.startswith(config.BASE_URL):
-            # Convert URL back to local path
-            # BASE_URL/static/videos/... -> config.STATIC_DIR/videos/...
-            relative_path = url.replace(f"{config.BASE_URL}/static/", "")
-            # Handle mixed slashes on Windows
-            local_path = os.path.join(config.STATIC_DIR, relative_path.replace("/", os.sep))
+        if not url:
+            continue
             
-            if os.path.exists(local_path):
-                try:
-                    os.remove(local_path)
-                    print(f"Deleted file: {local_path}")
-                except Exception as e:
-                    print(f"Failed to delete file {local_path}: {e}")
+        # Extract s3_key from URL
+        # URL format: {endpoint}/{bucket}/{s3_key} OR {base_url}/static/{s3_key}
+        s3_key = None
+        if config.STORAGE_MODE == "local" and url.startswith(f"{config.BASE_URL}/static/"):
+            s3_key = url.replace(f"{config.BASE_URL}/static/", "")
+        elif config.STORAGE_MODE == "s3" and config.S3_BUCKET_NAME in url:
+            # Simple heuristic: Split by bucket name
+            parts = url.split(f"{config.S3_BUCKET_NAME}/")
+            if len(parts) > 1:
+                s3_key = parts[1]
+        
+        if s3_key:
+            storage.delete_file(s3_key)
 
 @router.delete("/{video_id}")
 def delete_video(
@@ -392,16 +395,20 @@ async def upload_video(
     )
     
     if thumbnail:
-        from app.core.storage import s3_client
         safe_filename = thumbnail.filename.replace(" ", "_")
-        object_name = f"thumbs/custom_{int(os.path.getmtime(temp_file_path))}_{safe_filename}"
+        timestamp = int(os.path.getmtime(temp_file_path))
+        s3_key = f"thumbs/custom_{timestamp}_{safe_filename}"
         
-        if config.B2_BUCKET_NAME:
-            video_create_data.thumbnail_url = s3_client.upload_fileobj(
-                thumbnail.file,
-                object_name,
-                content_type=thumbnail.content_type
-            )
+        # Save to temp first to use storage.upload_file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(thumbnail.filename)[1]) as tmp:
+            shutil.copyfileobj(thumbnail.file, tmp)
+            tmp_path = tmp.name
+        
+        try:
+            video_create_data.thumbnail_url = storage.upload_file(tmp_path, s3_key)
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
 
     # Update quota
     if video_type == "flash":

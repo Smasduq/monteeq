@@ -55,6 +55,7 @@ class User(UserBase):
     google_id: Optional[str] = None
     bio: Optional[str] = None
     role: str
+    public_key: Optional[str] = None
 
 class EmailVerification(BaseModel):
     email: str
@@ -224,3 +225,33 @@ class PerformanceDataPoint(BaseModel):
 class UserPerformance(BaseModel):
     data: List[PerformanceDataPoint]
     metric: str # views, likes, followers, earnings
+
+class ChatMessageBase(BaseModel):
+    encrypted_content: str
+    iv: str
+    recipient_key: str
+    sender_key: str
+
+class ChatMessageCreate(ChatMessageBase):
+    recipient_username: str
+
+class ChatMessage(ChatMessageBase):
+    id: int
+    conversation_id: int
+    sender_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class Conversation(BaseModel):
+    id: int
+    user1_id: int
+    user2_id: int
+    user1: UserBase
+    user2: UserBase
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class KeyUpload(BaseModel):
+    public_key: str

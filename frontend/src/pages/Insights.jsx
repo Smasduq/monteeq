@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getUserInsights } from '../api';
+import { InsightsSkeleton } from '../components/Skeleton';
 
 const Insights = () => {
     const { token } = useAuth();
@@ -32,7 +33,7 @@ const Insights = () => {
         fetchInsights();
     }, [token]);
 
-    if (loading) return <div className="loading-screen"><div className="loader"></div></div>;
+    if (loading) return <InsightsSkeleton />;
 
     const statCards = [
         { id: 'views', label: 'Total Views', value: stats?.total_views || 0, icon: TrendingUp, color: '#3b82f6', glow: 'rgba(59, 130, 246, 0.4)' },
@@ -62,7 +63,7 @@ const Insights = () => {
                     <ArrowLeft size={20} />
                 </button>
                 <div style={{ flex: 1 }}>
-                    <h1 style={{ fontSize: '2.5rem', fontWeight: 800 }}>Creator Insights</h1>
+                    <h1 style={{ fontSize: '2.5rem', fontWeight: 800 }}>Editor Insights</h1>
                     <p style={{ color: 'var(--text-secondary)' }}>Track your growth and celebrate your milestones on Montage</p>
                 </div>
 

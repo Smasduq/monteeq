@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Trash2, Film, Zap, AlertTriangle, ArrowLeft, Layout, Clock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getUserProfile, deleteVideo, deletePost } from '../api';
+import { ManageSkeleton } from '../components/Skeleton';
 
 const ManageContent = () => {
     const { user, token } = useAuth();
@@ -72,7 +73,7 @@ const ManageContent = () => {
         return `${hours}h ${minutes}m left`;
     };
 
-    if (loading) return <div className="loading-screen" style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div className="loader"></div></div>;
+    if (loading) return <ManageSkeleton />;
 
     return (
         <div className="manage-content-page page-container" style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto' }}>

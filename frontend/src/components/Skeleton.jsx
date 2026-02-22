@@ -1,14 +1,14 @@
 import React from 'react';
 
 export const VideoSkeleton = () => (
-    <div className="video-item" style={{ width: '100%' }}>
-        <div className="skeleton skeleton-thumbnail" style={{ marginBottom: '0.8rem' }} />
-        <div style={{ display: 'flex', gap: '1rem' }}>
-            <div className="skeleton skeleton-avatar" style={{ minWidth: '36px' }} />
+    <div className="video-item" style={{ width: '100%', marginBottom: '1.5rem' }}>
+        <div className="skeleton skeleton-thumbnail" style={{ marginBottom: '1rem', borderRadius: '16px' }} />
+        <div style={{ display: 'flex', gap: '1rem', padding: '0 0.5rem' }}>
+            <div className="skeleton" style={{ width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
-                <div className="skeleton skeleton-text" style={{ width: '90%', height: '1.2rem' }} />
-                <div className="skeleton skeleton-text" style={{ width: '60%', height: '0.9rem' }} />
-                <div className="skeleton skeleton-text" style={{ width: '40%', height: '0.8rem' }} />
+                <div className="skeleton skeleton-text" style={{ width: '90%', height: '1.1rem', marginBottom: '0.6rem', borderRadius: '4px' }} />
+                <div className="skeleton skeleton-text" style={{ width: '40%', height: '0.8rem', marginBottom: '0.4rem', borderRadius: '4px' }} />
+                <div className="skeleton skeleton-text" style={{ width: '60%', height: '0.7rem', borderRadius: '4px' }} />
             </div>
         </div>
     </div>
@@ -16,19 +16,20 @@ export const VideoSkeleton = () => (
 
 export const FlashSkeleton = () => (
     <div className="flash-shelf-item" style={{ width: '100%' }}>
-        <div className="skeleton skeleton-flash" style={{ position: 'relative' }}>
+        <div className="skeleton skeleton-flash" style={{ position: 'relative', borderRadius: '12px' }}>
             <div style={{
                 position: 'absolute',
                 bottom: '0',
                 left: '0',
                 right: '0',
-                padding: '0.8rem',
-                gap: '0.5rem',
+                padding: '1rem',
+                gap: '0.6rem',
                 display: 'flex',
-                flexDirection: 'column'
+                flexDirection: 'column',
+                background: 'linear-gradient(to top, rgba(0,0,0,0.3), transparent)'
             }}>
-                <div className="skeleton skeleton-text" style={{ width: '80%', height: '1rem', background: 'rgba(255,255,255,0.1)' }} />
-                <div className="skeleton skeleton-text" style={{ width: '50%', height: '0.8rem', background: 'rgba(255,255,255,0.1)' }} />
+                <div className="skeleton skeleton-text" style={{ width: '85%', height: '1rem', background: 'rgba(255,255,255,0.15)' }} />
+                <div className="skeleton skeleton-text" style={{ width: '45%', height: '0.8rem', background: 'rgba(255,255,255,0.15)' }} />
             </div>
         </div>
     </div>
@@ -36,15 +37,40 @@ export const FlashSkeleton = () => (
 
 export const WatchSkeleton = () => (
     <div className="watch-container">
-        <div className="skeleton" style={{ aspectRatio: '16/9', width: '100%', borderRadius: '0' }} />
+        <div className="watch-video-wrapper">
+            <div className="skeleton" style={{ aspectRatio: '16/9', width: '100%', borderRadius: '0' }} />
+        </div>
         <div className="watch-meta" style={{ padding: '1.5rem 1rem' }}>
-            <div className="skeleton skeleton-text" style={{ width: '70%', height: '2rem', marginBottom: '1.5rem' }} />
-            <div className="skeleton" style={{ height: '150px', borderRadius: '12px', marginBottom: '2rem' }} />
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <div className="skeleton skeleton-avatar" style={{ width: '48px', height: '48px' }} />
-                <div style={{ flex: 1 }}>
-                    <div className="skeleton skeleton-text" style={{ width: '20%', height: '1.2rem' }} />
-                    <div className="skeleton skeleton-text" style={{ width: '10%', height: '0.8rem' }} />
+            <div className="skeleton skeleton-text" style={{ width: '80%', height: '1.8rem', marginBottom: '1.5rem', borderRadius: '4px' }} />
+
+            <div className="glass" style={{ padding: '1.2rem', borderRadius: '12px', marginBottom: '2rem', background: 'rgba(255,255,255,0.03)' }}>
+                <div className="skeleton skeleton-text" style={{ width: '30%', height: '1rem', marginBottom: '1rem' }} />
+                <div className="skeleton skeleton-text" style={{ width: '100%', height: '1.2rem' }} />
+                <div className="skeleton skeleton-text" style={{ width: '100%', height: '1.2rem' }} />
+                <div className="skeleton skeleton-text" style={{ width: '60%', height: '1.2rem', marginBottom: '1rem' }} />
+                <div style={{ display: 'flex', gap: '0.6rem' }}>
+                    {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ width: '60px', height: '1.2rem', borderRadius: '4px' }} />)}
+                </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div className="skeleton" style={{ width: '48px', height: '48px', borderRadius: '50%' }} />
+                    <div style={{ flex: 1 }}>
+                        <div className="skeleton skeleton-text" style={{ width: '120px', height: '1.1rem', marginBottom: '0.4rem' }} />
+                        <div className="skeleton skeleton-text" style={{ width: '80px', height: '0.8rem' }} />
+                    </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ width: '100px', height: '36px', borderRadius: '2rem' }} />)}
+                </div>
+            </div>
+
+            <div className="comments-section" style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '2rem' }}>
+                <div className="skeleton skeleton-text" style={{ width: '150px', height: '1.5rem', marginBottom: '2rem' }} />
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+                    <div className="skeleton" style={{ width: '40px', height: '40px', borderRadius: '50%' }} />
+                    <div className="skeleton" style={{ flex: 1, height: '42px', borderRadius: '8px' }} />
                 </div>
             </div>
         </div>
@@ -52,21 +78,38 @@ export const WatchSkeleton = () => (
 );
 
 export const ProfileHeaderSkeleton = () => (
-    <div className="profile-header glass" style={{ marginTop: '1rem', padding: '2.5rem 1.5rem', borderRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem' }}>
-        <div className="skeleton skeleton-avatar" style={{ width: '140px', height: '140px' }} />
+    <div className="profile-header glass" style={{ marginTop: '1rem', padding: '2.5rem 1.5rem', borderRadius: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem', textAlign: 'center' }}>
+        <div className="skeleton" style={{ width: '140px', height: '140px', borderRadius: '50%', padding: '4px' }} />
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-            <div className="skeleton skeleton-text" style={{ width: '40%', height: '2.5rem' }} />
-            <div className="skeleton skeleton-text" style={{ width: '20%', height: '1rem' }} />
-            <div className="skeleton" style={{ width: '150px', height: '45px', borderRadius: '50px' }} />
+            <div className="skeleton skeleton-text" style={{ width: '40%', height: '2.5rem', borderRadius: '8px' }} />
+            <div className="skeleton skeleton-text" style={{ width: '20%', height: '1rem', borderRadius: '4px' }} />
+
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center', marginTop: '0.5rem' }}>
+                <div className="skeleton" style={{ width: '140px', height: '42px', borderRadius: '50px' }} />
+                <div className="skeleton" style={{ width: '140px', height: '42px', borderRadius: '50px' }} />
+            </div>
+
+            <div className="skeleton skeleton-text" style={{ width: '60%', height: '1rem', marginTop: '1rem', borderRadius: '4px' }} />
         </div>
-        <div style={{ display: 'flex', gap: '2rem' }}>
+        <div className="stats-row" style={{ display: 'flex', justifyContent: 'center', gap: '2rem', width: '100%' }}>
             {[1, 2, 3].map(i => (
-                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                    <div className="skeleton skeleton-text" style={{ width: '40px', height: '1.5rem' }} />
-                    <div className="skeleton skeleton-text" style={{ width: '60px', height: '0.7rem' }} />
+                <div key={i} style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                    <div className="skeleton skeleton-text" style={{ width: '50px', height: '1.5rem', borderRadius: '4px' }} />
+                    <div className="skeleton skeleton-text" style={{ width: '70px', height: '0.7rem', borderRadius: '2px' }} />
                 </div>
             ))}
         </div>
+    </div>
+);
+
+export const TabsSkeleton = () => (
+    <div className="profile-tabs" style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '2rem', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '0 1rem' }}>
+        {[1, 2, 3].map(i => (
+            <div key={i} style={{ padding: '1rem 2rem', position: 'relative' }}>
+                <div className="skeleton" style={{ width: '60px', height: '1rem', borderRadius: '4px' }} />
+                {i === 1 && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: 'rgba(255,255,255,0.1)' }} />}
+            </div>
+        ))}
     </div>
 );
 
@@ -105,6 +148,219 @@ export const SearchVideoSkeleton = () => (
             </div>
             <div className="skeleton skeleton-text" style={{ width: '90%', height: '0.9rem' }} />
             <div className="skeleton skeleton-text" style={{ width: '80%', height: '0.9rem' }} />
+        </div>
+    </div>
+);
+
+export const InsightsSkeleton = () => (
+    <div className="insights-page page-container" style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '3rem' }}>
+            <div className="skeleton" style={{ width: '45px', height: '45px', borderRadius: '50%' }} />
+            <div style={{ flex: 1 }}>
+                <div className="skeleton skeleton-text" style={{ width: '30%', height: '2.5rem' }} />
+                <div className="skeleton skeleton-text" style={{ width: '50%', height: '1rem' }} />
+            </div>
+        </div>
+        <div className="stats-grid" style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '1.5rem',
+            marginBottom: '3rem'
+        }}>
+            {[1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="glass" style={{ padding: '2rem', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div className="skeleton" style={{ width: '50px', height: '50px', borderRadius: '16px' }} />
+                    <div className="skeleton skeleton-text" style={{ width: '40%', height: '0.9rem' }} />
+                    <div className="skeleton skeleton-text" style={{ width: '60%', height: '2rem' }} />
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
+export const PerformanceSkeleton = () => (
+    <div className="performance-page page-container" style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+        <div className="performance-header" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '3rem' }}>
+            <div className="skeleton" style={{ width: '45px', height: '45px', borderRadius: '50%' }} />
+            <div style={{ flex: 1 }}>
+                <div className="skeleton skeleton-text" style={{ width: '150px', height: '0.8rem', marginBottom: '4px' }} />
+                <div className="skeleton skeleton-text" style={{ width: '200px', height: '2.5rem', borderRadius: '4px' }} />
+            </div>
+            <div className="range-selector skeleton" style={{ width: '100px', height: '36px', borderRadius: '12px' }} />
+        </div>
+
+        <div className="performance-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '2rem' }}>
+            <div className="main-chart-section">
+                <div className="metric-tabs" style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+                    {[1, 2, 3, 4].map(i => <div key={i} className="skeleton" style={{ width: '140px', height: '45px', borderRadius: '16px' }} />)}
+                </div>
+                <div className="chart-container glass" style={{ padding: '2rem', borderRadius: '32px', height: '500px', background: 'rgba(255,255,255,0.02)' }}>
+                    <div className="skeleton skeleton-text" style={{ width: '250px', height: '3.5rem', marginBottom: '1rem' }} />
+                    <div className="skeleton skeleton-text" style={{ width: '150px', height: '1rem', marginBottom: '3rem' }} />
+                    <div className="skeleton" style={{ width: '100%', height: '300px', borderRadius: '16px' }} />
+                </div>
+            </div>
+            <div className="insights-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px' }}>
+                    <div className="skeleton skeleton-text" style={{ width: '120px', height: '1.2rem', marginBottom: '1.5rem' }} />
+                    <div className="skeleton" style={{ height: '80px', borderRadius: '16px', marginBottom: '1rem' }} />
+                    <div className="skeleton" style={{ height: '80px', borderRadius: '16px' }} />
+                </div>
+                <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px', height: '180px' }}>
+                    <div className="skeleton skeleton-text" style={{ width: '150px', height: '1.2rem', marginBottom: '1rem' }} />
+                    <div className="skeleton skeleton-text" style={{ width: '100%', height: '4rem', borderRadius: '8px' }} />
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+export const NotificationSkeleton = () => (
+    <div className="page-container">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem', padding: '2rem', borderRadius: '24px', background: 'rgba(255,255,255,0.02)' }}>
+            <div className="skeleton" style={{ width: '64px', height: '64px', borderRadius: '50%' }} />
+            <div style={{ flex: 1 }}>
+                <div className="skeleton skeleton-text" style={{ width: '150px', height: '2rem' }} />
+                <div className="skeleton skeleton-text" style={{ width: '250px', height: '1.1rem' }} />
+            </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '800px', margin: '0 auto' }}>
+            {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="glass" style={{ padding: '1.5rem', borderRadius: '16px', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                    <div className="skeleton skeleton-avatar" style={{ width: '48px', height: '48px' }} />
+                    <div style={{ flex: 1 }}>
+                        <div className="skeleton skeleton-text" style={{ width: '80%', height: '1.1rem' }} />
+                        <div className="skeleton skeleton-text" style={{ width: '30%', height: '0.85rem' }} />
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
+export const ChatSkeleton = () => (
+    <div className="chat-page">
+        <div className="chat-sidebar">
+            <div className="chat-sidebar-header">
+                <div className="skeleton skeleton-text" style={{ width: '120px', height: '1.5rem', marginBottom: '1rem' }} />
+                <div className="skeleton" style={{ height: '42px', borderRadius: '12px' }} />
+            </div>
+            <div className="conversation-list" style={{ padding: '0 1rem' }}>
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                    <div key={i} style={{ display: 'flex', gap: '1rem', padding: '1.2rem 0', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                        <div className="skeleton" style={{ width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0 }} />
+                        <div style={{ flex: 1 }}>
+                            <div className="skeleton skeleton-text" style={{ width: '60%', height: '1rem', marginBottom: '0.4rem' }} />
+                            <div className="skeleton skeleton-text" style={{ width: '40%', height: '0.75rem' }} />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+        <div className="chat-window">
+            <div className="chat-header">
+                <div className="skeleton" style={{ width: '36px', height: '36px', borderRadius: '50%' }} />
+                <div style={{ flex: 1 }}>
+                    <div className="skeleton skeleton-text" style={{ width: '120px', height: '1.1rem', marginBottom: '4px' }} />
+                    <div className="skeleton skeleton-text" style={{ width: '140px', height: '0.7rem' }} />
+                </div>
+            </div>
+            <div className="messages-container" style={{ padding: '2rem' }}>
+                <div className="skeleton" style={{ width: '220px', height: '64px', borderRadius: '16px 16px 16px 4px', marginBottom: '1.5rem' }} />
+                <div className="skeleton" style={{ width: '160px', height: '48px', borderRadius: '16px 16px 4px 16px', marginBottom: '1.5rem', marginLeft: 'auto' }} />
+                <div className="skeleton" style={{ width: '280px', height: '80px', borderRadius: '16px 16px 16px 4px', marginBottom: '1.5rem' }} />
+            </div>
+            <div className="message-input-area">
+                <div className="skeleton" style={{ margin: '1rem', height: '48px', borderRadius: '24px' }} />
+            </div>
+        </div>
+    </div>
+);
+
+export const HomeSkeleton = () => (
+    <div className="home-container page-container">
+        <div className="hero-section skeleton" style={{ height: '400px', borderRadius: '24px', marginBottom: '2rem', display: 'flex', alignItems: 'center', padding: '3rem' }}>
+            <div style={{ maxWidth: '600px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="skeleton" style={{ width: '150px', height: '24px', borderRadius: '50px', background: 'rgba(255,255,255,0.1)' }} />
+                <div className="skeleton skeleton-text" style={{ width: '100%', height: '3.5rem', borderRadius: '8px', background: 'rgba(255,255,255,0.1)' }} />
+                <div className="skeleton skeleton-text" style={{ width: '80%', height: '1.2rem', borderRadius: '4px', background: 'rgba(255,255,255,0.1)' }} />
+                <div className="skeleton" style={{ width: '180px', height: '48px', borderRadius: '12px', marginTop: '1rem', background: 'rgba(255,255,255,0.1)' }} />
+            </div>
+        </div>
+        <div className="section-title">
+            <div className="skeleton" style={{ width: '250px', height: '2rem', borderRadius: '4px' }} />
+        </div>
+        <div className="video-grid">
+            {[...Array(8)].map((_, i) => (
+                <VideoSkeleton key={`skel-${i}`} />
+            ))}
+        </div>
+    </div>
+);
+
+export const AchievementSkeleton = () => (
+    <div className="page-container">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '3rem', padding: '2rem', borderRadius: '24px', background: 'rgba(255,255,255,0.02)' }}>
+            <div className="skeleton" style={{ width: '64px', height: '64px', borderRadius: '50%' }} />
+            <div style={{ flex: 1 }}>
+                <div className="skeleton skeleton-text" style={{ width: '200px', height: '2rem' }} />
+                <div className="skeleton skeleton-text" style={{ width: '300px', height: '1.1rem' }} />
+            </div>
+        </div>
+        <div style={{ marginBottom: '3rem' }}>
+            <div className="skeleton skeleton-text" style={{ width: '150px', height: '1.5rem', marginBottom: '1.5rem' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                {[1, 2, 3].map(i => (
+                    <div key={i} className="glass" style={{ padding: '2rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <div className="skeleton" style={{ width: '80px', height: '80px', borderRadius: '50%', marginBottom: '1.5rem' }} />
+                        <div className="skeleton skeleton-text" style={{ width: '60%', height: '1.2rem', marginBottom: '0.5rem' }} />
+                        <div className="skeleton skeleton-text" style={{ width: '80%', height: '0.9rem' }} />
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>
+);
+
+export const ManageSkeleton = () => (
+    <div className="page-container" style={{ maxWidth: '1000px', margin: '0 auto', padding: '2rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem' }}>
+            <div className="skeleton" style={{ width: '45px', height: '45px', borderRadius: '50%' }} />
+            <div style={{ flex: 1 }}>
+                <div className="skeleton skeleton-text" style={{ width: '250px', height: '2.5rem' }} />
+                <div className="skeleton skeleton-text" style={{ width: '300px', height: '1rem' }} />
+            </div>
+        </div>
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+            <div className="skeleton" style={{ width: '120px', height: '40px', borderRadius: '12px' }} />
+            <div className="skeleton" style={{ width: '100px', height: '40px', borderRadius: '12px' }} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {[1, 2, 3, 4].map(i => (
+                <div key={i} className="glass" style={{ padding: '1rem', borderRadius: '16px', display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+                    <div className="skeleton" style={{ width: '120px', height: '68px', borderRadius: '12px' }} />
+                    <div style={{ flex: 1 }}>
+                        <div className="skeleton skeleton-text" style={{ width: '40%', height: '1rem', marginBottom: '0.5rem' }} />
+                        <div className="skeleton skeleton-text" style={{ width: '20%', height: '0.8rem' }} />
+                    </div>
+                    <div className="skeleton" style={{ width: '40px', height: '40px', borderRadius: '10px' }} />
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
+export const PageSkeleton = () => (
+    <div className="page-container" style={{ padding: '2rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem' }}>
+            <div className="skeleton" style={{ width: '48px', height: '48px', borderRadius: '50%' }} />
+            <div className="skeleton skeleton-text" style={{ width: '200px', height: '1.5rem' }} />
+        </div>
+        <div className="skeleton" style={{ width: '100%', height: '200px', borderRadius: '16px', marginBottom: '2rem' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {[1, 2, 3].map(i => (
+                <div key={i} className="skeleton skeleton-text" style={{ width: '100%', height: '1.2rem' }} />
+            ))}
         </div>
     </div>
 );

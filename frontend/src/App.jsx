@@ -4,10 +4,12 @@ import { Zap } from 'lucide-react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { PageSkeleton } from './components/Skeleton';
 import Home from './pages/Home';
 import Flash from './pages/Flash';
 import Posts from './pages/Posts';
 import Upload from './pages/Upload';
+import Chat from './pages/Chat';
 
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -34,7 +36,7 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { token, loading, user } = useAuth();
-  if (loading) return <div>Loading...</div>;
+  if (loading) return null;
   if (!token) return <Navigate to="/login" />;
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
@@ -52,9 +54,10 @@ function AppContent() {
   const navigate = useNavigate();
   const isFlashPage = location.pathname === '/flash';
   const isHomePage = location.pathname === '/';
+  const isChatPage = location.pathname.startsWith('/chat');
   const isPremiumOrAdmin = user?.is_premium || user?.role === 'admin';
   const isOnboardingPage = location.pathname === '/onboarding';
-  const showAdColumn = !isHomePage && !isFlashPage && !isOnboardingPage && user && !isPremiumOrAdmin;
+  const showAdColumn = !isHomePage && !isFlashPage && !isChatPage && !isOnboardingPage && user && !isPremiumOrAdmin;
 
   // Onboarding redirection
   React.useEffect(() => {
@@ -88,6 +91,7 @@ function AppContent() {
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 <Route path="/posts" element={<Posts />} />
                 <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+                <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
                 <Route path="/manage" element={<ProtectedRoute><ManageContent /></ProtectedRoute>} />
                 <Route path="/manage-videos" element={<ProtectedRoute><ManageContent /></ProtectedRoute>} />
                 <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />

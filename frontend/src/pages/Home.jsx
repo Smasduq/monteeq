@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import VideoPreviewCard from '../components/VideoPreviewCard';
-import { VideoSkeleton, FlashSkeleton } from '../components/Skeleton';
+import { VideoSkeleton, FlashSkeleton, HomeSkeleton } from '../components/Skeleton';
 
 const Home = () => {
     const navigate = useNavigate();
@@ -129,6 +129,10 @@ const Home = () => {
         if (diffInDays < 30) return `${diffInDays}d ago`;
         return date.toLocaleDateString();
     };
+
+    if (loading && videos.length === 0) {
+        return <HomeSkeleton />;
+    }
 
     return (
         <div className="home-container page-container">

@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home as HomeIcon, Zap, Layout, Upload as UploadIcon, LogIn, LogOut, Clapperboard, Trophy, TrendingUp } from 'lucide-react';
+import { Home as HomeIcon, Zap, Layout, Upload as UploadIcon, LogIn, LogOut, Clapperboard, Trophy, TrendingUp, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -37,6 +37,12 @@ const Sidebar = ({ isOpen, onClose }) => {
                     <NavLink to="/insights" onClick={onClose} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <TrendingUp size={20} color="#f59e0b" />
                         <span>Insights</span>
+                    </NavLink>
+                )}
+                {token && (
+                    <NavLink to="/chat" onClick={onClose} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                        <MessageSquare size={20} />
+                        <span>Messages</span>
                     </NavLink>
                 )}
                 <div style={{ margin: '1.5rem 0', height: '1px', background: 'var(--border-glass)' }} />

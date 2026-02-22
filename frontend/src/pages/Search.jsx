@@ -97,7 +97,7 @@ const Search = () => {
                         <div className="results-section" style={{ marginBottom: '4rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--border-glass)', paddingBottom: '0.8rem' }}>
                                 <Users size={24} color="var(--accent-primary)" />
-                                <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Creators</h2>
+                                <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Editors</h2>
                             </div>
                             <div style={{ display: 'flex', gap: '2rem', overflowX: 'auto', paddingBottom: '1rem' }}>
                                 {results.users.map(u => (

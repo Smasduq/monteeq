@@ -10,7 +10,8 @@ import {
 } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { getUserPerformance } from '../api';
-import { creatorTips } from '../data/tips';
+import { editorTips } from '../data/tips';
+import { PerformanceSkeleton } from '../components/Skeleton';
 
 const Performance = () => {
     const { token } = useAuth();
@@ -20,7 +21,7 @@ const Performance = () => {
     const [loading, setLoading] = useState(true);
     const [activeMetric, setActiveMetric] = useState(searchParams.get('metric') || 'views');
     const [activeRange, setActiveRange] = useState(7); // Default to 7 days as requested
-    const [activeTipIndex, setActiveTipIndex] = useState(Math.floor(Math.random() * creatorTips.length));
+    const [activeTipIndex, setActiveTipIndex] = useState(Math.floor(Math.random() * editorTips.length));
 
     const metrics = [
         { id: 'views', label: 'Total Views', icon: TrendingUp, color: '#3b82f6', glow: 'rgba(59, 130, 246, 0.4)' },
@@ -94,7 +95,7 @@ const Performance = () => {
     }, [data, activeMetric]);
 
     if (loading && !data.length) {
-        return <div className="loading-screen"><div className="loader"></div></div>;
+        return <PerformanceSkeleton />;
     }
 
     return (
@@ -268,12 +269,12 @@ const Performance = () => {
                     </div>
 
                     <div
-                        onClick={() => setActiveTipIndex((prev) => (prev + 1) % creatorTips.length)}
+                        onClick={() => setActiveTipIndex((prev) => (prev + 1) % editorTips.length)}
                         className="glass hover-scale"
                         style={{
                             padding: '1.5rem',
                             borderRadius: '24px',
-                            background: `linear-gradient(135deg, ${creatorTips[activeTipIndex].color}15 0%, rgba(0,0,0,0) 100%)`,
+                            background: `linear-gradient(135deg, ${editorTips[activeTipIndex].color}15 0%, rgba(0,0,0,0) 100%)`,
                             border: '1px solid rgba(255,255,255,0.05)',
                             cursor: 'pointer',
                             position: 'relative',
@@ -285,20 +286,20 @@ const Performance = () => {
                                 width: '32px',
                                 height: '32px',
                                 borderRadius: '8px',
-                                background: `${creatorTips[activeTipIndex].color}20`,
+                                background: `${editorTips[activeTipIndex].color}20`,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center'
                             }}>
-                                {React.createElement(creatorTips[activeTipIndex].icon, {
+                                {React.createElement(editorTips[activeTipIndex].icon, {
                                     size: 18,
-                                    color: creatorTips[activeTipIndex].color
+                                    color: editorTips[activeTipIndex].color
                                 })}
                             </div>
-                            <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>{creatorTips[activeTipIndex].title}</h3>
+                            <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>{editorTips[activeTipIndex].title}</h3>
                         </div>
                         <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', lineHeight: 1.6, margin: 0 }}>
-                            {creatorTips[activeTipIndex].content}
+                            {editorTips[activeTipIndex].content}
                         </p>
                         <div style={{
                             position: 'absolute',

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Trophy, Calendar, Lock, Upload, Eye, Zap, UserPlus, Heart, Award, Flame, CheckCircle2, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getAchievements } from '../api';
+import { AchievementSkeleton } from '../components/Skeleton';
 
 export const BADGES = [
     { id: 'FIRST_UPLOAD', name: 'First Upload', description: 'Uploaded your first video', icon: Upload },
@@ -37,13 +38,7 @@ const Achievements = () => {
     }, [user, token]);
 
     if (loading) {
-        return (
-            <div className="page-container">
-                <div style={{ padding: '4rem', display: 'flex', justifyContent: 'center' }}>
-                    <div className="loader"></div>
-                </div>
-            </div>
-        );
+        return <AchievementSkeleton />;
     }
 
     const earnedIds = new Set(earnedAchievements.map(a => a.milestone_name));
@@ -67,7 +62,7 @@ const Achievements = () => {
                 </div>
                 <div>
                     <h1>Achievements</h1>
-                    <p>Track your creator journey and unlock milestones</p>
+                    <p>Track your editor journey and unlock milestones</p>
                 </div>
             </div>
 

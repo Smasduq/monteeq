@@ -236,7 +236,7 @@ const Upload = () => {
                     }}>
                         <UploadIcon color="white" size={20} />
                     </div>
-                    <span style={{ fontWeight: 800, letterSpacing: '2px', color: 'var(--accent-primary)', fontSize: '0.9rem' }}>CREATOR STUDIO</span>
+                    <span style={{ fontWeight: 800, letterSpacing: '2px', color: 'var(--accent-primary)', fontSize: '0.9rem' }}>EDITOR STUDIO</span>
                 </div>
                 <h1 style={{ fontSize: 'clamp(2.5rem, 6vw, 4rem)', fontWeight: 800, lineHeight: 1, marginBottom: '1rem' }}>
                     Publish <span style={{
@@ -246,7 +246,7 @@ const Upload = () => {
                     }}>Your Vision</span>
                 </h1>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '1.2rem', maxWidth: '600px' }}>
-                    Upload, track, and manage your content with premium tools designed for creators.
+                    Upload, track, and manage your content with premium tools designed for editors.
                 </p>
             </div>
 
