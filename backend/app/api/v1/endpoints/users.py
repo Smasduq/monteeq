@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from typing import List, Optional
+import shutil
+import os
 
 from app.db.session import get_db
 from app.crud import user as crud_user

@@ -64,21 +64,36 @@ const Performance = () => {
         if (active && payload && payload.length) {
             return (
                 <div className="glass" style={{
-                    padding: '1rem',
-                    borderRadius: '16px',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-                    backdropFilter: 'blur(20px)'
+                    padding: '1.2rem',
+                    borderRadius: '20px',
+                    border: `1px solid ${currentMetricInfo.color}30`,
+                    boxShadow: `0 10px 40px rgba(0,0,0,0.6), 0 0 20px ${currentMetricInfo.color}20`,
+                    backdropFilter: 'blur(24px)',
+                    position: 'relative',
+                    overflow: 'hidden'
                 }}>
-                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{label}</p>
-                    <p style={{
-                        margin: '4px 0 0',
-                        fontSize: '1.2rem',
-                        fontWeight: 800,
-                        color: payload[0].color
-                    }}>
-                        {activeMetric === 'earnings' ? `$${payload[0].value.toFixed(2)}` : payload[0].value.toLocaleString()}
-                    </p>
+                    <div style={{
+                        position: 'absolute',
+                        top: 0, left: 0, bottom: 0,
+                        width: '4px',
+                        background: currentMetricInfo.color,
+                        boxShadow: `0 0 10px ${currentMetricInfo.color}`
+                    }} />
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{label}</p>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
+                        <p style={{
+                            margin: 0,
+                            fontSize: '1.5rem',
+                            fontWeight: 900,
+                            color: 'white',
+                            textShadow: `0 0 10px ${currentMetricInfo.color}40`
+                        }}>
+                            {activeMetric === 'earnings' ? `$${payload[0].value.toFixed(2)}` : payload[0].value.toLocaleString()}
+                        </p>
+                        <span style={{ fontSize: '0.75rem', color: currentMetricInfo.color, fontWeight: 700 }}>
+                            {currentMetricInfo.id.toUpperCase()}
+                        </span>
+                    </div>
                 </div>
             );
         }
@@ -208,10 +223,19 @@ const Performance = () => {
                             <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={currentMetricInfo.color} stopOpacity={0.3} />
+                                        <stop offset="5%" stopColor={currentMetricInfo.color} stopOpacity={0.6} />
+                                        <stop offset="50%" stopColor={currentMetricInfo.color} stopOpacity={0.2} />
                                         <stop offset="95%" stopColor={currentMetricInfo.color} stopOpacity={0} />
                                     </linearGradient>
+                                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                                        <feGaussianBlur stdDeviation="6" result="blur" />
+                                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                    </filter>
+                                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+                                    </pattern>
                                 </defs>
+                                <rect width="100%" height="100%" fill="url(#grid)" />
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                                 <XAxis
                                     dataKey="displayDate"
@@ -225,25 +249,66 @@ const Performance = () => {
                                     domain={['auto', 'auto']}
                                 />
                                 <Tooltip content={<CustomTooltip />} />
+
+                                {/* Secondary metric ghost layer for uniqueness */}
+                                {activeMetric === 'views' && (
+                                    <Area
+                                        type="monotone"
+                                        dataKey="likes"
+                                        stroke="rgba(236, 72, 153, 0.2)"
+                                        strokeWidth={1}
+                                        fill="transparent"
+                                        animationDuration={2000}
+                                    />
+                                )}
+
                                 <Area
                                     type="monotone"
                                     dataKey={activeMetric}
-                                    stroke={currentMetricInfo.color}
-                                    strokeWidth={4}
+                                    stroke="transparent"
                                     fillOpacity={1}
                                     fill="url(#colorMetric)"
                                     animationDuration={1500}
                                 />
+
                                 <Line
                                     type="monotone"
                                     dataKey={activeMetric}
                                     stroke={currentMetricInfo.color}
-                                    strokeWidth={0}
-                                    dot={{ r: 4, fill: currentMetricInfo.color, strokeWidth: 2, stroke: '#000' }}
-                                    activeDot={{ r: 8, strokeWidth: 0 }}
+                                    strokeWidth={4}
+                                    dot={false}
+                                    activeDot={{
+                                        r: 6,
+                                        fill: '#fff',
+                                        stroke: currentMetricInfo.color,
+                                        strokeWidth: 4,
+                                        className: 'pulsing-dot'
+                                    }}
+                                    filter="url(#glow)"
+                                    animationDuration={1500}
+                                />
+
+                                <Line
+                                    type="monotone"
+                                    dataKey={activeMetric}
+                                    stroke="#fff"
+                                    strokeWidth={1}
+                                    strokeOpacity={0.3}
+                                    dot={false}
+                                    activeDot={false}
+                                    animationDuration={1500}
                                 />
                             </ComposedChart>
                         </ResponsiveContainer>
+
+                        {/* Final aesthetic overlay */}
+                        <div style={{
+                            position: 'absolute',
+                            top: 0, left: 0, right: 0, bottom: 0,
+                            pointerEvents: 'none',
+                            background: 'radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.1) 100%)',
+                            borderRadius: 'inherit'
+                        }} />
                     </div>
                 </div>
 
