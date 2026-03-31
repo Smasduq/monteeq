@@ -1,5 +1,5 @@
-export const BASE_URL = import.meta.env.VITE_API_URL;
-const API_URL = import.meta.env.VITE_API_URL;
+export const BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL || '';
 export const API_BASE_URL = `${API_URL}/api/v1`;
 
 export const login = async (username, password) => {
@@ -281,6 +281,44 @@ export const getChatMessages = async (conversationId, token) => {
     const response = await fetch(`${API_BASE_URL}/chat/messages/${conversationId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
     });
+    return response.json();
+};
+
+export const updateComment = async ({ videoId = null, postId = null, commentId, content }, token) => {
+    const endpoint = videoId
+        ? `${API_BASE_URL}/videos/${videoId}/comments/${commentId}`
+        : `${API_BASE_URL}/posts/${postId}/comments/${commentId}`;
+    const response = await fetch(endpoint, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ content })
+    });
+    return response.json();
+};
+
+export const deleteComment = async ({ videoId = null, postId = null, commentId }, token) => {
+    const endpoint = videoId
+        ? `${API_BASE_URL}/videos/${videoId}/comments/${commentId}`
+        : `${API_BASE_URL}/posts/${postId}/comments/${commentId}`;
+    const response = await fetch(endpoint, {
+        method: 'DELETE',
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    });
+    return response.json();
+};
+
+export const getFollowers = async (username, skip = 0, limit = 100) => {
+    const response = await fetch(`${API_BASE_URL}/users/${username}/followers?skip=${skip}&limit=${limit}`);
+    return response.json();
+};
+
+export const getFollowing = async (username, skip = 0, limit = 100) => {
+    const response = await fetch(`${API_BASE_URL}/users/${username}/following?skip=${skip}&limit=${limit}`);
     return response.json();
 };
 

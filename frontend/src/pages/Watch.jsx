@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { getVideoById, getComments, postComment, likeVideo, shareVideo, viewVideo } from '../api';
+import { getVideoById, getComments, postComment, updateComment, deleteComment, likeVideo, shareVideo, viewVideo } from '../api';
 import { Heart, Share2, Send, MessageSquare, Download, X, Check } from 'lucide-react';
 import VideoPlayer from '../components/VideoPlayer';
 import { useAuth } from '../context/AuthContext';
@@ -213,7 +213,6 @@ const Watch = () => {
         const shareUrl = `${window.location.origin}/watch/${id}?source=share`;
         await navigator.clipboard.writeText(shareUrl);
         showNotification('success', "Link copied to clipboard!");
-        // No API call here anymore
     };
 
     useEffect(() => {
@@ -404,6 +403,8 @@ const Watch = () => {
                                 replyComment={replyComment}
                                 setReplyComment={setReplyComment}
                                 onSubmitReply={(parentId) => handleCommentSubmit({ preventDefault: () => { } }, parentId || comment.id)}
+                                onEdit={handleCommentEdit}
+                                onDelete={handleCommentDelete}
                             />
                         ))}
                         {comments.length === 0 && (

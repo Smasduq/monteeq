@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Zap, Layout, Upload } from 'lucide-react';
+import { Home, Zap, Layout, PlusCircle } from 'lucide-react';
 
 const BottomNav = () => {
     return (
@@ -17,9 +17,11 @@ const BottomNav = () => {
                 <Layout size={24} />
                 <span>Feed</span>
             </NavLink>
-            <NavLink to="/upload" className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`}>
-                <Upload size={24} />
-                <span>Upload</span>
+            <NavLink to="/upload" className={({ isActive }) => `bottom-nav-item ${isActive ? 'active' : ''}`} style={{
+                color: 'var(--accent-primary)'
+            }}>
+                <PlusCircle size={24} strokeWidth={2.5} />
+                <span style={{ fontWeight: 'bold' }}>Add</span>
             </NavLink>
         </nav>
     );

@@ -1,5 +1,6 @@
-import React from 'react';
-import { Send } from 'lucide-react';
+import React, { useState } from 'react';
+import { Send, Edit2, Trash2, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const CommentItem = ({
     comment,
@@ -8,9 +9,14 @@ const CommentItem = ({
     replyComment,
     setReplyComment,
     onSubmitReply,
+    onEdit,
+    onDelete,
     level = 0
 }) => {
-    const [showAllReplies, setShowAllReplies] = React.useState(false);
+    const { user } = useAuth();
+    const [isEditing, setIsEditing] = useState(false);
+    const [editContent, setEditContent] = useState(comment.content);
+    const [showAllReplies, setShowAllReplies] = useState(false);
     const isReplying = replyingTo === comment.id;
 
     // Smart visibility logic:
@@ -51,27 +57,138 @@ const CommentItem = ({
                             {comment.created_at ? new Date(comment.created_at).toLocaleDateString() : 'Just now'}
                         </span>
                     </div>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.4', marginBottom: '0.5rem' }}>
-                        {comment.content}
-                    </p>
+                    {isEditing ? (
+                        <div style={{ marginTop: '0.4rem', marginBottom: '0.5rem' }}>
+                            <textarea
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                className="glass"
+                                style={{
+                                    width: '100%',
+                                    padding: '0.6rem 0.8rem',
+                                    borderRadius: '8px',
+                                    color: 'white',
+                                    fontSize: '0.9rem',
+                                    border: '1px solid var(--border-glass)',
+                                    outline: 'none',
+                                    background: 'rgba(255,255,255,0.05)',
+                                    minHeight: '60px',
+                                    resize: 'none'
+                                }}
+                                autoFocus
+                            />
+                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.4rem' }}>
+                                <button
+                                    title="Save Edit"
+                                    onClick={() => {
+                                        onEdit(comment.id, editContent);
+                                        setIsEditing(false);
+                                    }}
+                                    disabled={!editContent.trim() || editContent === comment.content}
+                                    style={{
+                                        padding: '4px 12px',
+                                        borderRadius: '4px',
+                                        background: 'var(--accent-primary)',
+                                        border: 'none',
+                                        color: 'white',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        opacity: (!editContent.trim() || editContent === comment.content) ? 0.5 : 1
+                                    }}
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    title="Cancel Edit"
+                                    onClick={() => {
+                                        setIsEditing(false);
+                                        setEditContent(comment.content);
+                                    }}
+                                    style={{
+                                        padding: '4px 12px',
+                                        borderRadius: '4px',
+                                        background: 'rgba(255,255,255,0.1)',
+                                        border: 'none',
+                                        color: 'white',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.4', marginBottom: '0.5rem' }}>
+                            {comment.content}
+                        </p>
+                    )}
 
-                    <button
-                        onClick={() => onReply(isReplying ? null : comment.id)}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--accent-primary)',
-                            fontSize: '0.8rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            padding: '4px 0',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                        }}
-                    >
-                        {isReplying ? 'Cancel' : 'Reply'}
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <button
+                            title={isReplying ? "Cancel Reply" : "Reply to Comment"}
+                            onClick={() => onReply(isReplying ? null : comment.id)}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--accent-primary)',
+                                fontSize: '0.8rem',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                padding: '4px 0',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                            }}
+                        >
+                            {isReplying ? 'Cancel' : 'Reply'}
+                        </button>
+
+                        {!isEditing && user && user.id === comment.owner_id && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                <button
+                                    title="Edit Comment"
+                                    onClick={() => setIsEditing(true)}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'var(--text-muted)',
+                                        fontSize: '0.8rem',
+                                        cursor: 'pointer',
+                                        padding: '4px 0',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                >
+                                    <Edit2 size={12} /> Edit
+                                </button>
+                                <button
+                                    title="Delete Comment"
+                                    onClick={() => {
+                                        if (window.confirm("Are you sure you want to delete this comment?")) {
+                                            onDelete(comment.id);
+                                        }
+                                    }}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#ff4d4d',
+                                        fontSize: '0.8rem',
+                                        cursor: 'pointer',
+                                        padding: '4px 0',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                >
+                                    <Trash2 size={12} /> Delete
+                                </button>
+                            </div>
+                        )}
+                    </div>
 
                     {isReplying && (
                         <form onSubmit={(e) => { e.preventDefault(); onSubmitReply(comment.id); }} style={{ display: 'flex', gap: '0.5rem', marginTop: '0.8rem', marginBottom: '1rem' }}>
@@ -94,6 +211,7 @@ const CommentItem = ({
                                 }}
                             />
                             <button
+                                title="Send Reply"
                                 type="submit"
                                 disabled={!replyComment.trim()}
                                 style={{
@@ -126,6 +244,8 @@ const CommentItem = ({
                                     replyComment={replyComment}
                                     setReplyComment={setReplyComment}
                                     onSubmitReply={onSubmitReply}
+                                    onEdit={onEdit}
+                                    onDelete={onDelete}
                                     level={level + 1}
                                 />
                             ))}
@@ -133,6 +253,7 @@ const CommentItem = ({
                             {/* Toggles */}
                             {!showAllReplies && hiddenCount > 0 && (
                                 <button
+                                    title="Expand Replies"
                                     onClick={() => setShowAllReplies(true)}
                                     style={{
                                         background: 'none',
@@ -152,6 +273,7 @@ const CommentItem = ({
 
                             {showAllReplies && lowInteractionReplies.length > 0 && (
                                 <button
+                                    title="Collapse Replies"
                                     onClick={() => setShowAllReplies(false)}
                                     style={{
                                         background: 'none',

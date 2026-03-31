@@ -5,7 +5,7 @@ from app.schemas import schemas
 from datetime import datetime
 from typing import Optional
 
-def get_videos(db: Session, video_type: str = None, filter_status: str = "approved", current_user_id: int = None, skip: int = 0, limit: int = 100):
+def get_videos(db: Session, video_type: Optional[str] = None, filter_status: str = "approved", current_user_id: Optional[int] = None, skip: int = 0, limit: int = 100):
     query = db.query(Video)
     from datetime import timedelta
     twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
@@ -20,40 +20,29 @@ def get_videos(db: Session, video_type: str = None, filter_status: str = "approv
     if filter_status:
         query = query.filter(Video.status == filter_status)
     
-    # Personalization: Boost videos with tags matching user interests
-    if current_user_id:
-        user = db.query(User).filter(User.id == current_user_id).first()
-        if user and user.interests:
-            user_tags = [t.strip().lower() for t in user.interests.split(",") if t.strip()]
-            if user_tags:
-                from sqlalchemy import case, literal_column
-                # Simple boost: if ANY interest matches ANY tag in video tags
-                # This is a bit complex for SQLite/SQLAlchemy raw, so we'll do 
-                # a discovery score boost logic if it matches.
-                # Actually, discovery score is already used. We'll add a secondary sort or weight.
-                pass
-
-    # Order by discovery score by default
-    query = query.order_by(desc(Video.discovery_score))
-    
-    # Personalization: Boost videos with tags matching user interests
+    # Personalization: Get user interests for boosting
     user_interests = []
     if current_user_id:
         user = db.query(User).filter(User.id == current_user_id).first()
         if user and user.interests:
             user_interests = [t.strip().lower() for t in user.interests.split(",") if t.strip()]
 
+    # Order by discovery score by default
+    query = query.order_by(desc(Video.discovery_score))
+    
     videos = query.offset(skip).limit(limit).all()
     
-    # Re-sort in memory for complex interest matching
+    # Re-sort in memory for complex interest matching & discovery score balance
     if user_interests:
         for video in videos:
             video_tags = [t.strip().lower() for t in (video.tags or "").split(",") if t.strip()]
             # Count matches
             match_count = sum(1 for t in user_interests if t in video_tags)
+            # Combine discovery score with interest boost (20% boost per matching tag)
+            video.personalized_score = video.discovery_score * (1 + (0.2 * match_count))
             video.interest_match_score = match_count
             
-        videos.sort(key=lambda x: (getattr(x, 'interest_match_score', 0), x.discovery_score), reverse=True)
+        videos.sort(key=lambda x: x.personalized_score, reverse=True)
     
     for video in videos:
         video.likes_count = db.query(func.count(Like.video_id)).filter(Like.video_id == video.id).scalar() or 0
@@ -73,7 +62,7 @@ def search_videos(db: Session, query_str: str, status: str = "approved", current
     
     if query_str:
         # Check if it's a tag search (starts with #)
-        if query_str.startswith("#"):
+        if query_str and query_str.startswith("#"):
             tag = query_str[1:].strip()
             query = query.filter(Video.tags.ilike(f"%{tag}%"))
         else:
@@ -104,7 +93,7 @@ def search_posts(db: Session, query_str: str, current_user_id: int = None):
     
     if query_str:
         # Check if it's a tag search (starts with #)
-        if query_str.startswith("#"):
+        if query_str and query_str.startswith("#"):
             tag = query_str[1:].strip()
             query = query.filter(Post.tags.ilike(f"%{tag}%"))
         else:
@@ -414,3 +403,51 @@ def update_user_interests_from_video(db: Session, user_id: int, video_id: int):
     # Keep interests list at a reasonable size (e.g., top 20 latest)
     user.interests = ",".join(updated_interests[-20:])
     db.commit()
+
+def update_comment(db: Session, comment_id: int, user_id: int, content: str):
+    comment = db.query(Comment).filter(Comment.id == comment_id).first()
+    if not comment:
+        return None
+    
+    # Only owner or admin can edit
+    user = db.query(User).filter(User.id == user_id).first()
+    if comment.owner_id != user_id and (not user or user.role != "admin"):
+        return False
+        
+    comment.content = content
+    db.commit()
+    db.refresh(comment)
+    return comment
+
+def delete_comment(db: Session, comment_id: int, user_id: int):
+    comment = db.query(Comment).filter(Comment.id == comment_id).first()
+    if not comment:
+        return None
+        
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    # Permission check for deletion:
+    # 1. Comment owner
+    # 2. Content owner (video/post owner) can delete any comment on their content
+    # 3. Admin
+    
+    can_delete = False
+    if comment.owner_id == user_id or (user and user.role == "admin"):
+        can_delete = True
+    else:
+        # Check content ownership
+        if comment.video_id:
+            video = db.query(Video).filter(Video.id == comment.video_id).first()
+            if video and video.owner_id == user_id:
+                can_delete = True
+        elif comment.post_id:
+            post = db.query(Post).filter(Post.id == comment.post_id).first()
+            if post and post.owner_id == user_id:
+                can_delete = True
+                
+    if not can_delete:
+        return False
+        
+    db.delete(comment)
+    db.commit()
+    return True

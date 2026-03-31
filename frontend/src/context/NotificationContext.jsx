@@ -59,9 +59,8 @@ export const NotificationProvider = ({ children }) => {
             };
 
 
-            // Ensure we use the correct backend port (8000)
-            const apiUrl = 'http://localhost:8000';
-            const response = await fetch(`${apiUrl}/api/v1/notifications/push-subscriptions`, {
+            // Ensure we use the correct backend port or relative path
+            const response = await fetch(`/api/v1/notifications/push-subscriptions`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
