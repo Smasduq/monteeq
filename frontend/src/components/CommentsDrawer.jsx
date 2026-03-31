@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, User } from 'lucide-react';
-import { getComments, postComment } from '../api';
+import { getComments, postComment, updateComment, deleteComment } from '../api';
 import { useAuth } from '../context/AuthContext';
 import CommentItem from './CommentItem';
 
@@ -95,6 +95,8 @@ const CommentsDrawer = ({ videoId = null, postId = null, onClose }) => {
                                 replyComment={replyComment}
                                 setReplyComment={setReplyComment}
                                 onSubmitReply={(pid) => handlePost(null, pid)}
+                                onEdit={handleEdit}
+                                onDelete={handleDelete}
                             />
                         ))
                     )}

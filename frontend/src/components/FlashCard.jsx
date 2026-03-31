@@ -147,6 +147,7 @@ const FlashCard = ({ video, isActive, onLike, onComment, onShare, onFollow, mute
                         {video.owner?.id !== user?.id && (
                             <button
                                 className={`follow-btn ${video.owner_followed ? 'followed' : ''}`}
+                                title={video.owner_followed ? 'Unfollow User' : 'Follow User'}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onFollow();

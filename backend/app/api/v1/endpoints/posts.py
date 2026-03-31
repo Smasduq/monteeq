@@ -186,3 +186,42 @@ def delete_post(
     db.delete(post)
     db.commit()
     return {"status": "success", "message": "Post deleted successfully"}
+
+@router.put("/{post_id}/comments/{comment_id}", response_model=schemas.Comment)
+def update_comment(
+    post_id: int,
+    comment_id: int,
+    comment_in: schemas.CommentBase,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    # Verify post exists
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+        
+    result = crud_video.update_comment(db, comment_id=comment_id, user_id=current_user.id, content=comment_in.content)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if result is False:
+        raise HTTPException(status_code=403, detail="Not authorized to edit this comment")
+    return result
+
+@router.delete("/{post_id}/comments/{comment_id}")
+def delete_comment(
+    post_id: int,
+    comment_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    # Verify post exists
+    post = db.query(Post).filter(Post.id == post_id).first()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+        
+    result = crud_video.delete_comment(db, comment_id=comment_id, user_id=current_user.id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if result is False:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
+    return {"status": "success", "message": "Comment deleted successfully"}

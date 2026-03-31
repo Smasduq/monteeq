@@ -202,3 +202,9 @@ def verify_code(db: Session, email: str, code: str):
     db.delete(db_code)
     db.commit()
     return True
+
+def get_followers(db: Session, user_id: int, skip: int = 0, limit: int = 100):
+    return db.query(User).join(Follow, User.id == Follow.follower_id).filter(Follow.followed_id == user_id).offset(skip).limit(limit).all()
+
+def get_following(db: Session, user_id: int, skip: int = 0, limit: int = 100):
+    return db.query(User).join(Follow, User.id == Follow.followed_id).filter(Follow.follower_id == user_id).offset(skip).limit(limit).all()

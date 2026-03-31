@@ -170,17 +170,17 @@ def get_user_insights(
     existing_achievements = db.query(Achievement).filter(Achievement.user_id == user_id).all()
     achieved_names = {a.milestone_name for a in existing_achievements}
     
+    from app.crud import achievement as crud_achievement
     new_milestone_reached = None
     for m in milestones:
         m_name = f"{m}_VIEWS"
         if total_views >= m and m_name not in achieved_names:
-            new_achievement = Achievement(user_id=user_id, milestone_name=m_name)
-            db.add(new_achievement)
+            crud_achievement.create_achievement(db, user_id=user_id, milestone_name=m_name)
             new_milestone_reached = m_name
             achieved_names.add(m_name)
     
-    if new_milestone_reached:
-        db.commit()
+    # Reload achievements to include any newly created ones
+    existing_achievements = db.query(Achievement).filter(Achievement.user_id == user_id).all()
     
     return {
         "total_views": total_views,
@@ -284,5 +284,29 @@ def update_onboarding(
     onboarding_data.is_onboarded = True
     updated_user = crud_user.update_user(db, user_id=current_user.id, user_update=onboarding_data)
     return updated_user
+
+@router.get("/{username}/followers", response_model=List[schemas.User])
+def get_user_followers(
+    username: str,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    user = crud_user.get_user_by_username(db, username=username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return crud_user.get_followers(db, user_id=user.id, skip=skip, limit=limit)
+
+@router.get("/{username}/following", response_model=List[schemas.User])
+def get_user_following(
+    username: str,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    user = crud_user.get_user_by_username(db, username=username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return crud_user.get_following(db, user_id=user.id, skip=skip, limit=limit)
 
 

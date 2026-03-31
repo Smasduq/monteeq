@@ -241,7 +241,11 @@ async def background_process_video(
                 try:
                     import subprocess
                     import json
-                    recognition_script = os.path.join("c:\\Users\\Smasduq\\Documents\\Montage\\video-service", "scripts", "video_recognition.py")
+                    import sys
+                    # Dynamic path resolution for Linux
+                    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+                    recognition_script = os.path.join(backend_dir, "..", "video-service", "scripts", "video_recognition.py")
+                    
                     if os.path.exists(recognition_script):
                         rec_result = subprocess.run(
                             [sys.executable, recognition_script, temp_file_path],
@@ -432,6 +436,59 @@ async def upload_video(
 
     return db_video
 
+
+@router.post("/{video_id}/reupload", response_model=schemas.Video)
+async def reupload_video(
+    video_id: int,
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    if video.owner_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    if video.status != "failed":
+        raise HTTPException(status_code=400, detail="Only failed videos can be reuploaded")
+
+    # check quota
+    if not current_user.is_premium:
+        if video.video_type == "flash" and current_user.flash_uploads >= FLASH_QUOTA_LIMIT:
+            raise HTTPException(status_code=403, detail=f"Flash quota exceeded ({FLASH_QUOTA_LIMIT} max)")
+        if video.video_type == "home" and current_user.home_uploads >= HOME_QUOTA_LIMIT:
+            raise HTTPException(status_code=403, detail=f"Home quota exceeded ({HOME_QUOTA_LIMIT} max)")
+            
+    temp_dir = tempfile.mkdtemp()
+    temp_file_path = os.path.join(temp_dir, file.filename)
+    with open(temp_file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    if video.video_type == "flash":
+        current_user.flash_uploads = (current_user.flash_uploads or 0) + 1
+    else:
+        current_user.home_uploads = (current_user.home_uploads or 0) + 1
+        
+    video.processing_key = os.path.basename(temp_dir)
+    video.status = "pending"
+    video.failed_at = None
+    db.commit()
+    
+    background_tasks.add_task(
+        background_process_video,
+        temp_file_path,
+        video.video_type,
+        video.title,
+        video.id,
+        False, # thumbnail_provided = False
+        video.processing_key
+    )
+    
+    return video
+
 @router.get("/status/{key}")
 async def get_processing_status(key: str):
     async with httpx.AsyncClient() as client:
@@ -502,3 +559,42 @@ def share_video(
     
     crud_video.increment_share(db, video_id=video_id)
     return {"status": "success"}
+
+@router.put("/{video_id}/comments/{comment_id}", response_model=schemas.Comment)
+def update_comment(
+    video_id: int,
+    comment_id: int,
+    comment_in: schemas.CommentBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Verify video exists
+    video = crud_video.get_video(db, video_id=video_id)
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+        
+    result = crud_video.update_comment(db, comment_id=comment_id, user_id=current_user.id, content=comment_in.content)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if result is False:
+        raise HTTPException(status_code=403, detail="Not authorized to edit this comment")
+    return result
+
+@router.delete("/{video_id}/comments/{comment_id}")
+def delete_comment(
+    video_id: int,
+    comment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Verify video exists
+    video = crud_video.get_video(db, video_id=video_id)
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+        
+    result = crud_video.delete_comment(db, comment_id=comment_id, user_id=current_user.id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if result is False:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
+    return {"status": "success", "message": "Comment deleted successfully"}
