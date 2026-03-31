@@ -393,6 +393,7 @@ const VideoPlayer = ({ video, autoPlay = false, onTimeUpdate }) => {
                                         <button
                                             key={res.value}
                                             onClick={() => changeResolution(res)}
+                                            title={`Change Quality to ${res.label}`}
                                             style={{
                                                 display: 'flex',
                                                 justifyContent: 'space-between',

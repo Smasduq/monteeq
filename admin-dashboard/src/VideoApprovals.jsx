@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { getPendingVideos, updateVideoStatus } from './api';
-import { ShieldCheck, LogOut, CheckCircle, XCircle, ChevronLeft } from 'lucide-react';
+import { ShieldCheck, LogOut, CheckCircle, XCircle, ChevronLeft, Play, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from './context/NotificationContext';
 
 const VideoApprovals = ({ token, setToken }) => {
     const [videos, setVideos] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [previewVideo, setPreviewVideo] = useState(null);
     const navigate = useNavigate();
 
     const { showNotification } = useNotification();
@@ -92,13 +93,25 @@ const VideoApprovals = ({ token, setToken }) => {
                                 display: 'flex', flexDirection: 'column'
                             }}>
                                 <div style={{
-                                    height: '180px', background: '#000', position: 'relative'
-                                }}>
+                                    height: '180px', background: '#000', position: 'relative', cursor: 'pointer'
+                                }} onClick={() => setPreviewVideo(video)}>
                                     {video.thumbnail_url ? (
-                                        <img src={video.thumbnail_url} alt={video.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        <img src={video.thumbnail_url} alt={video.title} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} />
                                     ) : (
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666' }}>No Preview</div>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666' }}>No Preview image</div>
                                     )}
+                                    <div style={{
+                                        position: 'absolute', inset: 0,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                    }}>
+                                        <div style={{
+                                            background: 'rgba(0,0,0,0.6)', borderRadius: '50%', padding: '12px',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
+                                            transition: 'transform 0.2s', cursor: 'pointer'
+                                        }} className="hover-scale">
+                                            <Play size={24} fill="currentColor" />
+                                        </div>
+                                    </div>
                                     <span style={{
                                         position: 'absolute', top: '10px', right: '10px',
                                         background: 'rgba(0,0,0,0.7)', padding: '0.2rem 0.5rem', borderRadius: '4px',
@@ -141,6 +154,37 @@ const VideoApprovals = ({ token, setToken }) => {
                     </div>
                 )}
             </main>
+
+            {/* Video Preview Modal */}
+            {previewVideo && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.9)', zIndex: 9999, backdropFilter: 'blur(5px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem'
+                }} onClick={() => setPreviewVideo(null)}>
+                    <button style={{
+                        position: 'absolute', top: '20px', right: '20px',
+                        background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%',
+                        padding: '10px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }} onClick={(e) => { e.stopPropagation(); setPreviewVideo(null); }}>
+                        <X size={24} />
+                    </button>
+                    <div style={{ maxWidth: '100%', maxHeight: '100%', width: '1000px' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                            <h2 style={{ color: 'white', margin: 0 }}>{previewVideo.title}</h2>
+                            <span style={{ fontSize: '0.9rem', background: '#333', padding: '4px 12px', borderRadius: '20px', color: '#ddd' }}>
+                                {previewVideo.video_type} preview
+                            </span>
+                        </div>
+                        <video 
+                            src={previewVideo.video_url} 
+                            controls 
+                            autoPlay 
+                            style={{ width: '100%', maxHeight: 'calc(100vh - 120px)', borderRadius: '1rem', background: 'black', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Users, Eye, Play, Zap, Grid, Heart, MessageSquare, Share2, Plus, Bell } from 'lucide-react';
-import { getUserProfile, toggleFollow } from '../api';
+import { getUserProfile, toggleFollow, getFollowers, getFollowing } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { ProfileHeaderSkeleton, VideoSkeleton, TabsSkeleton } from '../components/Skeleton';
@@ -16,6 +16,9 @@ const Profile = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('videos');
     const [isFollowing, setIsFollowing] = useState(false);
+    const [followers, setFollowers] = useState([]);
+    const [following, setFollowing] = useState([]);
+    const [loadingSocial, setLoadingSocial] = useState(false);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -33,6 +36,38 @@ const Profile = () => {
         };
         fetchProfile();
     }, [username, token]);
+
+    useEffect(() => {
+        if (activeTab === 'followers') {
+            fetchFollowers();
+        } else if (activeTab === 'following') {
+            fetchFollowing();
+        }
+    }, [activeTab, username, token]);
+
+    const fetchFollowers = async () => {
+        setLoadingSocial(true);
+        try {
+            const data = await getFollowers(username);
+            setFollowers(data);
+        } catch (err) {
+            console.error("Followers error:", err);
+        } finally {
+            setLoadingSocial(false);
+        }
+    };
+
+    const fetchFollowing = async () => {
+        setLoadingSocial(true);
+        try {
+            const data = await getFollowing(username);
+            setFollowing(data);
+        } catch (err) {
+            console.error("Following error:", err);
+        } finally {
+            setLoadingSocial(false);
+        }
+    };
 
     const handleFollow = async () => {
         if (!token) {
@@ -208,7 +243,7 @@ const Profile = () => {
             </div>
 
             <div className="profile-tabs" style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '2rem', borderBottom: '1px solid rgba(255,255,255,0.05)', overflowX: 'auto', padding: '0 1rem' }}>
-                {['videos', 'flash', 'posts'].map(tab => (
+                {['videos', 'flash', 'posts', 'followers', 'following'].map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
@@ -318,6 +353,54 @@ const Profile = () => {
                             </div>
                         )) : (
                             <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>No posts yet.</div>
+                        )}
+                    </div>
+                )}
+                {(activeTab === 'followers' || activeTab === 'following') && (
+                    <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+                        {loadingSocial ? (
+                            <div style={{ textAlign: 'center', padding: '2rem' }}>Loading...</div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                {(activeTab === 'followers' ? followers : following).length > 0 ? (
+                                    (activeTab === 'followers' ? followers : following).map(u => (
+                                        <div
+                                            key={u.id}
+                                            className="glass hover-scale"
+                                            style={{
+                                                padding: '1rem 1.5rem',
+                                                borderRadius: '16px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '1rem',
+                                                cursor: 'pointer'
+                                            }}
+                                            onClick={() => navigate(`/profile/${u.username}`)}
+                                        >
+                                            <div style={{
+                                                width: '48px',
+                                                height: '48px',
+                                                borderRadius: '50%',
+                                                background: u.profile_pic ? `url(${u.profile_pic}) center/cover` : '#333',
+                                                border: '1px solid var(--border-glass)'
+                                            }}>
+                                                {!u.profile_pic && (
+                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                                                        {u.username[0].toUpperCase()}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontWeight: 700 }}>{u.full_name || `@${u.username}`}</div>
+                                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>@{u.username}</div>
+                                            </div>
+                                            {/* We could add follow buttons here for each user but it's more complex with individual states */}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>No users found.</div>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}

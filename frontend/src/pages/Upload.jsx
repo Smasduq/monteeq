@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload as UploadIcon, Video, Layout, CheckCircle, FileVideo, Plus, X, ArrowRight, Gauge } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { API_BASE_URL, getUserInsights } from '../api';
 
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +8,8 @@ import { useNotification } from '../context/NotificationContext';
 
 const Upload = () => {
     const { user, token, refreshUser } = useAuth();
+    const location = useLocation();
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (token) refreshUser();
@@ -62,6 +65,16 @@ const Upload = () => {
     const [thumbnailFile, setThumbnailFile] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef(null);
+
+    useEffect(() => {
+        if (location.state?.title) {
+            setTitle(location.state.title);
+        }
+        if (location.state?.type) {
+            setCurrentType(location.state.type);
+            setShowModal(true);
+        }
+    }, [location.state]);
 
     const { showNotification, updateNotification, removeNotification } = useNotification();
 

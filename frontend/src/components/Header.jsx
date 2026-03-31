@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Zap, Menu, X, ArrowLeft, Search, Bell } from 'lucide-react';
+import { Zap, Menu, X, ArrowLeft, Search, Bell, LogIn, Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getSearchSuggestions, getTrendingSuggestions, getUnreadNotifications } from '../api';
@@ -136,6 +136,7 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
                     <button
                         className="back-button glass"
                         onClick={() => navigate(-1)}
+                        title="Go Back"
                         style={{
                             marginRight: '0.5rem',
                             display: 'flex',
@@ -157,6 +158,7 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
                 <button
                     className="menu-toggle-btn glass"
                     onClick={onMenuToggle}
+                    title="Toggle Sidebar Menu"
                     style={{
                         marginRight: '0.8rem',
                         display: 'flex',
@@ -198,6 +200,7 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
                 <button
                     className="glass"
                     onClick={() => navigate('/search')}
+                    title="Mobile Search"
                     style={{
                         width: '40px', height: '40px', borderRadius: '50%',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -254,16 +257,71 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
             <div className="header-right">
                 {!token ? (
                     <button
-                        className="mobile-login-pill glass btn-active"
+                        className="mobile-login-pill premium-btn"
                         onClick={() => navigate('/login')}
+                        title="Login"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.6rem 1.4rem',
+                            borderRadius: '50px',
+                            background: 'linear-gradient(135deg, var(--accent-primary) 0%, #ff4b4b 100%)',
+                            color: 'white',
+                            fontWeight: 'bold',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            boxShadow: '0 4px 15px rgba(255, 62, 62, 0.4)',
+                            transition: 'all 0.3s ease',
+                            cursor: 'pointer'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = '0 6px 20px rgba(255, 62, 62, 0.6)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 62, 62, 0.4)';
+                        }}
                     >
-                        Login
+                        <LogIn size={18} strokeWidth={2.5} />
+                        <span>Login</span>
                     </button>
                 ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <button
                             className="glass"
+                            onClick={() => navigate('/upload')}
+                            title="Upload"
+                            style={{
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '12px',
+                                background: 'rgba(255,255,255,0.05)',
+                                color: 'var(--accent-primary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: '1px solid var(--border-glass)',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                e.currentTarget.style.color = 'white';
+                                e.currentTarget.style.background = 'var(--accent-primary)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.color = 'var(--accent-primary)';
+                                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                            }}
+                        >
+                            <Plus size={22} strokeWidth={3} />
+                        </button>
+                        <button
+                            className="glass"
                             onClick={() => navigate('/notifications')}
+                            title="View Notifications"
                             style={{
                                 width: '40px',
                                 height: '40px',

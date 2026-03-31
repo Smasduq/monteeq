@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, Film, Zap, AlertTriangle, ArrowLeft, Layout, Clock } from 'lucide-react';
+import { Trash2, Film, Zap, AlertTriangle, ArrowLeft, Layout, Clock, UploadCloud } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getUserProfile, deleteVideo, deletePost } from '../api';
+import { useNotification } from '../context/NotificationContext';
+import { getUserProfile, deleteVideo, deletePost, API_BASE_URL } from '../api';
 import { ManageSkeleton } from '../components/Skeleton';
 
 const ManageContent = () => {
     const { user, token } = useAuth();
+    const { showNotification, updateNotification, removeNotification } = useNotification();
     const [videos, setVideos] = useState([]);
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -14,6 +16,108 @@ const ManageContent = () => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [activeTab, setActiveTab] = useState('videos');
     const navigate = useNavigate();
+    
+    const fileInputRef = useRef(null);
+    const [reuploadTargetId, setReuploadTargetId] = useState(null);
+
+    const handleReuploadSelection = async (e) => {
+        const file = e.target.files[0];
+        if (!file || !reuploadTargetId) return;
+        
+        const targetVideo = videos.find(v => v.id === reuploadTargetId);
+        e.target.value = ''; // reset input
+        
+        const notificationId = showNotification('loading', `Reuploading "${targetVideo?.title}"...`, { progress: 0 });
+        const currentTargetId = reuploadTargetId;
+        setReuploadTargetId(null);
+        
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const xhr = new XMLHttpRequest();
+            const uploadPromise = new Promise((resolve, reject) => {
+                xhr.upload.addEventListener('progress', (ev) => {
+                    if (ev.lengthComputable) {
+                        const percent = Math.round((ev.loaded / ev.total) * 100);
+                        updateNotification(notificationId, { progress: percent, status: `Uploading "${targetVideo?.title}" (${percent}%)` });
+                    }
+                });
+                
+                xhr.onreadystatechange = () => {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve(JSON.parse(xhr.responseText));
+                        } else {
+                            const errorData = xhr.responseText ? JSON.parse(xhr.responseText) : { detail: 'Upload failed' };
+                            reject(new Error(errorData.detail || 'Upload failed'));
+                        }
+                    }
+                };
+                xhr.onerror = () => reject(new Error('Network error during reupload'));
+                
+                xhr.open('POST', `${API_BASE_URL}/videos/${currentTargetId}/reupload`);
+                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                xhr.send(formData);
+            });
+            
+            const data = await uploadPromise;
+            const processingKey = data.processing_key;
+            
+            updateNotification(notificationId, {
+                type: 'processing',
+                status: 'Processing video...',
+                progress: 0,
+                message: data.video_type === 'flash' ? 'Optimizing...' : 'Starting transcoding...'
+            });
+            
+            setVideos(prev => prev.map(v => v.id === currentTargetId ? { ...v, status: 'pending', failed_at: null } : v));
+            
+            if (processingKey) {
+                const pollInterval = setInterval(async () => {
+                    try {
+                        const statusResp = await fetch(`${API_BASE_URL}/videos/status/${encodeURIComponent(processingKey)}`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        const statusData = await statusResp.json();
+                        
+                        if (statusData) {
+                            if (statusData.status === 'completed') {
+                                clearInterval(pollInterval);
+                                updateNotification(notificationId, {
+                                    type: 'success',
+                                    status: 'Reupload Complete!',
+                                    message: `"${targetVideo?.title}" is now live.`,
+                                    progress: 100
+                                });
+                                setTimeout(() => removeNotification(notificationId), 3000);
+                                setVideos(prev => prev.map(v => v.id === currentTargetId ? { ...v, status: 'approved' } : v));
+                            } else if (statusData.status === 'error') {
+                                clearInterval(pollInterval);
+                                updateNotification(notificationId, {
+                                    type: 'error',
+                                    status: 'Processing Failed',
+                                    message: statusData.message || 'Error occurred.'
+                                });
+                                setVideos(prev => prev.map(v => v.id === currentTargetId ? { ...v, status: 'failed', failed_at: new Date().toISOString() } : v));
+                            } else {
+                                updateNotification(notificationId, {
+                                    progress: statusData.progress,
+                                    status: 'Processing...',
+                                    message: statusData.message
+                                });
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Polling error:", err);
+                    }
+                }, 2000);
+            }
+        } catch (err) {
+            updateNotification(notificationId, { type: 'error', status: 'Reupload Error', message: err.message });
+            setVideos(prev => prev.map(v => v.id === currentTargetId ? { ...v, status: 'failed', failed_at: new Date().toISOString() } : v));
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -169,6 +273,27 @@ const ManageContent = () => {
                                         )}
                                     </div>
                                 </div>
+                                {video.status === 'failed' && (
+                                    <button
+                                        onClick={() => {
+                                            setReuploadTargetId(video.id);
+                                            setTimeout(() => {
+                                                if (fileInputRef.current) fileInputRef.current.click();
+                                            }, 50);
+                                        }}
+                                        title="Reupload failed video"
+                                        style={{
+                                            background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: 'none',
+                                            padding: '0 12px', height: '40px', borderRadius: '10px', cursor: 'pointer',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                            fontWeight: 600, fontSize: '0.85rem', transition: 'all 0.2s ease'
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.background = '#3b82f6'; e.currentTarget.style.color = 'white'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)'; e.currentTarget.style.color = '#3b82f6'; }}
+                                    >
+                                        <UploadCloud size={16} /> Reupload
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => setDeleteTarget({ type: 'video', id: video.id })}
                                     style={{
@@ -255,6 +380,14 @@ const ManageContent = () => {
                     </div>
                 </div>
             )}
+            {/* Hidden Input for Reupload */}
+            <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept="video/*"
+                onChange={handleReuploadSelection}
+            />
         </div>
     );
 };
