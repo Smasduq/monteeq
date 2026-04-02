@@ -60,3 +60,30 @@ export const updateVideoStatus = async (videoId, status, token) => {
     });
     return response.data;
 };
+export const getStorageMode = async (token) => {
+    const response = await api.get('/admin/settings/storage-mode', {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+};
+
+export const updateStorageMode = async (mode, token) => {
+    const response = await api.put(`/admin/settings/storage-mode?mode=${mode}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+};
+
+export const getPerformanceStats = async (metric, token) => {
+    const response = await api.get(`/admin/stats/performance?metric=${metric}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+};
+
+export const getAdminConfig = async (token) => {
+    const response = await api.get('/admin/config', {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+};

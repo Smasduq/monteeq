@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { getPendingVideos, updateVideoStatus } from './api';
-import { ShieldCheck, LogOut, CheckCircle, XCircle, ChevronLeft, Play, X } from 'lucide-react';
+import { ShieldCheck, LogOut, CheckCircle, XCircle, ChevronLeft, Play, X, Info, Sun, Moon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from './context/NotificationContext';
 
-const VideoApprovals = ({ token, setToken }) => {
+const VideoApprovals = ({ token, setToken, theme, toggleTheme }) => {
     const [videos, setVideos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [previewVideo, setPreviewVideo] = useState(null);
     const navigate = useNavigate();
-
     const { showNotification } = useNotification();
 
     useEffect(() => {
@@ -48,104 +47,84 @@ const VideoApprovals = ({ token, setToken }) => {
         }
     };
 
-    if (loading) return <div style={{ background: '#0f0f0f', height: '100vh', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>;
+    if (loading) return (
+        <div style={{ background: 'var(--bg-app)', height: '100vh', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ShieldCheck size={48} className="animate-pulse" color="var(--accent)" />
+        </div>
+    );
 
     return (
-        <div style={{ minHeight: '100vh', background: '#0f0f0f', color: '#e5e5e5', fontFamily: 'Inter, sans-serif' }}>
-            {/* Header */}
-            <header style={{
-                background: '#1a1a1a', padding: '1rem 2rem', borderBottom: '1px solid #333',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        <div style={{ minHeight: '100vh', background: 'var(--bg-app)', color: 'var(--text-primary)', transition: 'background-color 0.3s ease' }}>
+            <header style={{ 
+                height: '72px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-surface)',
+                display: 'flex', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <ShieldCheck size={32} color="#ef4444" />
-                    <span style={{ fontSize: '1.2rem', fontWeight: 700 }}>Video Approvals</span>
+                <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ background: 'var(--accent-soft)', padding: '8px', borderRadius: '12px' }}>
+                            <ShieldCheck size={24} color="var(--accent)" />
+                        </div>
+                        <span className="jakarta" style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.025em' }}>Queue Manager</span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                         {/* Theme Toggle */}
+                         <button onClick={toggleTheme} className="btn btn-ghost" style={{ padding: '8px' }}>
+                            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                        </button>
+
+                        <div style={{ width: '1px', height: '24px', background: 'var(--border-subtle)' }}></div>
+
+                        <button onClick={handleLogout} className="btn btn-outline" style={{ padding: '8px' }}>
+                            <LogOut size={18} />
+                        </button>
+                    </div>
                 </div>
-                <button onClick={handleLogout} style={{
-                    background: 'none', border: '1px solid #333', color: '#aaa',
-                    padding: '0.5rem 1rem', borderRadius: '0.5rem', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: '0.5rem'
-                }}>
-                    <LogOut size={16} /> Logout
-                </button>
             </header>
 
-            <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
-                <button
-                    onClick={() => navigate('/dashboard')}
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none',
-                        color: '#aaa', cursor: 'pointer', marginBottom: '2rem', fontSize: '1rem'
-                    }}
-                >
-                    <ChevronLeft size={20} /> Back to Dashboard
-                </button>
+            <main className="container" style={{ paddingTop: '40px', paddingBottom: '40px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+                    <button onClick={() => navigate('/dashboard')} className="btn btn-outline">
+                        <ChevronLeft size={16} /> Back to Dashboard
+                    </button>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                        PENDING: {videos.length}
+                    </div>
+                </div>
 
                 {videos.length === 0 ? (
-                    <div style={{ textAlign: 'center', color: '#666', marginTop: '4rem' }}>
-                        <h3>No pending videos found</h3>
+                    <div className="card" style={{ textAlign: 'center', borderStyle: 'dashed', padding: '80px 24px', background: 'transparent' }}>
+                        <p style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '1.1rem' }}>The submission queue is empty</p>
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '2rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '32px' }}>
                         {videos.map(video => (
-                            <div key={video.id} style={{
-                                background: '#1a1a1a', borderRadius: '1rem', border: '1px solid #333', overflow: 'hidden',
-                                display: 'flex', flexDirection: 'column'
-                            }}>
-                                <div style={{
-                                    height: '180px', background: '#000', position: 'relative', cursor: 'pointer'
-                                }} onClick={() => setPreviewVideo(video)}>
+                            <div key={video.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                                <div style={{ height: '200px', background: 'black', position: 'relative', cursor: 'pointer' }} onClick={() => setPreviewVideo(video)}>
                                     {video.thumbnail_url ? (
                                         <img src={video.thumbnail_url} alt={video.title} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }} />
                                     ) : (
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666' }}>No Preview image</div>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>— No Preview —</div>
                                     )}
-                                    <div style={{
-                                        position: 'absolute', inset: 0,
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                    }}>
-                                        <div style={{
-                                            background: 'rgba(0,0,0,0.6)', borderRadius: '50%', padding: '12px',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white',
-                                            transition: 'transform 0.2s', cursor: 'pointer'
-                                        }} className="hover-scale">
+                                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)' }}>
+                                        <div style={{ background: 'rgba(255,255,255,0.1)', padding: '12px', borderRadius: '50%', backdropFilter: 'blur(8px)', color: 'white' }}>
                                             <Play size={24} fill="currentColor" />
                                         </div>
                                     </div>
-                                    <span style={{
-                                        position: 'absolute', top: '10px', right: '10px',
-                                        background: 'rgba(0,0,0,0.7)', padding: '0.2rem 0.5rem', borderRadius: '4px',
-                                        fontSize: '0.8rem', color: '#fff'
-                                    }}>
+                                    <span style={{ position: 'absolute', top: '12px', right: '12px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', background: 'rgba(0,0,0,0.7)', padding: '2px 8px', borderRadius: '4px', letterSpacing: '0.05em', color: 'white' }}>
                                         {video.video_type}
                                     </span>
                                 </div>
-                                <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                    <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>{video.title}</h3>
-                                    <div style={{ color: '#888', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                                        By {video.owner ? video.owner.username : 'Unknown'}
-                                    </div>
+                                <div style={{ padding: '24px' }}>
+                                    <h3 className="jakarta" style={{ margin: '0 0 6px 0', fontSize: '1.125rem', fontWeight: 700 }}>{video.title}</h3>
+                                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '24px' }}>By <span style={{ color: 'var(--accent)', fontWeight: 700 }}>@{video.owner?.username || 'unknown'}</span></p>
 
-                                    <div style={{ marginTop: 'auto', display: 'flex', gap: '1rem' }}>
-                                        <button
-                                            onClick={() => handleStatusUpdate(video.id, 'approved')}
-                                            style={{
-                                                flex: 1, padding: '0.6rem', borderRadius: '0.5rem', border: 'none',
-                                                background: '#22c55e', color: 'black', fontWeight: 600, cursor: 'pointer',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
-                                            }}
-                                        >
-                                            <CheckCircle size={18} /> Approve
+                                    <div style={{ display: 'flex', gap: '12px' }}>
+                                        <button onClick={() => handleStatusUpdate(video.id, 'approved')} className="btn btn-primary" style={{ flex: 1, background: 'var(--success)' }}>
+                                            <CheckCircle size={16} /> Pass
                                         </button>
-                                        <button
-                                            onClick={() => handleStatusUpdate(video.id, 'rejected')}
-                                            style={{
-                                                flex: 1, padding: '0.6rem', borderRadius: '0.5rem', border: 'none',
-                                                background: '#ef4444', color: 'black', fontWeight: 600, cursor: 'pointer',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
-                                            }}
-                                        >
-                                            <XCircle size={18} /> Reject
+                                        <button onClick={() => handleStatusUpdate(video.id, 'rejected')} className="btn btn-outline" style={{ flex: 1, color: 'var(--danger)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+                                            <XCircle size={16} /> Fail
                                         </button>
                                     </div>
                                 </div>
@@ -155,33 +134,27 @@ const VideoApprovals = ({ token, setToken }) => {
                 )}
             </main>
 
-            {/* Video Preview Modal */}
             {previewVideo && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.9)', zIndex: 9999, backdropFilter: 'blur(5px)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem'
-                }} onClick={() => setPreviewVideo(null)}>
-                    <button style={{
-                        position: 'absolute', top: '20px', right: '20px',
-                        background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%',
-                        padding: '10px', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }} onClick={(e) => { e.stopPropagation(); setPreviewVideo(null); }}>
-                        <X size={24} />
-                    </button>
-                    <div style={{ maxWidth: '100%', maxHeight: '100%', width: '1000px' }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h2 style={{ color: 'white', margin: 0 }}>{previewVideo.title}</h2>
-                            <span style={{ fontSize: '0.9rem', background: '#333', padding: '4px 12px', borderRadius: '20px', color: '#ddd' }}>
-                                {previewVideo.video_type} preview
-                            </span>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(16px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }} onClick={() => setPreviewVideo(null)}>
+                    <div style={{ width: '100%', maxWidth: '1040px', display: 'flex', flexDirection: 'column', gap: '20px' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                             <div>
+                                <h1 className="jakarta" style={{ fontSize: '1.5rem', fontWeight: 800, color: 'white', margin: 0 }}>{previewVideo.title}</h1>
+                                <p style={{ fontSize: '14px', color: '#b0b0b0' }}>Verifying submission from <span style={{ color: 'var(--accent)', fontWeight: 700 }}>@{previewVideo.owner?.username}</span></p>
+                             </div>
+                             <button onClick={() => setPreviewVideo(null)} className="btn btn-ghost" style={{ padding: '8px', color: 'white' }}><X size={24} /></button>
                         </div>
-                        <video 
-                            src={previewVideo.video_url} 
-                            controls 
-                            autoPlay 
-                            style={{ width: '100%', maxHeight: 'calc(100vh - 120px)', borderRadius: '1rem', background: 'black', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}
-                        />
+                        <div style={{ background: 'black', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <video src={previewVideo.video_url} controls autoPlay style={{ width: '100%', maxHeight: 'calc(100vh - 240px)', display: 'block' }} />
+                        </div>
+                        <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '8px', marginRight: 'auto', alignItems: 'center', color: '#666' }}>
+                                <Info size={18} />
+                                <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quality Verification System</span>
+                            </div>
+                            <button onClick={() => { handleStatusUpdate(previewVideo.id, 'rejected'); setPreviewVideo(null); }} className="btn btn-outline" style={{ color: 'var(--danger)', height: '44px', padding: '0 24px' }}>REJECT SUBMISSION</button>
+                            <button onClick={() => { handleStatusUpdate(previewVideo.id, 'approved'); setPreviewVideo(null); }} className="btn btn-primary" style={{ background: 'var(--success)', height: '44px', padding: '0 24px' }}>APPROVE CONTENT</button>
+                        </div>
                     </div>
                 </div>
             )}

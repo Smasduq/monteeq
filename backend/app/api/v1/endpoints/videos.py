@@ -276,7 +276,7 @@ async def background_process_video(
                 print(f"Error cleaning up temp dir {temp_dir}: {e}")
 
 def delete_video_files(video: Video):
-    """Utility to delete all files (local or B2) associated with a video."""
+    """Utility to delete all files (local, S3/B2, or Supabase) associated with a video."""
     urls = [
         video.video_url,
         video.url_480p,
@@ -287,17 +287,21 @@ def delete_video_files(video: Video):
         video.thumbnail_url
     ]
     
+    current_mode = storage.mode
+    
     for url in urls:
         if not url:
             continue
             
-        # Extract s3_key from URL
-        # URL format: {endpoint}/{bucket}/{s3_key} OR {base_url}/static/{s3_key}
         s3_key = None
-        if config.STORAGE_MODE == "local" and url.startswith(f"{config.BASE_URL}/static/"):
+        if current_mode == "local" and url.startswith(f"{config.BASE_URL}/static/"):
             s3_key = url.replace(f"{config.BASE_URL}/static/", "")
-        elif config.STORAGE_MODE == "s3" and config.S3_BUCKET_NAME in url:
-            # Simple heuristic: Split by bucket name
+        elif current_mode == "supabase" and "/storage/v1/object/public/" in url:
+            # Format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[key]
+            parts = url.split(f"/{storage.supabase_bucket}/")
+            if len(parts) > 1:
+                s3_key = parts[1]
+        elif current_mode == "s3" and config.S3_BUCKET_NAME in url:
             parts = url.split(f"{config.S3_BUCKET_NAME}/")
             if len(parts) > 1:
                 s3_key = parts[1]

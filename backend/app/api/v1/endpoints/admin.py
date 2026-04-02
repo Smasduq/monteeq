@@ -5,11 +5,12 @@ from app.db.session import get_db
 from app.schemas import schemas
 from app.core.dependencies import admin_only
 from app.core import security, config
-from app.crud import user as crud_user
-from app.models.models import User, Video
+from app.crud import user as crud_user, setting as crud_setting
+from app.models.models import User, Video, View
 from fastapi.security import OAuth2PasswordRequestForm
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import List
+from sqlalchemy import cast, Date
 
 router = APIRouter()
 
@@ -84,3 +85,68 @@ def promote_user(
     db.refresh(user)
     
     return {"message": f"User {user.username} premium status set to {is_premium}"}
+
+@router.get("/settings/storage-mode")
+def get_storage_mode(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(admin_only)
+):
+    mode = crud_setting.get_setting(db, "storage_mode")
+    return {"mode": mode or config.STORAGE_MODE}
+
+@router.put("/settings/storage-mode")
+def update_storage_mode(
+    mode: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(admin_only)
+):
+    if mode not in ["s3", "supabase", "local"]:
+        raise HTTPException(status_code=400, detail="Invalid storage mode")
+    
+    crud_setting.update_setting(db, "storage_mode", mode)
+    return {"message": f"Storage mode updated to {mode}", "mode": mode}
+
+@router.get("/stats/performance")
+def get_performance_stats(
+    metric: str,
+    days: int = 30,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(admin_only)
+):
+    end_date = datetime.utcnow()
+    start_date = end_date - timedelta(days=days)
+    
+    if metric == "users":
+        query = db.query(
+            func.date(User.created_at).label("date"),
+            func.count(User.id).label("value")
+        ).filter(User.created_at >= start_date)
+    elif metric == "videos":
+        query = db.query(
+            func.date(Video.created_at).label("date"),
+            func.count(Video.id).label("value")
+        ).filter(Video.created_at >= start_date)
+    elif metric == "premium":
+        query = db.query(
+            func.date(User.created_at).label("date"),
+            func.count(User.id).label("value")
+        ).filter(User.created_at >= start_date, User.is_premium == True)
+    elif metric == "views":
+        query = db.query(
+            func.date(View.created_at).label("date"),
+            func.count(View.id).label("value")
+        ).filter(View.created_at >= start_date)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid metric")
+
+    results = query.group_by("date").order_by("date").all()
+    
+    return [{"date": str(r.date), "value": r.value} for r in results]
+
+@router.get("/config")
+def get_admin_config(
+    current_user: dict = Depends(admin_only)
+):
+    return {
+        "rust_service_url": config.RUST_SERVICE_URL
+    }
