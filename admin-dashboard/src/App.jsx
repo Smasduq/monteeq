@@ -3,20 +3,30 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './Login';
 import Dashboard from './Dashboard';
 import VideoApprovals from './VideoApprovals';
+import StatsDetail from './StatsDetail';
 import { NotificationProvider } from './context/NotificationContext';
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('adminToken'));
+  const [theme, setTheme] = useState(localStorage.getItem('adminTheme') || 'light');
 
-  // Verify token validity on load could be added here, but for now relies on API calls failing to logout
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('adminTheme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
 
   return (
     <NotificationProvider>
       <Router>
         <Routes>
           <Route path="/" element={!token ? <Login setToken={setToken} /> : <Navigate to="/dashboard" />} />
-          <Route path="/dashboard" element={token ? <Dashboard token={token} setToken={setToken} /> : <Navigate to="/" />} />
-          <Route path="/approvals" element={token ? <VideoApprovals token={token} setToken={setToken} /> : <Navigate to="/" />} />
+          <Route path="/dashboard" element={token ? <Dashboard token={token} setToken={setToken} theme={theme} toggleTheme={toggleTheme} /> : <Navigate to="/" />} />
+          <Route path="/approvals" element={token ? <VideoApprovals token={token} setToken={setToken} theme={theme} toggleTheme={toggleTheme} /> : <Navigate to="/" />} />
+          <Route path="/stats/:metric" element={token ? <StatsDetail token={token} /> : <Navigate to="/" />} />
         </Routes>
       </Router>
     </NotificationProvider>

@@ -3,24 +3,24 @@ from dotenv import load_dotenv
 
 # Load .env file from the backend directory
 env_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
-load_dotenv(dotenv_path=env_path, override=True)
+load_dotenv(env_path)
 
 SECRET_KEY = os.getenv("SECRET_KEY", "SUPER_SECRET_KEY_CHANGE_ME")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "2880"))
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
-BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
-RUST_SERVICE_URL = os.getenv("RUST_SERVICE_URL", "http://127.0.0.1:8081") # default port changed to matched rust service
+BASE_URL = os.getenv("BASE_URL")
+RUST_SERVICE_URL = os.getenv("RUST_SERVICE_URL")
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "static")
 
-# Supabase SDK Config - Kept for Auth/Legacy
+# Database Configuration
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Supabase Storage Configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-
-# Database Configuration
-# Default to SQLite for local development if not set
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./montage.db")
+SUPABASE_BUCKET_NAME = os.getenv("SUPABASE_BUCKET_NAME", "montage")
 
 # Quota Limits
 FLASH_QUOTA_LIMIT = 50
