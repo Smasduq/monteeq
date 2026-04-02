@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Heart, MessageCircle, Share2, Music, Play, Pause, Volume2, VolumeX } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Music, Play, Pause, Volume2, VolumeX, AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { viewVideo } from '../api';
@@ -15,7 +15,8 @@ const FlashCard = ({ video, isActive, onLike, onComment, onShare, onFollow, mute
     const lastTap = useRef(0);
 
     useEffect(() => {
-        if (isActive) {
+        if (!videoRef.current) return;
+        if (isActive && video.status === 'approved') {
             videoRef.current.play().catch(() => { });
             setPlaying(true);
             setViewCounted(false); // Reset for new active video
@@ -24,7 +25,7 @@ const FlashCard = ({ video, isActive, onLike, onComment, onShare, onFollow, mute
             videoRef.current.currentTime = 0;
             setPlaying(false);
         }
-    }, [isActive]);
+    }, [isActive, video.status]);
 
     useEffect(() => {
         if (videoRef.current) videoRef.current.muted = muted;
@@ -84,6 +85,27 @@ const FlashCard = ({ video, isActive, onLike, onComment, onShare, onFollow, mute
                     className="flash-video-player"
                 />
 
+                {/* Status Overlays */}
+                {video.status === 'pending' && (
+                    <div className="status-overlay pending">
+                        <Loader2 className="animate-spin" size={48} color="white" />
+                        <span>Processing...</span>
+                    </div>
+                )}
+
+                {video.status === 'failed' && (
+                    <div className="status-overlay failed">
+                        <AlertTriangle size={48} color="#ff3e3e" />
+                        <h3 style={{ color: 'white', marginTop: '1rem' }}>Upload Failed</h3>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); navigate('/manage-content'); }}
+                            className="retry-btn"
+                        >
+                            <RefreshCw size={16} /> Manage & Retry
+                        </button>
+                    </div>
+                )}
+
                 {/* Heart Animation Overlay */}
                 {showHeart && (
                     <div className="heart-pop">
@@ -92,7 +114,7 @@ const FlashCard = ({ video, isActive, onLike, onComment, onShare, onFollow, mute
                 )}
 
                 {/* Play/Pause Indicator (optional, transient) */}
-                {!playing && (
+                {!playing && video.status === 'approved' && (
                     <div className="play-indicator">
                         <Play size={50} fill="rgba(255,255,255,0.5)" color="white" />
                     </div>
@@ -200,9 +222,56 @@ const FlashCard = ({ video, isActive, onLike, onComment, onShare, onFollow, mute
             </div>
 
             {/* Mute Toggle */}
-            <button className="mute-toggle" onClick={(e) => { e.stopPropagation(); toggleMute(); }} title="Mute (m)">
-                {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-            </button>
+            {video.status === 'approved' && (
+                <button className="mute-toggle" onClick={(e) => { e.stopPropagation(); toggleMute(); }} title="Mute (m)">
+                    {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                </button>
+            )}
+
+            <style>{`
+                .status-overlay {
+                    position: absolute;
+                    inset: 0;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    background: rgba(0,0,0,0.6);
+                    backdrop-filter: blur(5px);
+                    z-index: 10;
+                }
+                .status-overlay.pending span {
+                    color: white;
+                    margin-top: 1rem;
+                    font-weight: 600;
+                    letter-spacing: 1px;
+                }
+                .retry-btn {
+                    margin-top: 1.5rem;
+                    background: var(--accent-primary);
+                    color: white;
+                    border: none;
+                    padding: 0.8rem 1.5rem;
+                    border-radius: 99px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    font-weight: 700;
+                    cursor: pointer;
+                    box-shadow: 0 8px 20px rgba(255, 62, 62, 0.3);
+                    transition: transform 0.2s;
+                }
+                .retry-btn:hover {
+                    transform: scale(1.05);
+                }
+                .animate-spin {
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 };

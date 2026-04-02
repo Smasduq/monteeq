@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play } from 'lucide-react';
+import { Play, AlertTriangle, Loader2, Clock } from 'lucide-react';
 
 const VideoPreviewCard = ({ video, onClick, onLike }) => {
     const [isHovered, setIsHovered] = useState(false);
@@ -50,12 +50,29 @@ const VideoPreviewCard = ({ video, onClick, onLike }) => {
                 )}
 
                 {/* Duration Badge */}
-                <div className="duration-badge">
-                    {formatDuration(video.duration)}
-                </div>
+                {video.status === 'approved' && video.duration > 0 && (
+                    <div className="duration-badge">
+                        {formatDuration(video.duration)}
+                    </div>
+                )}
+
+                {/* Status Overlays */}
+                {video.status === 'pending' && (
+                    <div className="status-overlay pending">
+                        <Loader2 className="animate-spin" size={24} color="white" />
+                        <span style={{ fontSize: '0.7rem', color: 'white', marginTop: '4px', fontWeight: 700 }}>PROCESSING</span>
+                    </div>
+                )}
+
+                {video.status === 'failed' && (
+                    <div className="status-overlay failed">
+                        <AlertTriangle size={24} color="#ff3e3e" />
+                        <span style={{ fontSize: '0.7rem', color: 'white', marginTop: '4px', fontWeight: 700 }}>FAILED</span>
+                    </div>
+                )}
 
                 {/* Hover Play Icon */}
-                {isHovered && !isLoaded && (
+                {isHovered && !isLoaded && video.status === 'approved' && (
                     <div className="preview-loading">
                         <div className="mini-loader"></div>
                     </div>
@@ -157,6 +174,24 @@ const VideoPreviewCard = ({ video, onClick, onLike }) => {
                 @keyframes fadeIn {
                     from { opacity: 0; }
                     to { opacity: 1; }
+                }
+                .status-overlay {
+                    position: absolute;
+                    inset: 0;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    background: rgba(0,0,0,0.5);
+                    backdrop-filter: blur(2px);
+                    z-index: 5;
+                }
+                .status-overlay.failed {
+                    background: rgba(255, 62, 62, 0.1);
+                    border: 1px solid rgba(255, 62, 62, 0.3);
+                }
+                .animate-spin {
+                    animation: spin 1s linear infinite;
                 }
             `}</style>
         </div>

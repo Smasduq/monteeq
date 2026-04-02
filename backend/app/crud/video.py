@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, text
+from sqlalchemy import func, desc, text, or_
 from app.models.models import Video, Like, Comment, View, User, Post, SponsoredAd
 from app.schemas import schemas
 from datetime import datetime
@@ -10,15 +10,31 @@ def get_videos(db: Session, video_type: Optional[str] = None, filter_status: str
     from datetime import timedelta
     twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
     
-    # Filter out failed videos older than 24 hours
-    query = query.filter(
-        ~((Video.status == "failed") & (Video.failed_at < twenty_four_hours_ago))
-    )
+    # Filtering Logic based on status
+    if filter_status == "approved":
+        # Public feed: show only approved videos EXCEPT for the owner who should also see:
+        # 1. Recently failed videos (for retry/viewing failure)
+        # 2. Pending videos (currently being processed)
+        if current_user_id:
+            query = query.filter(
+                or_(
+                    Video.status == "approved",
+                    (Video.status == "failed") & (Video.failed_at >= twenty_four_hours_ago) & (Video.owner_id == current_user_id),
+                    (Video.status == "pending") & (Video.owner_id == current_user_id)
+                )
+            )
+        else:
+            query = query.filter(Video.status == "approved")
+    elif filter_status:
+        query = query.filter(Video.status == filter_status)
+    else:
+        # Default behavior (no status filter): exclude old failures
+        query = query.filter(
+            ~((Video.status == "failed") & (Video.failed_at < twenty_four_hours_ago))
+        )
     
     if video_type:
         query = query.filter(Video.video_type == video_type)
-    if filter_status:
-        query = query.filter(Video.status == filter_status)
     
     # Personalization: Get user interests for boosting
     user_interests = []
