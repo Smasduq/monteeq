@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Zap, Menu, X, ArrowLeft, Search, Bell, LogIn, Plus } from 'lucide-react';
+import { Zap, Menu, X, ArrowLeft, Search, Bell, LogIn, Plus, User, Settings, LogOut, ChevronRight, Award, CreditCard, Shield } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, NavLink } from 'react-router-dom';
 import { getSearchSuggestions, getTrendingSuggestions, getUnreadNotifications } from '../api';
 
 const Header = ({ onMenuToggle, isMenuOpen }) => {
@@ -11,6 +11,8 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [searchHistory, setSearchHistory] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [isScrolled, setIsScrolled] = useState(false);
     const dropdownRef = useRef(null);
 
     const { token, user } = useAuth();
@@ -34,13 +36,21 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
         };
         loadTrending();
 
+        const handleScroll = () => {
+            setIsScrolled(window.scrollY > 20);
+        };
+
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
                 setShowSuggestions(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        window.addEventListener('scroll', handleScroll);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('scroll', handleScroll);
+        };
     }, []);
 
     useEffect(() => {
@@ -115,6 +125,12 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
         setShowSuggestions(false);
     };
 
+    const handleLogout = () => {
+        localStorage.removeItem('montage_token');
+        localStorage.removeItem('montage_user');
+        window.location.href = '/login';
+    };
+
     // Build the "Suggestions to show" when query is empty
     const getEmptyQuerySuggestions = () => {
         const combined = [...searchHistory];
@@ -130,7 +146,8 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
     const displaySuggestions = searchQuery.trim().length > 0 ? suggestions : getEmptyQuerySuggestions();
 
     return (
-        <header className="main-header glass">
+        <>
+        <header className={`main-header glass ${isScrolled ? 'scrolled' : ''}`}>
             <div className="header-left">
                 {!isHomePage && (
                     <button
@@ -193,6 +210,14 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
                         WebkitTextFillColor: 'transparent',
                     }}>MONTAGE</span>
                 </div>
+
+                <NavLink 
+                    to="/partner" 
+                    className="partner-nav-link desktop-only"
+                >
+                    Partner with Montage
+                </NavLink>
+
             </div>
 
             {/* Mobile Search Icon - Only visible on small screens */}
@@ -289,65 +314,30 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
                 ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <button
-                            className="glass"
+                            className="header-icon-btn"
                             onClick={() => navigate('/upload')}
                             title="Upload"
-                            style={{
-                                width: '40px',
-                                height: '40px',
-                                borderRadius: '12px',
-                                background: 'rgba(255,255,255,0.05)',
-                                color: 'var(--accent-primary)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                border: '1px solid var(--border-glass)',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                e.currentTarget.style.color = 'white';
-                                e.currentTarget.style.background = 'var(--accent-primary)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.color = 'var(--accent-primary)';
-                                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                            }}
                         >
-                            <Plus size={22} strokeWidth={3} />
+                            <Plus size={24} strokeWidth={2.5} />
                         </button>
                         <button
-                            className="glass"
+                            className="header-icon-btn"
                             onClick={() => navigate('/notifications')}
-                            title="View Notifications"
-                            style={{
-                                width: '40px',
-                                height: '40px',
-                                borderRadius: '12px',
-                                border: '1px solid var(--border-glass)',
-                                background: 'rgba(255,255,255,0.05)',
-                                color: 'white',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                position: 'relative',
-                                cursor: 'pointer'
-                            }}
+                            title="Notifications"
+                            style={{ position: 'relative' }}
                         >
-                            <Bell size={20} />
+                            <Bell size={22} />
                             {unreadCount > 0 && (
                                 <span style={{
                                     position: 'absolute',
-                                    top: '-5px',
-                                    right: '-5px',
+                                    top: '2px',
+                                    right: '2px',
                                     background: 'var(--accent-primary)',
                                     color: 'white',
                                     fontSize: '10px',
                                     fontWeight: 'bold',
-                                    width: '18px',
-                                    height: '18px',
+                                    width: '16px',
+                                    height: '16px',
                                     borderRadius: '50%',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -359,11 +349,14 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
                             )}
                         </button>
 
-                        <div className="user-profile-btn glass" onClick={() => navigate(`/profile/${user?.username}`)}>
+                        <div 
+                            className="header-profile-btn" 
+                            onClick={() => setIsDrawerOpen(true)}
+                        >
                             {user?.profile_pic ? (
-                                <img src={user.profile_pic} alt="profile" className="avatar-img-sm" />
+                                <img src={user.profile_pic} alt="profile" />
                             ) : (
-                                <div className="avatar-placeholder-sm">
+                                <div className="placeholder">
                                     {user?.username?.[0].toUpperCase()}
                                 </div>
                             )}
@@ -372,6 +365,79 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
                 )}
             </div>
         </header>
+
+        {/* Profile Drawer */}
+        <div className={`drawer-overlay ${isDrawerOpen ? 'open' : ''}`} onClick={() => setIsDrawerOpen(false)} />
+        <aside className={`profile-drawer ${isDrawerOpen ? 'open' : ''}`}>
+            <div className="drawer-header">
+                <h3 style={{ margin: 0, fontWeight: 800 }}>Account</h3>
+                <button 
+                  onClick={() => setIsDrawerOpen(false)}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                >
+                    <X size={24} />
+                </button>
+            </div>
+
+            <div className="drawer-body">
+            <div className="drawer-user-info">
+                <div className="drawer-avatar-wrapper">
+                    <div className="drawer-avatar-inner">
+                        {user?.profile_pic ? (
+                            <img src={user.profile_pic} alt="" />
+                        ) : (
+                            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 800 }}>
+                                {user?.username?.[0].toUpperCase()}
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div className="drawer-user-meta">
+                    <div className="drawer-username">{user?.full_name || user?.username}</div>
+                    <div className="drawer-handle">@{user?.username}</div>
+                </div>
+            </div>
+
+            <nav className="drawer-nav">
+                <div className="drawer-link" onClick={() => { setIsDrawerOpen(false); navigate(`/profile/${user?.username}`); }}>
+                    <User size={18} />
+                    <span>View Profile</span>
+                    <ChevronRight size={14} style={{ marginLeft: 'auto', opacity: 0.5 }} />
+                </div>
+                
+                <div style={{ padding: '0.8rem 0', opacity: 0.1, borderBottom: '1px solid white', margin: '0.5rem 0' }}></div>
+
+                <div className="drawer-link" onClick={() => { setIsDrawerOpen(false); navigate('/settings?tab=profile'); }}>
+                    <Settings size={18} />
+                    <span>Personal Info</span>
+                </div>
+                <div className="drawer-link" onClick={() => { setIsDrawerOpen(false); navigate('/settings?tab=challenges'); }}>
+                    <Award size={18} />
+                    <span>Trophies & Wins</span>
+                </div>
+                <div className="drawer-link" onClick={() => { setIsDrawerOpen(false); navigate('/settings?tab=payments'); }}>
+                    <CreditCard size={18} />
+                    <span>Payouts</span>
+                </div>
+                <div className="drawer-link" onClick={() => { setIsDrawerOpen(false); navigate('/settings?tab=security'); }}>
+                    <Shield size={18} />
+                    <span>Security</span>
+                </div>
+            </nav>
+            </div>
+
+            <div className="drawer-footer">
+                <button 
+                    className="drawer-link" 
+                    onClick={handleLogout}
+                    style={{ width: '100%', background: 'transparent', border: 'none', color: '#ff4444' }}
+                >
+                    <LogOut size={20} />
+                    <span>Sign Out</span>
+                </button>
+            </div>
+        </aside>
+        </>
     );
 };
 

@@ -6,7 +6,7 @@ from app.schemas import schemas
 from app.core.dependencies import admin_only
 from app.core import security, config
 from app.crud import user as crud_user, setting as crud_setting
-from app.models.models import User, Video, View
+from app.models.models import User, Video, View, Challenge, ChallengeEntry
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta, datetime
 from typing import List
@@ -150,3 +150,57 @@ def get_admin_config(
     return {
         "rust_service_url": config.RUST_SERVICE_URL
     }
+
+# Challenges Management
+
+@router.get("/challenges", response_model=List[schemas.Challenge])
+def read_challenges(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(admin_only)
+):
+    return db.query(Challenge).order_by(Challenge.created_at.desc()).all()
+
+@router.post("/challenges", response_model=schemas.Challenge)
+def create_challenge(
+    challenge_in: schemas.ChallengeCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(admin_only)
+):
+    db_challenge = Challenge(**challenge_in.model_dump())
+    db.add(db_challenge)
+    db.commit()
+    db.refresh(db_challenge)
+    return db_challenge
+
+@router.put("/challenges/{challenge_id}", response_model=schemas.Challenge)
+def update_challenge(
+    challenge_id: int,
+    challenge_in: schemas.ChallengeBase, # using base for partial update logic if desired or complete update
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(admin_only)
+):
+    db_challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    if not db_challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    
+    update_data = challenge_in.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_challenge, key, value)
+    
+    db.commit()
+    db.refresh(db_challenge)
+    return db_challenge
+
+@router.delete("/challenges/{challenge_id}")
+def delete_challenge(
+    challenge_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(admin_only)
+):
+    db_challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    if not db_challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    
+    db.delete(db_challenge)
+    db.commit()
+    return {"message": "Challenge deleted successfully"}

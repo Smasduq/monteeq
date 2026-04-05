@@ -25,6 +25,8 @@ import Notifications from './pages/Notifications';
 import Insights from './pages/Insights';
 import Performance from './pages/Performance';
 import Onboarding from './pages/Onboarding';
+import Partner from './pages/Partner';
+import Challenges from './pages/Challenges';
 import NotificationManager from './components/NotificationManager';
 
 import Header from './components/Header';
@@ -101,6 +103,9 @@ function AppContent() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+                <Route path="/partner" element={<Partner />} />
+                <Route path="/challenges" element={<Challenges />} />
+
               </Routes>
             </div>
             {showAdColumn && (

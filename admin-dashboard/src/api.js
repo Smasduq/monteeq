@@ -87,3 +87,32 @@ export const getAdminConfig = async (token) => {
     });
     return response.data;
 };
+
+// Challenges Management
+export const getAdminChallenges = async (token) => {
+    const response = await api.get('/admin/challenges', {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+};
+
+export const createChallenge = async (challengeData, token) => {
+    const response = await api.post('/admin/challenges', challengeData, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+};
+
+export const updateChallenge = async (challengeId, challengeData, token) => {
+    const response = await api.put(`/admin/challenges/${challengeId}`, challengeData, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+};
+
+export const deleteChallenge = async (challengeId, token) => {
+    const response = await api.delete(`/admin/challenges/${challengeId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+    return response.data;
+};
