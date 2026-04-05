@@ -78,6 +78,7 @@ class UserProfile(User):
     videos: List["Video"]
     flash_videos: List["Video"]
     posts: List["Post"]
+    trophies: List["ChallengeEntry"] = []
     is_following: bool = False
 
 class UserUpdateResponse(BaseModel):
@@ -255,3 +256,48 @@ class Conversation(BaseModel):
 
 class KeyUpload(BaseModel):
     public_key: str
+
+class ChallengeBase(BaseModel):
+    title: str
+    description: str
+    brand: Optional[str] = None
+    prize: str
+    is_open: bool = True
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+
+class ChallengeCreate(ChallengeBase):
+    pass
+
+class ChallengeEntryCreate(BaseModel):
+    video_id: int
+
+class ChallengeEntry(BaseModel):
+    id: int
+    challenge_id: int
+    user_id: int
+    video_id: int
+    is_winner: bool = False
+    created_at: datetime
+    user: Optional[UserBase] = None
+    video: Optional[Video] = None
+    challenge: Optional["Challenge"] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class Challenge(ChallengeBase):
+    id: int
+    entry_count: int
+    winner_picked: bool = False
+    created_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class ChallengeLeaderboardEntry(BaseModel):
+    username: str
+    profile_pic: Optional[str] = None
+    video_count: int = 0 # In case we want to show multiple entries, but requirement says "one video"
+    # For now, let's just return the ChallengeEntry details in the leaderboard
+    entry: ChallengeEntry
+    score: int # e.g., views or likes
+
