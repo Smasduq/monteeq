@@ -274,3 +274,35 @@ class Setting(Base):
     __tablename__ = "settings"
     key = Column(String, primary_key=True, index=True)
     value = Column(String)
+
+class Challenge(Base):
+    __tablename__ = "challenges"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    description = Column(Text)
+    brand = Column(String, nullable=True)
+    prize = Column(String)
+    is_open = Column(Boolean, default=True)
+    start_date = Column(DateTime, default=func.now())
+    end_date = Column(DateTime, nullable=True)
+    entry_count = Column(Integer, default=0)
+    winner_picked = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=func.now())
+
+    entries = relationship("ChallengeEntry", back_populates="challenge", cascade="all, delete-orphan")
+
+class ChallengeEntry(Base):
+    __tablename__ = "challenge_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    challenge_id = Column(Integer, ForeignKey("challenges.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    video_id = Column(Integer, ForeignKey("videos.id")) # Requirement: Users enter with their video
+    is_winner = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=func.now())
+
+    challenge = relationship("Challenge", back_populates="entries")
+    user = relationship("User")
+    video = relationship("Video")
+

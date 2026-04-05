@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.schemas import schemas
 from app.core import security
-from app.models.models import User, Follow, Video, Post, VerificationCode
+from app.models.models import User, Follow, Video, Post, VerificationCode, ChallengeEntry, Challenge
 from datetime import datetime, timedelta
 import random
 import string
@@ -101,6 +101,12 @@ def get_user_profile(db: Session, username: str, current_user_id: int = None):
     
     # Posts
     posts = db.query(Post).filter(Post.owner_id == user_id).all()
+    
+    # Trophies (Won Challenges)
+    trophies = db.query(ChallengeEntry).filter(
+        ChallengeEntry.user_id == user_id,
+        ChallengeEntry.is_winner == True
+    ).all()
 
     profile_data = {
         "id": db_user.id,
@@ -128,6 +134,7 @@ def get_user_profile(db: Session, username: str, current_user_id: int = None):
         "videos": videos,
         "flash_videos": flash_videos,
         "posts": posts,
+        "trophies": trophies,
         "is_following": is_following
     }
     return profile_data

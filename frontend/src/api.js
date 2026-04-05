@@ -322,3 +322,39 @@ export const getFollowing = async (username, skip = 0, limit = 100) => {
     return response.json();
 };
 
+// Challenges API
+export const getChallenges = async () => {
+    const response = await fetch(`${API_BASE_URL}/challenges/`);
+    return response.json();
+};
+
+export const getChallengeById = async (id) => {
+    const response = await fetch(`${API_BASE_URL}/challenges/${id}`);
+    if (!response.ok) throw new Error('Challenge not found');
+    return response.json();
+};
+
+export const enterChallenge = async (challengeId, formData, token) => {
+    const response = await fetch(`${API_BASE_URL}/challenges/${challengeId}/enter`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`
+        },
+        body: formData
+    });
+    return response.json();
+};
+
+export const checkChallengeEntry = async (challengeId, token) => {
+    const response = await fetch(`${API_BASE_URL}/challenges/${challengeId}/entry`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return response.json();
+};
+
+export const getChallengeLeaderboard = async (challengeId) => {
+    const response = await fetch(`${API_BASE_URL}/challenges/${challengeId}/leaderboard`);
+    return response.json();
+};
+
+

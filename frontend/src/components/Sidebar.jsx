@@ -23,6 +23,11 @@ const Sidebar = ({ isOpen, onClose }) => {
                     <Layout size={20} />
                     <span>Feed</span>
                 </NavLink>
+                <NavLink to="/challenges" onClick={onClose} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                    <Trophy size={20} color="var(--accent-primary)" />
+                    <span>Challenges</span>
+                </NavLink>
+
                 {token && (
                     <NavLink to="/manage" onClick={onClose} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <Clapperboard size={20} />
