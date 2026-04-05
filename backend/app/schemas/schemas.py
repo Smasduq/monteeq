@@ -42,6 +42,8 @@ class UserUpdate(BaseModel):
     interests: Optional[str] = None
     referral_source: Optional[str] = None
     goals: Optional[str] = None
+    show_wins: Optional[bool] = None
+    show_trophies: Optional[bool] = None
 
 class User(UserBase):
     id: int
@@ -56,6 +58,8 @@ class User(UserBase):
     bio: Optional[str] = None
     role: str
     public_key: Optional[str] = None
+    show_wins: bool = True
+    show_trophies: bool = True
 
 class EmailVerification(BaseModel):
     email: str

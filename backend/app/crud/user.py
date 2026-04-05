@@ -68,7 +68,11 @@ def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
         user.referral_source = user_update.referral_source
     if user_update.goals is not None:
         user.goals = user_update.goals
-    
+    if user_update.show_wins is not None:
+        user.show_wins = user_update.show_wins
+    if user_update.show_trophies is not None:
+        user.show_trophies = user_update.show_trophies
+
     db.commit()
     db.refresh(user)
     return user
@@ -124,7 +128,9 @@ def get_user_profile(db: Session, username: str, current_user_id: int = None):
         "google_id": db_user.google_id,
         "flash_quota_limit": db_user.flash_quota_limit,
         "home_quota_limit": db_user.home_quota_limit,
-        
+        "show_wins": db_user.show_wins,
+        "show_trophies": db_user.show_trophies,
+
         "followers_count": followers_count,
         "following_count": following_count,
         "total_views": total_views,

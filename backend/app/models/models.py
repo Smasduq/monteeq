@@ -42,6 +42,8 @@ class User(Base):
     flash_uploads = Column(Integer, default=0)
     home_uploads = Column(Integer, default=0)
     bio = Column(String, nullable=True)
+    show_wins = Column(Boolean, default=True)     # Show challenge wins on public profile
+    show_trophies = Column(Boolean, default=True) # Show Trophy Room tab on public profile
     public_key = Column(Text, nullable=True) # PEM encoded public key for E2EE
 
     @property
