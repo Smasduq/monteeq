@@ -45,6 +45,24 @@ class User(Base):
     show_wins = Column(Boolean, default=True)     # Show challenge wins on public profile
     show_trophies = Column(Boolean, default=True) # Show Trophy Room tab on public profile
     public_key = Column(Text, nullable=True) # PEM encoded public key for E2EE
+    
+    # Notification Preferences
+    notif_new_follower = Column(Boolean, default=True)
+    notif_challenge_win = Column(Boolean, default=True)
+    notif_comments = Column(Boolean, default=True)
+    notif_likes = Column(Boolean, default=False)
+    
+    email_weekly = Column(Boolean, default=True)
+    email_challenges = Column(Boolean, default=True)
+    email_payouts = Column(Boolean, default=True)
+    email_marketing = Column(Boolean, default=False)
+    
+    # Account & Security
+    payout_method = Column(String, default='stripe')
+    two_factor_enabled = Column(Boolean, default=False)
+    totp_secret = Column(String, nullable=True) # For app-based 2FA
+    recovery_codes = Column(Text, nullable=True) # JSON list of hashed codes
+    is_active = Column(Boolean, default=True) # For deactivation
 
     @property
     def flash_quota_limit(self):
@@ -82,6 +100,19 @@ class VerificationCode(Base):
     code = Column(String)
     expires_at = Column(DateTime)
     created_at = Column(DateTime, default=func.now())
+
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    token_hash = Column(String, index=True) # Identifying the session by token hash
+    device_info = Column(String, nullable=True) # Browser/OS
+    ip_address = Column(String, nullable=True)
+    last_active = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=func.now())
+
+    user = relationship("User")
 
 class Video(Base):
     __tablename__ = "videos"

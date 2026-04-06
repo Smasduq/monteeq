@@ -13,7 +13,8 @@ import {
     Camera,
     ChevronRight,
     Globe,
-    ExternalLink
+    ExternalLink,
+    Copy,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -42,8 +43,43 @@ const Settings = () => {
         bio: '',
         show_wins: true,
         show_trophies: true,
-        payout_method: 'stripe'
+        payout_method: 'stripe',
+        notif_new_follower: true,
+        notif_challenge_win: true,
+        notif_comments: true,
+        notif_likes: false,
+        email_weekly: true,
+        email_challenges: true,
+        email_payouts: true,
+        email_marketing: false,
+        two_factor_enabled: false,
+        interests: '',
+        goals: '',
+        referral_source: ''
     });
+
+    const [insights, setInsights] = useState(null);
+    const [passwordData, setPasswordData] = useState({
+        current_password: '',
+        new_password: '',
+        confirm_password: ''
+    });
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [passwordLoading, setPasswordLoading] = useState(false);
+    const [sessions, setSessions] = useState([]);
+    const [sessionsLoading, setSessionsLoading] = useState(false);
+    const [show2FAModal, setShow2FAModal] = useState(false);
+    const [qrCodeData, setQrCodeData] = useState(null);
+    const [totpCode, setTotpCode] = useState('');
+    const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+    const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [confirmDeleteText, setConfirmDeleteText] = useState('');
+    const [copied, setCopied] = useState(false);
+    const [recoveryCodeCount, setRecoveryCodeCount] = useState(0);
+    const [recoveryCodes, setRecoveryCodes] = useState([]);
+    const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+    const [generatingRecovery, setGeneratingRecovery] = useState(false);
 
     const [avatarPreview, setAvatarPreview] = useState(null);
 
@@ -55,11 +91,68 @@ const Settings = () => {
                 bio: user.bio || '',
                 show_wins: user.show_wins ?? true,
                 show_trophies: user.show_trophies ?? true,
-                payout_method: user.payout_method || 'stripe'
+                payout_method: user.payout_method || 'stripe',
+                notif_new_follower: user.notif_new_follower ?? true,
+                notif_challenge_win: user.notif_challenge_win ?? true,
+                notif_comments: user.notif_comments ?? true,
+                notif_likes: user.notif_likes ?? false,
+                email_weekly: user.email_weekly ?? true,
+                email_challenges: user.email_challenges ?? true,
+                email_payouts: user.email_payouts ?? true,
+                email_marketing: user.email_marketing ?? false,
+                two_factor_enabled: user.two_factor_enabled ?? false,
+                interests: user.interests || '',
+                goals: user.goals || '',
+                referral_source: user.referral_source || ''
             });
             setAvatarPreview(user.profile_pic);
         }
     }, [user]);
+
+    useEffect(() => {
+        const fetchInsights = async () => {
+            try {
+                const res = await axios.get(`${API_BASE_URL}/users/me/insights`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setInsights(res.data);
+            } catch (err) {
+                console.error("Failed to fetch insights", err);
+            }
+        };
+        if (token) fetchInsights();
+    }, [token]);
+
+    useEffect(() => {
+        const fetchSessions = async () => {
+            setSessionsLoading(true);
+            try {
+                const res = await axios.get(`${API_BASE_URL}/users/me/sessions`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setSessions(res.data);
+            } catch (err) {
+                console.error("Failed to fetch sessions", err);
+            } finally {
+                setSessionsLoading(false);
+            }
+        };
+        if (token && activeTab === 'security') fetchSessions();
+    }, [token, activeTab]);
+
+    useEffect(() => {
+        const fetchRecoveryStatus = async () => {
+            try {
+                const res = await axios.get(`${API_BASE_URL}/users/me/2fa/recovery-codes-status`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setRecoveryCodeCount(res.data.count);
+            } catch (err) {
+                console.error("Failed to fetch recovery status", err);
+            }
+        };
+        if (token && activeTab === 'security') fetchRecoveryStatus();
+    }, [token, activeTab]);
 
     const handleFormChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -99,14 +192,7 @@ const Settings = () => {
     const handleSave = async () => {
         setLoading(true);
         try {
-            const res = await axios.put(`${API_BASE_URL}/users/me`, {
-                username: formData.username,
-                full_name: formData.full_name,
-                bio: formData.bio,
-                // These would be extra fields in a real app
-                show_wins: formData.show_wins,
-                show_trophies: formData.show_trophies
-            }, {
+            const res = await axios.put(`${API_BASE_URL}/users/me`, formData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -120,6 +206,152 @@ const Settings = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handlePasswordSave = async (e) => {
+        e.preventDefault();
+        if (passwordData.new_password !== passwordData.confirm_password) {
+            showNotification('error', 'New passwords do not match');
+            return;
+        }
+
+        setPasswordLoading(true);
+        try {
+            await axios.put(`${API_BASE_URL}/users/me/password`, {
+                current_password: passwordData.current_password,
+                new_password: passwordData.new_password
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            showNotification('success', 'Password updated successfully');
+            setShowPasswordModal(false);
+            setPasswordData({ current_password: '', new_password: '', confirm_password: '' });
+        } catch (err) {
+            showNotification('error', err.response?.data?.detail || 'Failed to update password');
+        } finally {
+            setPasswordLoading(false);
+        }
+    };
+
+    const handleSetup2FA = async () => {
+        setTwoFactorLoading(true);
+        try {
+            const res = await axios.post(`${API_BASE_URL}/users/me/2fa/setup`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setQrCodeData(res.data);
+            setShow2FAModal(true);
+        } catch (err) {
+            showNotification('error', 'Failed to initialize 2FA setup');
+        } finally {
+            setTwoFactorLoading(false);
+        }
+    };
+
+    const handleVerify2FA = async () => {
+        if (totpCode.length !== 6) return;
+        setTwoFactorLoading(true);
+        try {
+            await axios.post(`${API_BASE_URL}/users/me/2fa/verify`, { code: totpCode }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setUser(prev => ({ ...prev, two_factor_enabled: true }));
+            setFormData(prev => ({ ...prev, two_factor_enabled: true }));
+            showNotification('success', 'Shield Active: TOTP 2FA enabled');
+            setShow2FAModal(false);
+        } catch (err) {
+            showNotification('error', 'Invalid verification code');
+        } finally {
+            setTwoFactorLoading(false);
+        }
+    };
+
+    const handleDisable2FA = async () => {
+        setTwoFactorLoading(true);
+        try {
+            await axios.post(`${API_BASE_URL}/users/me/2fa/disable`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setUser(prev => ({ ...prev, two_factor_enabled: false }));
+            setFormData(prev => ({ ...prev, two_factor_enabled: false }));
+            showNotification('info', '2FA has been disabled');
+        } catch (err) {
+            showNotification('error', 'Failed to disable 2FA');
+        } finally {
+            setTwoFactorLoading(false);
+        }
+    };
+
+    const handleRevokeSession = async (sessionId) => {
+        try {
+            await axios.delete(`${API_BASE_URL}/users/me/sessions/${sessionId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setSessions(prev => prev.filter(s => s.id !== sessionId));
+            showNotification('success', 'Session revoked successfully');
+        } catch (err) {
+            showNotification('error', 'Failed to revoke session');
+        }
+    };
+
+    const handleDeactivateAccount = async () => {
+        try {
+            await axios.post(`${API_BASE_URL}/users/me/deactivate`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            showNotification('info', 'Account deactivated. Logging out...');
+            setTimeout(() => window.location.href = '/', 2000);
+        } catch (err) {
+            showNotification('error', 'Deactivation failed');
+        }
+    };
+
+    const handleCopyKey = () => {
+        if (!qrCodeData?.secret) return;
+        navigator.clipboard.writeText(qrCodeData.secret);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        showNotification('success', 'Secret key copied to clipboard');
+    };
+
+    const handleDeleteAccount = async () => {
+        if (confirmDeleteText !== 'DELETE') return;
+        try {
+            await axios.delete(`${API_BASE_URL}/users/me/delete`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            showNotification('error', 'Account deleted forever. Goodbye.');
+            setTimeout(() => window.location.href = '/', 2000);
+        } catch (err) {
+            showNotification('error', 'Deletion failed');
+        }
+    };
+
+    const handleGenerateRecoveryCodes = async () => {
+        setGeneratingRecovery(true);
+        try {
+            const res = await axios.post(`${API_BASE_URL}/users/me/2fa/recovery-codes`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setRecoveryCodes(res.data);
+            setRecoveryCodeCount(10);
+            setShowRecoveryModal(true);
+            showNotification('success', 'New recovery codes generated');
+        } catch (err) {
+            showNotification('error', 'Failed to generate recovery codes');
+        } finally {
+            setGeneratingRecovery(false);
+        }
+    };
+
+    const downloadRecoveryCodes = () => {
+        const content = `MONTAGE RECOVERY CODES\n\nStore these codes in a safe place. Each code is one-time use.\n\n${recoveryCodes.join('\n')}\n\nGenerated on: ${new Date().toLocaleString()}`;
+        const element = document.createElement('a');
+        const file = new Blob([content], {type: 'text/plain'});
+        element.href = URL.createObjectURL(file);
+        element.download = 'montage-recovery-codes.txt';
+        document.body.appendChild(element);
+        element.click();
     };
 
     const SidebarItem = ({ id, icon: Icon, label }) => (
@@ -233,7 +465,7 @@ const Settings = () => {
                             />
                         </div>
 
-                        <div className="form-group">
+                        <div className="form-group" style={{ marginBottom: '1.5rem' }}>
                             <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Public Bio</label>
                             <textarea 
                                 className="glass"
@@ -241,9 +473,40 @@ const Settings = () => {
                                 name="bio"
                                 value={formData.bio}
                                 onChange={handleFormChange}
-                                rows="4"
+                                rows="3"
                                 placeholder="Briefly describe your style..."
                             />
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                            <div className="form-group">
+                                <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Interests (Comma separated)</label>
+                                <input 
+                                    className="glass"
+                                    style={{ width: '100%', border: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.03)', padding: '1.2rem', borderRadius: '14px', color: 'white' }} 
+                                    name="interests"
+                                    value={formData.interests}
+                                    onChange={handleFormChange}
+                                    placeholder="e.g. AMV, Velocity, VFX"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Primary Goal</label>
+                                <select 
+                                    className="glass"
+                                    style={{ width: '100%', border: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.03)', padding: '1.2rem', borderRadius: '14px', color: 'white', appearance: 'none' }} 
+                                    name="goals"
+                                    value={formData.goals}
+                                    onChange={handleFormChange}
+                                >
+                                    <option value="">Select a goal</option>
+                                    <option value="Find inspiration for my next edit">Find inspiration</option>
+                                    <option value="Share my creations with the world">Share creations</option>
+                                    <option value="Learn new VFX & Editing techniques">Learn techniques</option>
+                                    <option value="Discover the best editors">Discover editors</option>
+                                    <option value="Build a cinematic portfolio">Build portfolio</option>
+                                </select>
+                            </div>
                         </div>
                     </section>
                 )}
@@ -332,13 +595,32 @@ const Settings = () => {
                                 <div>
                                     <h3 className="settings-card-title" style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>
                                         <Award size={20} color="var(--accent-primary)" style={{ marginRight: '0.8rem' }} />
-                                        Winnings & Payouts
+                                        Winnings & Payouts {user?.is_premium && <span className="user-badge-mini" style={{ marginLeft: '1rem', verticalAlign: 'middle' }}>PREMIUM</span>}
                                     </h3>
                                     <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Manage your challenge earnings and payout methods</p>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.3rem' }}>Current Balance</div>
-                                    <div style={{ fontSize: '2.2rem', fontWeight: 900, color: 'white' }}>$420.50 <span style={{ fontSize: '1rem', opacity: 0.5 }}>USD</span></div>
+                                    <div style={{ fontSize: '2.2rem', fontWeight: 900, color: 'white' }}>
+                                        ${insights ? insights.total_earnings.toFixed(2) : '0.00'} <span style={{ fontSize: '1rem', opacity: 0.5 }}>USD</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="setting-tile">
+                                <div className="setting-tile-label">
+                                    <div className="setting-tile-title">Upload Quotas & Usage</div>
+                                    <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem' }}>
+                                        <div style={{ fontSize: '0.85rem' }}>
+                                            <span style={{ color: 'var(--accent-primary)', fontWeight: 800 }}>{user?.home_uploads || 0}</span> / {user?.home_quota_limit} Home Videos
+                                        </div>
+                                        <div style={{ fontSize: '0.85rem' }}>
+                                            <span style={{ color: '#f59e0b', fontWeight: 800 }}>{user?.flash_uploads || 0}</span> / {user?.flash_quota_limit} Flash Clips
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="setting-tile-action">
+                                    <button className="tile-btn-minimal" onClick={() => navigate('/manage')}>View All</button>
                                 </div>
                             </div>
 
@@ -347,13 +629,33 @@ const Settings = () => {
                                     <div className="setting-tile-title">Linked Payout Method</div>
                                     <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
                                         {/* Minimalist Branded Icons */}
-                                        <div style={{ background: 'rgba(255,255,255,0.05)', padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <div 
+                                            onClick={() => { setFormData({...formData, payout_method: 'stripe'}); setHasChanges(true); }}
+                                            style={{ 
+                                                background: formData.payout_method === 'stripe' ? 'rgba(99, 91, 255, 0.15)' : 'rgba(255,255,255,0.05)', 
+                                                padding: '0.4rem 0.8rem', borderRadius: '8px', 
+                                                border: formData.payout_method === 'stripe' ? '1px solid #635BFF' : '1px solid var(--border-subtle)', 
+                                                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                        >
                                             <div style={{ width: '20px', height: '20px', background: '#635BFF', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 900 }}>S</div>
-                                            <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Stripe</span>
+                                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: formData.payout_method === 'stripe' ? 'white' : 'var(--text-muted)' }}>Stripe</span>
                                         </div>
-                                        <div style={{ background: 'rgba(255,255,255,0.03)', padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: 0.5 }}>
+                                        <div 
+                                            onClick={() => { setFormData({...formData, payout_method: 'paypal'}); setHasChanges(true); }}
+                                            style={{ 
+                                                background: formData.payout_method === 'paypal' ? 'rgba(0, 48, 135, 0.15)' : 'rgba(255,255,255,0.03)', 
+                                                padding: '0.4rem 0.8rem', borderRadius: '8px', 
+                                                border: formData.payout_method === 'paypal' ? '1px solid #003087' : '1px solid var(--border-subtle)', 
+                                                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                        >
                                             <div style={{ width: '20px', height: '20px', background: '#003087', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 900 }}>P</div>
-                                            <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>PayPal</span>
+                                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: formData.payout_method === 'paypal' ? 'white' : 'var(--text-muted)' }}>PayPal</span>
                                         </div>
                                     </div>
                                 </div>
@@ -413,13 +715,13 @@ const Settings = () => {
                                 <Bell size={20} color="var(--accent-primary)" style={{ marginRight: '0.8rem' }} />
                                 Push Notifications
                             </h3>
-                            <ToggleSwitch name="notif_new_follower" label="New Follower" checked={true} onChange={() => {}} />
+                            <ToggleSwitch name="notif_new_follower" label="New Follower" checked={formData.notif_new_follower} onChange={handleFormChange} />
                             <div style={{ padding: '0.5rem 0', opacity: 0.08, borderBottom: '1px solid white' }} />
-                            <ToggleSwitch name="notif_challenge_win" label="Challenge Win Announcement" checked={true} onChange={() => {}} />
+                            <ToggleSwitch name="notif_challenge_win" label="Challenge Win Announcement" checked={formData.notif_challenge_win} onChange={handleFormChange} />
                             <div style={{ padding: '0.5rem 0', opacity: 0.08, borderBottom: '1px solid white' }} />
-                            <ToggleSwitch name="notif_comments" label="Comments on my Videos" checked={true} onChange={() => {}} />
+                            <ToggleSwitch name="notif_comments" label="Comments on my Videos" checked={formData.notif_comments} onChange={handleFormChange} />
                             <div style={{ padding: '0.5rem 0', opacity: 0.08, borderBottom: '1px solid white' }} />
-                            <ToggleSwitch name="notif_likes" label="Likes & Reactions" checked={false} onChange={() => {}} />
+                            <ToggleSwitch name="notif_likes" label="Likes & Reactions" checked={formData.notif_likes} onChange={handleFormChange} />
                         </section>
 
                         <section className="settings-group-box glass">
@@ -427,13 +729,13 @@ const Settings = () => {
                                 <Globe size={20} color="var(--accent-primary)" style={{ marginRight: '0.8rem' }} />
                                 Email Digests
                             </h3>
-                            <ToggleSwitch name="email_weekly" label="Weekly Creator Report" checked={true} onChange={() => {}} />
+                            <ToggleSwitch name="email_weekly" label="Weekly Creator Report" checked={formData.email_weekly} onChange={handleFormChange} />
                             <div style={{ padding: '0.5rem 0', opacity: 0.08, borderBottom: '1px solid white' }} />
-                            <ToggleSwitch name="email_challenges" label="New Challenge Alerts" checked={true} onChange={() => {}} />
+                            <ToggleSwitch name="email_challenges" label="New Challenge Alerts" checked={formData.email_challenges} onChange={handleFormChange} />
                             <div style={{ padding: '0.5rem 0', opacity: 0.08, borderBottom: '1px solid white' }} />
-                            <ToggleSwitch name="email_payouts" label="Payout Confirmations" checked={true} onChange={() => {}} />
+                            <ToggleSwitch name="email_payouts" label="Payout Confirmations" checked={formData.email_payouts} onChange={handleFormChange} />
                             <div style={{ padding: '0.5rem 0', opacity: 0.08, borderBottom: '1px solid white' }} />
-                            <ToggleSwitch name="email_marketing" label="Product Updates & Tips" checked={false} onChange={() => {}} />
+                            <ToggleSwitch name="email_marketing" label="Product Updates & Tips" checked={formData.email_marketing} onChange={handleFormChange} />
                         </section>
                     </div>
                 )}
@@ -446,6 +748,20 @@ const Settings = () => {
                                 <Shield size={20} color="var(--accent-primary)" style={{ marginRight: '0.8rem' }} />
                                 Login & Access
                             </h3>
+
+                            <div className="setting-tile">
+                                <div className="setting-tile-label">
+                                    <div className="setting-tile-title">Google Account</div>
+                                    <div className="setting-tile-desc">{user?.google_id ? 'Connected' : 'Not linked'}</div>
+                                </div>
+                                <div className="setting-tile-action">
+                                    {user?.google_id ? (
+                                        <span style={{ fontSize: '0.85rem', color: '#00C853', fontWeight: 600 }}>Linked</span>
+                                    ) : (
+                                        <button className="tile-btn-minimal" onClick={() => showNotification('info', 'Google link coming soon')}>Connect</button>
+                                    )}
+                                </div>
+                            </div>
 
                             <div className="setting-tile">
                                 <div className="setting-tile-label">
@@ -465,19 +781,41 @@ const Settings = () => {
                                     <div className="setting-tile-desc">Last changed 30+ days ago</div>
                                 </div>
                                 <div className="setting-tile-action">
-                                    <button className="tile-btn-minimal" onClick={() => showNotification('info', 'Password change coming soon')}>Update</button>
+                                    <button className="tile-btn-minimal" onClick={() => setShowPasswordModal(true)}>Update</button>
                                 </div>
                             </div>
 
                             <div className="setting-tile" style={{ border: 'none' }}>
                                 <div className="setting-tile-label">
                                     <div className="setting-tile-title">Active Sessions</div>
-                                    <div className="setting-tile-desc">Manage devices signed into your account</div>
-                                </div>
-                                <div className="setting-tile-action">
-                                    <button className="tile-btn-minimal" onClick={() => showNotification('info', 'Session management coming soon')}>View</button>
+                                    <div className="setting-tile-desc">You have {sessions.length} active login sessions</div>
                                 </div>
                             </div>
+
+                            {sessions.length > 0 && (
+                                <div style={{ padding: '0 1.5rem 1.5rem' }}>
+                                    {sessions.map(s => (
+                                        <div key={s.id} className="glass" style={{ 
+                                            padding: '1.2rem', borderRadius: '12px', marginBottom: '1rem', 
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                            border: '1px solid var(--border-glass)',
+                                            background: 'rgba(255,255,255,0.02)'
+                                        }}>
+                                            <div>
+                                                <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{s.device_info}</div>
+                                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                                    {s.ip_address} • Last active {new Date(s.last_active).toLocaleString()}
+                                                </div>
+                                            </div>
+                                            <button 
+                                                className="tile-btn-minimal" 
+                                                style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem' }}
+                                                onClick={() => handleRevokeSession(s.id)}
+                                            >Revoke</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </section>
 
                         <section className="settings-group-box glass">
@@ -487,29 +825,40 @@ const Settings = () => {
                             </h3>
                             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Protect your account by requiring a second verification step when signing in.</p>
 
-                            <div className="setting-tile">
+                            <div className="setting-tile" style={{ border: 'none' }}>
                                 <div className="setting-tile-label">
                                     <div className="setting-tile-title">Authenticator App (TOTP)</div>
-                                    <div className="setting-tile-desc">Google Authenticator, Authy, etc.</div>
+                                    <div className="setting-tile-desc">{user?.two_factor_enabled ? 'Shield Active' : 'Extra layer of security'}</div>
                                 </div>
                                 <div className="setting-tile-action">
-                                    <label className="toggle-switch">
-                                        <input type="checkbox" defaultChecked />
-                                        <span className="toggle-slider"></span>
-                                    </label>
+                                    {user?.two_factor_enabled ? (
+                                        <button className="tile-btn-minimal" onClick={handleDisable2FA} disabled={twoFactorLoading}>Disable</button>
+                                    ) : (
+                                        <button 
+                                            className="save-btn" 
+                                            style={{ padding: '0.6rem 1.2rem', fontSize: '0.85rem' }} 
+                                            onClick={handleSetup2FA}
+                                            disabled={twoFactorLoading}
+                                        >
+                                            {twoFactorLoading ? '...' : 'Enable 2FA'}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
-                            <div className="setting-tile" style={{ border: 'none' }}>
+                            <div className="setting-tile" style={{ border: 'top 1px solid var(--border-glass)', marginTop: '0.5rem', paddingTop: '1rem' }}>
                                 <div className="setting-tile-label">
-                                    <div className="setting-tile-title">SMS Verification</div>
-                                    <div className="setting-tile-desc">Backup codes via text message</div>
+                                    <div className="setting-tile-title">Backup Recovery Codes</div>
+                                    <div className="setting-tile-desc">{recoveryCodeCount > 0 ? `${recoveryCodeCount} codes remaining` : 'No backup codes generated'}</div>
                                 </div>
                                 <div className="setting-tile-action">
-                                    <label className="toggle-switch">
-                                        <input type="checkbox" />
-                                        <span className="toggle-slider"></span>
-                                    </label>
+                                    <button 
+                                        className="tile-btn-minimal" 
+                                        onClick={handleGenerateRecoveryCodes} 
+                                        disabled={generatingRecovery}
+                                    >
+                                        {recoveryCodeCount > 0 ? 'Regenerate' : 'Generate'}
+                                    </button>
                                 </div>
                             </div>
                         </section>
@@ -529,7 +878,7 @@ const Settings = () => {
                                     <button
                                         className="tile-btn-minimal"
                                         style={{ borderColor: 'rgba(255,68,68,0.4)', color: '#ff8888' }}
-                                        onClick={() => showNotification('info', 'Account deactivation coming soon')}
+                                        onClick={() => setShowDeactivateModal(true)}
                                     >Deactivate</button>
                                 </div>
                             </div>
@@ -543,7 +892,7 @@ const Settings = () => {
                                     <button
                                         className="tile-btn-minimal"
                                         style={{ borderColor: 'rgba(255,68,68,0.6)', color: '#ff4444', background: 'rgba(255,68,68,0.08)' }}
-                                        onClick={() => showNotification('error', 'Please contact support to delete your account')}
+                                        onClick={() => setShowDeleteModal(true)}
                                     >Delete</button>
                                 </div>
                             </div>
@@ -575,6 +924,238 @@ const Settings = () => {
                     </div>
                 </div>
             )}
+            {/* Password Change Modal */}
+            {showPasswordModal && (
+                <div className="modal-overlay" onClick={() => setShowPasswordModal(false)}>
+                    <div className="modal-content glass" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', width: '90%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                            <h3 style={{ fontSize: '1.5rem', fontWeight: 900 }}>Update Password</h3>
+                            <button onClick={() => setShowPasswordModal(false)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.5rem' }}>&times;</button>
+                        </div>
+                        
+                        <form onSubmit={handlePasswordSave}>
+                            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)' }}>Current Password</label>
+                                <input 
+                                    type="password"
+                                    className="glass"
+                                    style={{ width: '100%', border: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.03)', padding: '1.2rem', borderRadius: '14px', color: 'white' }} 
+                                    name="current_password"
+                                    value={passwordData.current_password}
+                                    onChange={(e) => setPasswordData({...passwordData, current_password: e.target.value})}
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)' }}>New Password</label>
+                                <input 
+                                    type="password"
+                                    className="glass"
+                                    style={{ width: '100%', border: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.03)', padding: '1.2rem', borderRadius: '14px', color: 'white' }} 
+                                    name="new_password"
+                                    value={passwordData.new_password}
+                                    onChange={(e) => setPasswordData({...passwordData, new_password: e.target.value})}
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: '2rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)' }}>Confirm New Password</label>
+                                <input 
+                                    type="password"
+                                    className="glass"
+                                    style={{ width: '100%', border: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.03)', padding: '1.2rem', borderRadius: '14px', color: 'white' }} 
+                                    name="confirm_password"
+                                    value={passwordData.confirm_password}
+                                    onChange={(e) => setPasswordData({...passwordData, confirm_password: e.target.value})}
+                                    required
+                                />
+                            </div>
+
+                            <button 
+                                type="submit" 
+                                className="save-btn" 
+                                style={{ width: '100%', padding: '1.4rem' }}
+                                disabled={passwordLoading}
+                            >
+                                {passwordLoading ? 'Updating...' : 'Update Password'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {/* 2FA Setup Modal */}
+            {show2FAModal && (
+                <div className="modal-overlay" onClick={() => setShow2FAModal(false)}>
+                    <div className="modal-content glass" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', textAlign: 'center' }}>
+                        <h3 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', fontWeight: 900 }}>Setup Authenticator</h3>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>
+                            Scan this QR code with Google Authenticator or Authy to enable 2-Factor Authentication.
+                        </p>
+                        
+                        <div style={{ background: 'white', padding: '1.5rem', borderRadius: '18px', display: 'inline-block', marginBottom: '2rem' }}>
+                            <img src={qrCodeData?.qr_code} alt="2FA QR Code" style={{ width: '180px', height: '180px' }} />
+                        </div>
+                        
+                        <div style={{ marginBottom: '2rem' }}>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '0.8rem' }}>Can't scan? Enter this code manually:</p>
+                            <div className="glass" style={{ 
+                                padding: '0.8rem', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', 
+                                border: '1px solid var(--border-glass)', fontSize: '1.2rem', fontWeight: 800, 
+                                letterSpacing: '2px', color: 'var(--accent-primary)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem'
+                            }}>
+                                {qrCodeData?.secret}
+                                <button 
+                                    onClick={handleCopyKey}
+                                    style={{ 
+                                        background: 'rgba(255,255,255,0.05)', border: 'none', padding: '6px', 
+                                        borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' 
+                                    }}
+                                >
+                                    {copied ? <Check size={16} color="#00C853" /> : <Copy size={16} color="white" />}
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div className="form-group" style={{ marginBottom: '2rem' }}>
+                            <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Enter 6-digit Code</label>
+                            <input 
+                                className="glass"
+                                style={{ width: '100%', border: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.03)', padding: '1.2rem', borderRadius: '14px', color: 'white', letterSpacing: '4px', fontSize: '1.4rem', textAlign: 'center' }} 
+                                maxLength={6}
+                                value={totpCode}
+                                onChange={(e) => setTotpCode(e.target.value)}
+                                placeholder="000 000"
+                            />
+                        </div>
+
+                        <button 
+                            className="save-btn" 
+                            style={{ width: '100%', padding: '1.4rem' }}
+                            onClick={handleVerify2FA}
+                            disabled={twoFactorLoading || totpCode.length !== 6}
+                        >
+                            {twoFactorLoading ? 'Verifying...' : 'Enable 2FA'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Deactivation Modal */}
+            {showDeactivateModal && (
+                <div className="modal-overlay" onClick={() => setShowDeactivateModal(false)}>
+                    <div className="modal-content glass" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', textAlign: 'center' }}>
+                        <AlertCircle size={48} color="#ff8888" style={{ marginBottom: '1.5rem' }} />
+                        <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', fontWeight: 900 }}>Deactivate Account?</h3>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2.5rem', lineHeight: 1.6 }}>
+                            This will temporarily hide your profile and videos. You can reactivate at any time by logging back in.
+                        </p>
+                        
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button 
+                                className="tile-btn-minimal" 
+                                style={{ flex: 1, padding: '1.2rem' }}
+                                onClick={() => setShowDeactivateModal(false)}
+                            >Cancel</button>
+                            <button 
+                                className="save-btn" 
+                                style={{ flex: 1, padding: '1.2rem', background: '#ff8888' }}
+                                onClick={handleDeactivateAccount}
+                            >Deactivate</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Deletion Modal */}
+            {showDeleteModal && (
+                <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
+                    <div className="modal-content glass" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', textAlign: 'center' }}>
+                        <AlertCircle size={48} color="#ff4444" style={{ marginBottom: '1.5rem' }} />
+                        <h3 style={{ fontSize: '1.5rem', marginBottom: '1rem', fontWeight: 900 }}>Permanent Deletion</h3>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem', lineHeight: 1.6 }}>
+                            This action is irreversible. All your videos, followers, and earnings will be purged.
+                        </p>
+                        
+                        <div className="form-group" style={{ marginBottom: '2.5rem' }}>
+                            <label style={{ display: 'block', marginBottom: '0.8rem', color: '#ff4444', fontSize: '0.8rem', fontWeight: 700 }}>TYPE "DELETE" TO CONFIRM</label>
+                            <input 
+                                className="glass"
+                                style={{ width: '100%', border: '1px solid rgba(255,68,68,0.3)', background: 'rgba(255,68,68,0.05)', padding: '1.2rem', borderRadius: '14px', color: 'white', textAlign: 'center' }} 
+                                value={confirmDeleteText}
+                                onChange={(e) => setConfirmDeleteText(e.target.value.toUpperCase())}
+                                placeholder="DELETE"
+                            />
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button 
+                                className="tile-btn-minimal" 
+                                style={{ flex: 1, padding: '1.2rem' }}
+                                onClick={() => setShowDeleteModal(false)}
+                            >Cancel</button>
+                            <button 
+                                className="save-btn" 
+                                style={{ flex: 1, padding: '1.2rem', background: '#ff4444' }}
+                                onClick={handleDeleteAccount}
+                                disabled={confirmDeleteText !== 'DELETE'}
+                            >Delete Forever</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Recovery Codes Modal */}
+            {showRecoveryModal && (
+                <div className="modal-overlay" onClick={() => setShowRecoveryModal(false)}>
+                    <div className="modal-content glass" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+                        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                            <div style={{ width: '60px', height: '60px', background: 'var(--accent-primary)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                                <Shield size={30} color="white" />
+                            </div>
+                            <h3 style={{ fontSize: '1.5rem', fontWeight: 900 }}>Your Recovery Codes</h3>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                                These codes can be used to access your account if you lose your 2FA device. Store them securely.
+                            </p>
+                        </div>
+                        
+                        <div style={{ 
+                            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', 
+                            background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '18px',
+                            border: '1px solid var(--border-glass)', marginBottom: '2rem'
+                        }}>
+                            {recoveryCodes.map((code, idx) => (
+                                <div key={idx} style={{ 
+                                    fontFamily: 'monospace', fontSize: '1.1rem', color: 'white', 
+                                    letterSpacing: '1px', fontWeight: 600, textAlign: 'center' 
+                                }}>
+                                    {code}
+                                </div>
+                            ))}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button 
+                                className="tile-btn-minimal" 
+                                style={{ flex: 1, padding: '1.2rem' }}
+                                onClick={downloadRecoveryCodes}
+                            >
+                                <Save size={18} style={{ marginRight: '0.6rem' }} /> Download .txt
+                            </button>
+                            <button 
+                                className="save-btn" 
+                                style={{ flex: 1, padding: '1.2rem' }}
+                                onClick={() => setShowRecoveryModal(false)}
+                            >
+                                I've saved them
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };

@@ -9,7 +9,8 @@ from app.db.session import get_db
 from app.core import security, config
 from app.crud import user as crud_user
 from app.schemas import schemas
-from app.models.models import User
+from app.models.models import User, UserSession
+import hashlib
 
 router = APIRouter()
 
@@ -32,11 +33,29 @@ async def login_for_access_token(
             detail="Email not verified. Please verify your email first.",
         )
 
+    if user.two_factor_enabled:
+        methods = ["totp"]
+        if user.recovery_codes:
+            methods.append("recovery_code")
+        return {"two_factor_required": True, "username": user.username, "methods": methods}
+
     access_token_expires = timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    
+    # Create Session
+    token_hash = hashlib.sha256(access_token.encode()).hexdigest()
+    new_session = UserSession(
+        user_id=user.id,
+        token_hash=token_hash,
+        device_info="Mock Device (Browser)", 
+        ip_address="127.0.0.1"
+    )
+    db.add(new_session)
+    db.commit()
+
+    return {"access_token": access_token, "token_type": "bearer", "username": user.username}
 
 @router.post("/register", response_model=schemas.VerificationResponse)
 def register_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -118,15 +137,88 @@ async def google_auth(auth_data: schemas.UserGoogleAuth, db: Session = Depends(g
             db.commit()
             db.refresh(user)
 
+        if user.two_factor_enabled:
+            methods = ["totp"]
+            if user.recovery_codes:
+                methods.append("recovery_code")
+            return {"two_factor_required": True, "username": user.username, "methods": methods}
+
         access_token_expires = timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = security.create_access_token(
             data={"sub": user.username}, expires_delta=access_token_expires
         )
-        return {"access_token": access_token, "token_type": "bearer"}
+        
+        # Create Session
+        token_hash = hashlib.sha256(access_token.encode()).hexdigest()
+        new_session = UserSession(
+            user_id=user.id,
+            token_hash=token_hash,
+            device_info="Google Auth Device", 
+            ip_address="127.0.0.1"
+        )
+        db.add(new_session)
+        db.commit()
+        
+        return {"access_token": access_token, "token_type": "bearer", "username": user.username}
         
     except ValueError as e:
         print(f"Google Auth Error: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Invalid Google token: {str(e)}")
+
+@router.post("/verify-2fa", response_model=schemas.Token)
+def verify_login_2fa(
+    data: schemas.TokenData, # Reusing schemas to avoid new ones
+    db: Session = Depends(get_db)
+):
+    """Verify TOTP code for login."""
+    if not data.username or not data.code:
+        raise HTTPException(status_code=400, detail="Missing username or code")
+    
+    user = crud_user.get_user_by_username(db, username=data.username)
+    if not user or not user.totp_secret:
+         raise HTTPException(status_code=401, detail="Could not validate credentials")
+    
+    import pyotp
+    import json
+    
+    is_valid = False
+    
+    # Try TOTP
+    totp = pyotp.TOTP(user.totp_secret)
+    if totp.verify(data.code):
+        is_valid = True
+    
+    # Try Recovery Codes
+    if not is_valid and user.recovery_codes:
+        codes = json.loads(user.recovery_codes)
+        hashed_input = hashlib.sha256(data.code.replace("-", "").upper().encode()).hexdigest()
+        if hashed_input in codes:
+            is_valid = True
+            # Consume the code
+            codes.remove(hashed_input)
+            user.recovery_codes = json.dumps(codes)
+            db.commit()
+    
+    if not is_valid:
+        raise HTTPException(status_code=401, detail="Invalid verification code")
+    
+    access_token_expires = timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = security.create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    
+    # Create Session
+    token_hash = hashlib.sha256(access_token.encode()).hexdigest()
+    new_session = UserSession(
+        user_id=user.id,
+        token_hash=token_hash,
+        device_info="2FA Verified Device", 
+        ip_address="127.0.0.1"
+    )
+    db.add(new_session)
+    db.commit()
+    
+    return {"access_token": access_token, "token_type": "bearer", "username": user.username}
 
 @router.get("/check-username")
 def check_username(username: str, db: Session = Depends(get_db)):

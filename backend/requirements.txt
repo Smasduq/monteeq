@@ -16,3 +16,6 @@ pywebpush
 supabase
 alembic
 aiofiles
+pyotp
+qrcode
+Pillow

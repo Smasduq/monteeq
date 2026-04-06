@@ -39,6 +39,11 @@ export const AuthProvider = ({ children }) => {
         const response = await axios.post(`${API_BASE_URL}/auth/token`, params, {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
+        
+        if (response.data.two_factor_required) {
+            return response.data; // Return { two_factor_required: true, username: '...' }
+        }
+
         const { access_token } = response.data;
         localStorage.setItem('token', access_token);
         setToken(access_token);
@@ -53,6 +58,11 @@ export const AuthProvider = ({ children }) => {
     const googleLogin = async (credential) => {
         try {
             const response = await axios.post(`${API_BASE_URL}/auth/google`, { credential });
+            
+            if (response.data.two_factor_required) {
+                return response.data; // Return { two_factor_required: true, username: '...' }
+            }
+
             const { access_token } = response.data;
             localStorage.setItem('token', access_token);
             setToken(access_token);
@@ -61,6 +71,14 @@ export const AuthProvider = ({ children }) => {
             console.error("Google Login Error:", error.response?.data || error.message);
             throw error;
         }
+    };
+
+    const verifyLogin2FA = async (username, code) => {
+        const response = await axios.post(`${API_BASE_URL}/auth/verify-2fa`, { username, code });
+        const { access_token } = response.data;
+        localStorage.setItem('token', access_token);
+        setToken(access_token);
+        return await fetchUser(access_token);
     };
 
     const logout = () => {
@@ -75,7 +93,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, loading, login, signup, googleLogin, logout, updateAuthToken, setUser, refreshUser: fetchUser }}>
+        <AuthContext.Provider value={{ user, token, loading, login, signup, googleLogin, logout, updateAuthToken, setUser, refreshUser: fetchUser, verifyLogin2FA }}>
             {children}
         </AuthContext.Provider>
     );
