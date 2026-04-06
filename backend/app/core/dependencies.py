@@ -34,6 +34,12 @@ async def get_current_user(
     if not user:
         raise credentials_exception
     
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is deactivated"
+        )
+    
     return user
 
 async def get_current_user_optional(
