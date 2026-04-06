@@ -44,6 +44,16 @@ class UserUpdate(BaseModel):
     goals: Optional[str] = None
     show_wins: Optional[bool] = None
     show_trophies: Optional[bool] = None
+    notif_new_follower: Optional[bool] = None
+    notif_challenge_win: Optional[bool] = None
+    notif_comments: Optional[bool] = None
+    notif_likes: Optional[bool] = None
+    email_weekly: Optional[bool] = None
+    email_challenges: Optional[bool] = None
+    email_payouts: Optional[bool] = None
+    email_marketing: Optional[bool] = None
+    payout_method: Optional[str] = None
+    two_factor_enabled: Optional[bool] = None
 
 class User(UserBase):
     id: int
@@ -60,15 +70,38 @@ class User(UserBase):
     public_key: Optional[str] = None
     show_wins: bool = True
     show_trophies: bool = True
+    notif_new_follower: bool = True
+    notif_challenge_win: bool = True
+    notif_comments: bool = True
+    notif_likes: bool = False
+    email_weekly: bool = True
+    email_challenges: bool = True
+    email_payouts: bool = True
+    email_marketing: bool = False
+    payout_method: str = "stripe"
+    two_factor_enabled: bool = False
 
 class EmailVerification(BaseModel):
     email: str
     code: str
 
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
 class VerificationResponse(BaseModel):
     message: str
     username: Optional[str] = None
     email: Optional[str] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class SessionOut(BaseModel):
+    id: int
+    device_info: str
+    ip_address: str
+    last_active: datetime
+    is_current: bool = False
     
     model_config = ConfigDict(from_attributes=True)
 
@@ -93,11 +126,14 @@ class UserGoogleAuth(BaseModel):
     credential: str
 
 class Token(BaseModel):
-    access_token: str
-    token_type: str
+    access_token: Optional[str] = None
+    token_type: Optional[str] = "bearer"
+    two_factor_required: bool = False
+    username: Optional[str] = None
 
 class TokenData(BaseModel):
     username: Optional[str] = None
+    code: Optional[str] = None
 
 class VideoBase(BaseModel):
     title: str

@@ -47,6 +47,19 @@ def update_user_role(db: Session, user_id: int, role: str):
         db.refresh(user)
     return user
 
+def update_password(db: Session, user_id: int, passwords: schemas.PasswordChange):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return None
+    
+    if not security.verify_password(passwords.current_password, user.hashed_password):
+        return False
+    
+    user.hashed_password = security.get_password_hash(passwords.new_password)
+    db.commit()
+    db.refresh(user)
+    return True
+
 def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -72,6 +85,31 @@ def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
         user.show_wins = user_update.show_wins
     if user_update.show_trophies is not None:
         user.show_trophies = user_update.show_trophies
+    
+    # Notification Preferences
+    if user_update.notif_new_follower is not None:
+        user.notif_new_follower = user_update.notif_new_follower
+    if user_update.notif_challenge_win is not None:
+        user.notif_challenge_win = user_update.notif_challenge_win
+    if user_update.notif_comments is not None:
+        user.notif_comments = user_update.notif_comments
+    if user_update.notif_likes is not None:
+        user.notif_likes = user_update.notif_likes
+    
+    if user_update.email_weekly is not None:
+        user.email_weekly = user_update.email_weekly
+    if user_update.email_challenges is not None:
+        user.email_challenges = user_update.email_challenges
+    if user_update.email_payouts is not None:
+        user.email_payouts = user_update.email_payouts
+    if user_update.email_marketing is not None:
+        user.email_marketing = user_update.email_marketing
+    
+    # Account & Security
+    if user_update.payout_method is not None:
+        user.payout_method = user_update.payout_method
+    if user_update.two_factor_enabled is not None:
+        user.two_factor_enabled = user_update.two_factor_enabled
 
     db.commit()
     db.refresh(user)

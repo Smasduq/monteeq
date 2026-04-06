@@ -48,6 +48,20 @@ def update_user_me(
         )
         
     return {"user": updated_user, "access_token": access_token}
+    
+@router.put("/me/password")
+def update_user_password(
+    passwords: schemas.PasswordChange,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    success = crud_user.update_password(db, user_id=current_user.id, passwords=passwords)
+    if success is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if success is False:
+        raise HTTPException(status_code=400, detail="Incorrect current password")
+    
+    return {"message": "Password updated successfully"}
 
 @router.get("/profile/{username}", response_model=schemas.UserProfile)
 def get_profile(
