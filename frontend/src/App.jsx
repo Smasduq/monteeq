@@ -61,7 +61,7 @@ function AppContent() {
   const isChatPage = location.pathname.startsWith('/chat');
   const isPremiumOrAdmin = user?.is_premium || user?.role === 'admin';
   const isOnboardingPage = location.pathname === '/onboarding';
-  const showAdColumn = !isHomePage && !isFlashPage && !isChatPage && !isOnboardingPage && user && !isPremiumOrAdmin;
+  const showAdColumn = !isHomePage && !isFlashPage && !isChatPage && !isOnboardingPage && !location.pathname.startsWith('/watch/') && user && !isPremiumOrAdmin;
 
   // Onboarding redirection
   React.useEffect(() => {

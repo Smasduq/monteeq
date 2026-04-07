@@ -196,6 +196,39 @@ const Watch = () => {
         }
     };
 
+    const handleCommentEdit = async (commentId, content) => {
+        if (!token) return;
+        try {
+            const updated = await updateComment({ videoId: id, commentId, content }, token);
+            const recursiveUpdate = (list) => list.map(c => {
+                if (c.id === commentId) return { ...c, ...updated };
+                if (c.replies) return { ...c, replies: recursiveUpdate(c.replies) };
+                return c;
+            });
+            setComments(recursiveUpdate(comments));
+            showNotification('success', "Comment updated");
+        } catch (err) {
+            console.error("Failed to edit comment", err);
+            showNotification('error', "Failed to edit comment");
+        }
+    };
+
+    const handleCommentDelete = async (commentId) => {
+        if (!token) return;
+        try {
+            await deleteComment({ videoId: id, commentId }, token);
+            const recursiveFilter = (list) => list.filter(c => c.id !== commentId).map(c => {
+                if (c.replies) return { ...c, replies: recursiveFilter(c.replies) };
+                return c;
+            });
+            setComments(recursiveFilter(comments));
+            showNotification('success', "Comment deleted");
+        } catch (err) {
+            console.error("Failed to delete comment", err);
+            showNotification('error', "Failed to delete comment");
+        }
+    };
+
     const handleLike = async () => {
         if (!token) return showNotification('info', "Please login to like");
         try {
@@ -268,95 +301,87 @@ const Watch = () => {
                 </div>
 
                 <div className="watch-meta" style={{ padding: '1.5rem 1rem' }}>
-                <h1 style={{ marginBottom: '0.8rem', fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.3 }}>{video.title}</h1>
+                    <h1 style={{ marginBottom: '0.8rem', fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.3 }}>{video.title}</h1>
 
-                {/* Video Info Section */}
-                <div className="glass" style={{ padding: '1.2rem', borderRadius: '12px', marginBottom: '2rem', background: 'rgba(255,255,255,0.03)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>
-                            {video.views?.toLocaleString()} views • {video.created_at ? new Date(video.created_at).toLocaleDateString() : 'Recently'}
+                    {/* Video Info Section */}
+                    <div className="glass" style={{ padding: '1.2rem', borderRadius: '12px', marginBottom: '2rem', background: 'rgba(255,255,255,0.03)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>
+                                {video.views?.toLocaleString()} views • {video.created_at ? new Date(video.created_at).toLocaleDateString() : 'Recently'}
+                            </div>
                         </div>
+
+                        <p style={{ color: 'var(--text-primary)', fontSize: '0.95rem', lineHeight: '1.5', whiteSpace: 'pre-wrap', marginBottom: '1rem' }}>
+                            {video.description || "No description provided."}
+                        </p>
+
+                        {video.tags && (
+                            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                                {video.tags.split(',').map((tag, i) => (
+                                    <span
+                                        key={i}
+                                        onClick={() => navigate(`/search?q=${encodeURIComponent('#' + tag.trim())}`)}
+                                        style={{ color: 'var(--accent-primary)', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}
+                                    >
+                                        #{tag.trim()}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
-                    <p style={{ color: 'var(--text-primary)', fontSize: '0.95rem', lineHeight: '1.5', whiteSpace: 'pre-wrap', marginBottom: '1rem' }}>
-                        {video.description || "No description provided."}
-                    </p>
-
-                    {video.tags && (
-                        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-                            {video.tags.split(',').map((tag, i) => (
-                                <span
-                                    key={i}
-                                    onClick={() => navigate(`/search?q=${encodeURIComponent('#' + tag.trim())}`)}
-                                    style={{ color: 'var(--accent-primary)', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer' }}
-                                >
-                                    #{tag.trim()}
-                                </span>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div
-                            onClick={() => navigate(`/profile/${video.owner?.username}`)}
-                            className="avatar-placeholder"
-                            style={{
-                                width: '48px', height: '48px', cursor: 'pointer', border: '2px solid rgba(255,255,255,0.1)'
-                            }}
-                        >
-                            {video.owner?.profile_pic ? (
-                                <img src={video.owner.profile_pic} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                                <div style={{ fontSize: '1.2rem' }}>
-                                    {video.owner?.username?.[0].toUpperCase()}
-                                </div>
-                            )}
-                        </div>
-                        <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <div
                                 onClick={() => navigate(`/profile/${video.owner?.username}`)}
-                                style={{ fontWeight: 700, fontSize: '1.1rem', cursor: 'pointer' }}
-                                className="hover-underline"
+                                className="avatar-placeholder"
+                                style={{
+                                    width: '48px', height: '48px', cursor: 'pointer', border: '2px solid rgba(255,255,255,0.1)'
+                                }}
                             >
-                                @{video.owner?.username || 'Unknown'}
+                                {video.owner?.profile_pic ? (
+                                    <img src={video.owner.profile_pic} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    <div style={{ fontSize: '1.2rem' }}>
+                                        {video.owner?.username?.[0].toUpperCase()}
+                                    </div>
+                                )}
                             </div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                {video.owner?.followers_count || 0} followers
+                            <div style={{ flex: 1 }}>
+                                <div
+                                    onClick={() => navigate(`/profile/${video.owner?.username}`)}
+                                    style={{ fontWeight: 700, fontSize: '1.1rem', cursor: 'pointer' }}
+                                    className="hover-underline"
+                                >
+                                    @{video.owner?.username || 'Unknown'}
+                                </div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                    {video.owner?.followers_count || 0} followers
+                                </div>
                             </div>
                         </div>
+
+                        <div className="watch-actions" style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem', maskImage: 'linear-gradient(to right, black 90%, transparent)' }}>
+                            <button
+                                className={`watch-btn ${video.liked_by_user ? 'liked' : ''}`}
+                                onClick={handleLike}
+                                style={{ flexShrink: 0, padding: '0.6rem 1.2rem' }}
+                            >
+                                <Heart
+                                    size={18}
+                                    fill={video.liked_by_user ? 'currentColor' : 'none'}
+                                    color="currentColor"
+                                />
+                                {video.likes_count}
+                            </button>
+                            <button className="watch-btn" onClick={handleShare} style={{ flexShrink: 0, padding: '0.6rem 1.2rem' }}>
+                                <Share2 size={18} /> Share
+                            </button>
+                            <button className="watch-btn" onClick={() => setShowDownloadModal(true)} style={{ flexShrink: 0, padding: '0.6rem 1.2rem' }}>
+                                <Download size={18} /> Download
+                            </button>
+                        </div>
                     </div>
-
-                    <div className="watch-actions" style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem', maskImage: 'linear-gradient(to right, black 90%, transparent)' }}>
-                        <button
-                            className={`watch-btn ${video.liked_by_user ? 'liked' : ''}`}
-                            onClick={handleLike}
-                            style={{ flexShrink: 0, padding: '0.6rem 1.2rem' }}
-                        >
-                            <Heart
-                                size={18}
-                                fill={video.liked_by_user ? 'currentColor' : 'none'}
-                                color="currentColor"
-                            />
-                            {video.likes_count}
-                        </button>
-                        <button className="watch-btn" onClick={handleShare} style={{ flexShrink: 0, padding: '0.6rem 1.2rem' }}>
-                            <Share2 size={18} /> Share
-                        </button>
-                        <button className="watch-btn" onClick={() => setShowDownloadModal(true)} style={{ flexShrink: 0, padding: '0.6rem 1.2rem' }}>
-                            <Download size={18} /> Download
-                        </button>
-                    </div>
-                </div>
-
-                {/* Comments Section */}
-                <div className="comments-section" style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '2rem' }}>
-                    <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <MessageSquare size={20} />
-                        {comments.length} Comments
-                    </h3>
-
                     {/* Comment Input */}
                     <form onSubmit={handleCommentSubmit} style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
                         <div className="avatar-placeholder" style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#333' }} />
@@ -415,7 +440,6 @@ const Watch = () => {
                     </div>
                 </div>
             </div>
-            </div>
 
             <div className="watch-sidebar">
                 <MonetizationWidget video={video} isOwner={user?.id === video.owner_id || user?.id === video.owner?.id} />
@@ -437,7 +461,7 @@ const Watch = () => {
                     align-items: start;
                 }
                 .watch-main {
-                    min-width: 0; /* Prevents flex/grid blowouts */
+                    min-width: 0;
                 }
                 .watch-sidebar {
                     position: sticky;
