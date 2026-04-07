@@ -130,6 +130,7 @@ class Token(BaseModel):
     token_type: Optional[str] = "bearer"
     two_factor_required: bool = False
     username: Optional[str] = None
+    methods: Optional[List[str]] = None
 
 class TokenData(BaseModel):
     username: Optional[str] = None
@@ -341,3 +342,55 @@ class ChallengeLeaderboardEntry(BaseModel):
     entry: ChallengeEntry
     score: int # e.g., views or likes
 
+class TransactionBase(BaseModel):
+    amount: float
+    transaction_type: str
+    reference_id: Optional[str] = None
+    description: Optional[str] = None
+
+class Transaction(TransactionBase):
+    id: int
+    wallet_id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class WalletBase(BaseModel):
+    balance: float
+    currency: str = "NGN"
+
+class Wallet(WalletBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+    transactions: List[Transaction] = []
+    model_config = ConfigDict(from_attributes=True)
+    
+class SubscriptionBase(BaseModel):
+    creator_id: int
+    monthly_price: float
+
+class Subscription(SubscriptionBase):
+    id: int
+    subscriber_id: int
+    status: str
+    next_billing_date: Optional[datetime] = None
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class PayoutRequestCreate(BaseModel):
+    amount: float
+    bank_details: Optional[str] = None  # JSON: { bank, account_number, account_name }
+
+class PayoutRequestSchema(BaseModel):
+    id: int
+    user_id: int
+    wallet_id: int
+    amount: float
+    status: str
+    bank_details: Optional[str] = None
+    admin_note: Optional[str] = None
+    requested_at: datetime
+    processed_at: Optional[datetime] = None
+    user: Optional[UserBase] = None
+    model_config = ConfigDict(from_attributes=True)

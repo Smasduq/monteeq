@@ -33,7 +33,7 @@ def setup_totp(
     # Generate provisioning URI
     uri = pyotp.totp.TOTP(secret).provisioning_uri(
         name=current_user.email,
-        issuer_name="Montage"
+        issuer_name="Monteeq"
     )
     
     # Generate QR Code as base64

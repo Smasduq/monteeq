@@ -8,7 +8,7 @@ from app.core import dependencies
 from fastapi.staticfiles import StaticFiles
 import os
 
-app = FastAPI(title="Montage Video Platform")
+app = FastAPI(title="Monteeq Video Platform")
 
 # CORS middleware - MUST be added before other middleware
 app.add_middleware(

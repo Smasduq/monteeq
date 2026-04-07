@@ -364,7 +364,7 @@ const ManageContent = () => {
                         </div>
                         <h2 style={{ marginBottom: '1rem' }}>Delete {deleteTarget.type === 'video' ? 'Video' : 'Post'}?</h2>
                         <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '0.9rem' }}>
-                            This action cannot be undone. This {deleteTarget.type} will be permanently removed from Montage.
+                            This action cannot be undone. This {deleteTarget.type} will be permanently removed from Monteeq.
                         </p>
                         <div style={{ display: 'flex', gap: '1rem' }}>
                             <button className="glass" style={{ flex: 1, padding: '0.8rem', borderRadius: '12px', cursor: 'pointer' }} onClick={() => setDeleteTarget(null)}>Cancel</button>

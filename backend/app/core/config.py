@@ -20,7 +20,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # Supabase Storage Configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-SUPABASE_BUCKET_NAME = os.getenv("SUPABASE_BUCKET_NAME", "montage")
+SUPABASE_BUCKET_NAME = os.getenv("SUPABASE_BUCKET_NAME", "monteeq")
 
 # Quota Limits
 FLASH_QUOTA_LIMIT = 50

@@ -104,7 +104,7 @@ const Signup = () => {
                     <div className="auth-header">
                         <div className="logo-section" style={{ justifyContent: 'center', marginBottom: '1rem' }}>
                             <Zap size={40} fill="currentColor" />
-                            <span>MONTAGE</span>
+                            <span>MONTEEQ</span>
                         </div>
                         <h1>Verify Email</h1>
                         <p>We've sent a 6-digit code to {email}</p>
@@ -142,10 +142,10 @@ const Signup = () => {
                 <div className="auth-header">
                     <div className="logo-section" style={{ justifyContent: 'center', marginBottom: '1rem' }}>
                         <Zap size={40} fill="currentColor" />
-                        <span>MONTAGE</span>
+                        <span>MONTEEQ</span>
                     </div>
                     <h1>Create Account</h1>
-                    <p>Start your journey with Montage</p>
+                    <p>Start your journey with Monteeq</p>
                 </div>
 
                 {error && <div style={{ color: 'var(--accent-primary)', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</div>}
@@ -260,7 +260,19 @@ const Signup = () => {
                     <GoogleLogin
                         onSuccess={credentialResponse => {
                             googleLogin(credentialResponse.credential)
-                                .then((user) => {
+                                .then((res) => {
+                                    if (res?.two_factor_required) {
+                                        // Social 2FA Bypass Fix: Redirect to login to handle the 2FA flow
+                                        navigate('/login', { 
+                                            state: { 
+                                                authStep: 'methods', 
+                                                tempUsername: res.username,
+                                                methods: res.methods 
+                                            } 
+                                        });
+                                        return;
+                                    }
+                                    const user = res;
                                     if (user && !user.is_onboarded) {
                                         navigate('/onboarding');
                                     } else {

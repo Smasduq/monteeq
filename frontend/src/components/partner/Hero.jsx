@@ -25,7 +25,7 @@ const Hero = ({ onCtaClick, onWatchClick }) => {
         </div>
 
         <h1 className="partner-hero-title">
-          Partner With <span className="partner-gradient-text">Montage</span>
+          Partner With <span className="partner-gradient-text">Monteeq</span>
         </h1>
 
         <p className="partner-hero-subtitle">
@@ -33,7 +33,7 @@ const Hero = ({ onCtaClick, onWatchClick }) => {
         </p>
 
         <p className="partner-hero-desc">
-          Montage helps brands turn static or raw content into engaging, highly shareable video edits that capture attention and drive real growth.
+          Monteeq helps brands turn static or raw content into engaging, highly shareable video edits that capture attention and drive real growth.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>

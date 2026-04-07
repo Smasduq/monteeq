@@ -36,7 +36,7 @@ const VideoPlayer = ({ video, autoPlay = false, onTimeUpdate }) => {
     };
 
     useEffect(() => {
-        const hasSeenGuide = localStorage.getItem('montage_shortcuts_seen');
+        const hasSeenGuide = localStorage.getItem('monteeq_shortcuts_seen');
         if (!hasSeenGuide) {
             setShowGuide(true);
         }
@@ -44,7 +44,7 @@ const VideoPlayer = ({ video, autoPlay = false, onTimeUpdate }) => {
 
     const handleDismissGuide = () => {
         setShowGuide(false);
-        localStorage.setItem('montage_shortcuts_seen', 'true');
+        localStorage.setItem('monteeq_shortcuts_seen', 'true');
     };
 
     // Resolution State

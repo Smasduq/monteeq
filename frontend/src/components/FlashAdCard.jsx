@@ -8,7 +8,7 @@ const FlashAdCard = ({ ad }) => {
                     <img src={ad.image_url} alt={ad.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                     <div style={{ width: '100%', height: '100%', background: 'linear-gradient(45deg, #111, #222)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-                        <div style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--accent-primary)', marginBottom: '1rem' }}>MONTAGE</div>
+                        <div style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--accent-primary)', marginBottom: '1rem' }}>MONTEEQ</div>
                         <div style={{ fontSize: '1.2rem', color: '#fff', textAlign: 'center' }}>Sponsored Ad Content</div>
                     </div>
                 )}
@@ -17,7 +17,7 @@ const FlashAdCard = ({ ad }) => {
 
                 <div style={{ position: 'absolute', bottom: '2rem', left: '1rem', right: '1rem', padding: '1.5rem', background: 'linear-gradient(transparent, rgba(0,0,0,0.9))' }}>
                     <div style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.5rem' }}>{ad?.title || 'Upgrade to Premium'}</div>
-                    <p style={{ fontSize: '0.9rem', color: '#ccc', marginBottom: '1.5rem' }}>Support Montage and enjoy an ad-free experience with HD video playback.</p>
+                    <p style={{ fontSize: '0.9rem', color: '#ccc', marginBottom: '1.5rem' }}>Support Monteeq and enjoy an ad-free experience with HD video playback.</p>
                     <button style={{
                         width: '100%',
                         padding: '1rem',

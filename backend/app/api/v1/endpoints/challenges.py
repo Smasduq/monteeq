@@ -12,7 +12,7 @@ from app.core.dependencies import get_current_user
 from app.models.models import Challenge, ChallengeEntry, Video, User
 from app.core.storage import storage
 from app.crud import video as crud_video
-from .videos import background_process_video
+from app.tasks.video_tasks import process_video_task
 from app.services.challenge_service import resolve_expired_challenges
 
 router = APIRouter()
@@ -105,8 +105,7 @@ async def enter_challenge(
     db.refresh(db_entry)
 
     # Start background processing
-    background_tasks.add_task(
-        background_process_video,
+    process_video_task.delay(
         temp_file_path,
         "home",
         title,
