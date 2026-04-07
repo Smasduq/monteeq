@@ -374,19 +374,7 @@ class Transaction(Base):
     wallet = relationship("Wallet", back_populates="transactions")
 
 
-class Subscription(Base):
-    __tablename__ = "subscriptions"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    subscriber_id = Column(Integer, ForeignKey("users.id"), index=True)
-    creator_id = Column(Integer, ForeignKey("users.id"), index=True)
-    monthly_price = Column(Numeric(12, 2), default=5000.00)
-    status = Column(String, default="active", index=True) # 'active', 'canceled'
-    next_billing_date = Column(DateTime)
-    created_at = Column(DateTime, default=func.now())
-    
-    subscriber = relationship("User", foreign_keys=[subscriber_id])
-    creator = relationship("User", foreign_keys=[creator_id])
+
 
 
 class PayoutRequest(Base):

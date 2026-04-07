@@ -50,6 +50,7 @@ backend/delete_*.py
 .env.production.local
 backend/.env
 frontend/.env
+admin-dashboard/.env
 video-service/target/
 
 # System/IDE

@@ -8,8 +8,8 @@ import {
 import { useAuth } from '../context/AuthContext';
 
 /* ── Small group label ─────────────────────────────────── */
-const NavGroup = ({ label }) => (
-  <div className="nav-group-label">{label}</div>
+const NavGroup = ({ label, show }) => (
+  show ? <div className="nav-group-label">{label}</div> : null
 );
 
 /* ── Single nav link ───────────────────────────────────── */
@@ -34,14 +34,14 @@ const Sidebar = ({ isOpen, onClose }) => {
       <nav className="nav-menu">
 
         {/* ── DISCOVER ────────────────────────────────── */}
-        <NavGroup label="Discover" />
+        <NavGroup label="Discover" show={isOpen} />
         <NavItem to="/"         icon={<HomeIcon size={20} />}  label="Home"        onClick={onClose} />
         <NavItem to="/flash"    icon={<Zap size={20} />}       label="Flash Clips" onClick={onClose} />
         <NavItem to="/posts"    icon={<Layout size={20} />}    label="Feed"        onClick={onClose} />
         <NavItem to="/challenges" icon={<Trophy size={20} />}  label="Challenges"  onClick={onClose} accent="var(--accent-primary)" />
 
         {/* ── CREATE ──────────────────────────────────── */}
-        <NavGroup label="Create" />
+        <NavGroup label="Create" show={isOpen} />
         <NavItem
           to="/upload"
           icon={<UploadCloud size={20} strokeWidth={2.5} />}
@@ -58,7 +58,7 @@ const Sidebar = ({ isOpen, onClose }) => {
             Only shown when logged in */}
         {token && (
           <>
-            <NavGroup label="Grow" />
+            <NavGroup label="Grow" show={isOpen} />
             <NavItem to="/insights"     icon={<TrendingUp size={20} />}    label="Insights"        onClick={onClose} accent="#f59e0b" />
             <NavItem to="/achievements" icon={<Trophy size={20} />}        label="Achievements"    onClick={onClose} />
             <NavItem to="/monetization" icon={<Wallet size={20} />}        label="Monetization"    onClick={onClose} accent="#eab308" />
@@ -69,14 +69,14 @@ const Sidebar = ({ isOpen, onClose }) => {
             Only shown when logged in */}
         {token && (
           <>
-            <NavGroup label="Social" />
+            <NavGroup label="Social" show={isOpen} />
             <NavItem to="/chat" icon={<MessageSquare size={20} />} label="Messages" onClick={onClose} />
           </>
         )}
 
         {/* ── MONTEEQ ──────────────────────────────────
             Always visible */}
-        <NavGroup label="Monteeq" />
+        <NavGroup label="Monteeq" show={isOpen} />
         <NavItem to="/partner" icon={<Handshake size={20} />}  label="Partner With Us" onClick={onClose} />
         <NavItem to="/about"   icon={<Telescope size={20} />}  label="About"           onClick={onClose} accent="#60a5fa" />
 

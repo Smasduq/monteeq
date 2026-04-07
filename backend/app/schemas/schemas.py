@@ -178,6 +178,11 @@ class Video(VideoBase):
     failed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
 
+    @field_validator('likes_count', 'comments_count', 'shares', mode='before')
+    @classmethod
+    def ensure_int(cls, v):
+        return v if v is not None else 0
+
     model_config = ConfigDict(from_attributes=True)
 
 class PostBase(BaseModel):
@@ -200,6 +205,11 @@ class Post(PostBase):
     original_post: Optional["Post"] = None
     views_count: int = 0
     reposted_by: Optional[UserBase] = None
+
+    @field_validator('likes_count', 'comments_count', 'views_count', mode='before')
+    @classmethod
+    def ensure_int_post(cls, v):
+        return v if v is not None else 0
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -244,18 +254,30 @@ class UnifiedSearchResponse(BaseModel):
     posts: List[Post]
 
 class UserInsights(BaseModel):
-    total_views: int
-    total_likes: int
-    total_earnings: float
-    total_shares: int
-    home_videos: int
-    flash_videos: int
-    posts_count: int
-    followers: int
-    following: int
-    next_milestone: int
+    total_views: int = 0
+    total_likes: int = 0
+    total_earnings: float = 0.0
+    total_shares: int = 0
+    home_videos: int = 0
+    flash_videos: int = 0
+    posts_count: int = 0
+    followers: int = 0
+    following: int = 0
+    next_milestone: int = 0
     new_milestone_reached: Optional[str] = None
-    achievements: List[str]
+    achievements: List[str] = []
+
+    @field_validator('total_views', 'total_likes', 'total_shares', 'home_videos', 'flash_videos', 'posts_count', 'followers', 'following', 'next_milestone', mode='before')
+    @classmethod
+    def ensure_int_insights(cls, v):
+        return v if v is not None else 0
+
+    @field_validator('total_earnings', mode='before')
+    @classmethod
+    def ensure_float_insights(cls, v):
+        return v if v is not None else 0.0
+
+    model_config = ConfigDict(from_attributes=True)
 
 class PerformanceDataPoint(BaseModel):
     date: str
@@ -366,17 +388,7 @@ class Wallet(WalletBase):
     transactions: List[Transaction] = []
     model_config = ConfigDict(from_attributes=True)
     
-class SubscriptionBase(BaseModel):
-    creator_id: int
-    monthly_price: float
 
-class Subscription(SubscriptionBase):
-    id: int
-    subscriber_id: int
-    status: str
-    next_billing_date: Optional[datetime] = None
-    created_at: datetime
-    model_config = ConfigDict(from_attributes=True)
 
 class PayoutRequestCreate(BaseModel):
     amount: float
