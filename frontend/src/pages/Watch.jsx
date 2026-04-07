@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import CommentItem from '../components/CommentItem';
 import { WatchSkeleton } from '../components/Skeleton';
+import MonetizationWidget from '../components/MonetizationWidget';
 
 const DownloadModal = ({ video, onClose, user }) => {
     const { showNotification } = useNotification();
@@ -260,12 +261,13 @@ const Watch = () => {
     };
 
     return (
-        <div className="watch-container">
-            <div className="watch-video-wrapper">
-                <VideoPlayer video={video} autoPlay={true} onTimeUpdate={handleTimeUpdate} />
-            </div>
+        <div className="watch-container layout-monetized">
+            <div className="watch-main">
+                <div className="watch-video-wrapper">
+                    <VideoPlayer video={video} autoPlay={true} onTimeUpdate={handleTimeUpdate} />
+                </div>
 
-            <div className="watch-meta" style={{ padding: '1.5rem 1rem' }}>
+                <div className="watch-meta" style={{ padding: '1.5rem 1rem' }}>
                 <h1 style={{ marginBottom: '0.8rem', fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.3 }}>{video.title}</h1>
 
                 {/* Video Info Section */}
@@ -413,6 +415,11 @@ const Watch = () => {
                     </div>
                 </div>
             </div>
+            </div>
+
+            <div className="watch-sidebar">
+                <MonetizationWidget video={video} isOwner={user?.id === video.owner_id || user?.id === video.owner?.id} />
+            </div>
 
             {showDownloadModal && (
                 <DownloadModal
@@ -421,6 +428,32 @@ const Watch = () => {
                     user={user}
                 />
             )}
+
+            <style>{`
+                .layout-monetized {
+                    display: grid;
+                    grid-template-columns: 1fr 350px;
+                    gap: 2rem;
+                    align-items: start;
+                }
+                .watch-main {
+                    min-width: 0; /* Prevents flex/grid blowouts */
+                }
+                .watch-sidebar {
+                    position: sticky;
+                    top: 100px;
+                }
+                @media (max-width: 1024px) {
+                    .layout-monetized {
+                        grid-template-columns: 1fr;
+                    }
+                    .watch-sidebar {
+                        position: relative;
+                        top: 0;
+                        margin-top: 1rem;
+                    }
+                }
+            `}</style>
         </div>
     );
 };

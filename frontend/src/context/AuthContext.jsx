@@ -59,14 +59,18 @@ export const AuthProvider = ({ children }) => {
         try {
             const response = await axios.post(`${API_BASE_URL}/auth/google`, { credential });
             
-            if (response.data.two_factor_required) {
-                return response.data; // Return { two_factor_required: true, username: '...' }
-            }
+        if (response.data.two_factor_required) {
+            console.log("2FA Required for user:", response.data.username);
+            return response.data;
+        }
 
-            const { access_token } = response.data;
+        const { access_token } = response.data;
+        if (access_token) {
             localStorage.setItem('token', access_token);
             setToken(access_token);
             return await fetchUser(access_token);
+        }
+        return response.data;
         } catch (error) {
             console.error("Google Login Error:", error.response?.data || error.message);
             throw error;

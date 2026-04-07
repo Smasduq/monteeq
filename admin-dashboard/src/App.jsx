@@ -5,6 +5,7 @@ import Dashboard from './Dashboard';
 import VideoApprovals from './VideoApprovals';
 import StatsDetail from './StatsDetail';
 import AdminChallenges from './AdminChallenges';
+import AdminPayouts from './AdminPayouts';
 import { NotificationProvider } from './context/NotificationContext';
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
           <Route path="/dashboard" element={token ? <Dashboard token={token} setToken={setToken} theme={theme} toggleTheme={toggleTheme} /> : <Navigate to="/" />} />
           <Route path="/approvals" element={token ? <VideoApprovals token={token} setToken={setToken} theme={theme} toggleTheme={toggleTheme} /> : <Navigate to="/" />} />
           <Route path="/challenges" element={token ? <AdminChallenges token={token} setToken={setToken} theme={theme} toggleTheme={toggleTheme} /> : <Navigate to="/" />} />
+          <Route path="/payouts" element={token ? <AdminPayouts token={token} theme={theme} /> : <Navigate to="/" />} />
           <Route path="/stats/:metric" element={token ? <StatsDetail token={token} /> : <Navigate to="/" />} />
         </Routes>
       </Router>

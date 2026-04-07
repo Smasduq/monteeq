@@ -199,7 +199,7 @@ const Search = () => {
                                                 <span>{video.owner?.username} • {formatViews(video.views)} views</span>
                                             </div>
                                             <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', margin: 0 }}>
-                                                Professional {video.video_type} content by {video.owner?.full_name || video.owner?.username}. Watch now on Montage.
+                                                Professional {video.video_type} content by {video.owner?.full_name || video.owner?.username}. Watch now on Monteeq.
                                             </p>
                                         </div>
                                     </div>

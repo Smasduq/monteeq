@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float, Text, DateTime, func
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float, Text, DateTime, func, Numeric
 from sqlalchemy.orm import relationship, backref
 from app.db.base import Base
 import enum
@@ -127,19 +127,22 @@ class Video(Base):
     url_2k = Column(String, nullable=True)
     url_4k = Column(String, nullable=True)
     thumbnail_url = Column(String)
-    video_type = Column(String) # home or flash
-    status = Column(String, default=ApprovalStatus.PENDING)
-    owner_id = Column(Integer, ForeignKey("users.id"))
+    video_type = Column(String, index=True) # home or flash
+    status = Column(String, default=ApprovalStatus.PENDING, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), index=True)
     views = Column(Integer, default=0)
     earnings = Column(Float, default=0.0)
     shares = Column(Integer, default=0)
     duration = Column(Integer, default=0)
     processing_key = Column(String, nullable=True)
     tags = Column(Text, nullable=True) # Comma-separated tags
-    discovery_score = Column(Float, default=0.0)
+    discovery_score = Column(Float, default=0.0, index=True)
     last_owner_interaction_at = Column(DateTime, nullable=True)
     failed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=func.now(), index=True)
+    likes_count = Column(Integer, default=0)
+    comments_count = Column(Integer, default=0)
+    is_exclusive = Column(Boolean, default=False)
 
     owner = relationship("User", back_populates="videos")
     comments = relationship("Comment", back_populates="video", cascade="all, delete-orphan")
@@ -153,9 +156,9 @@ class View(Base):
     __tablename__ = "views"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    video_id = Column(Integer, ForeignKey("videos.id"), nullable=True)
-    post_id = Column(Integer, ForeignKey("posts.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    video_id = Column(Integer, ForeignKey("videos.id"), nullable=True, index=True)
+    post_id = Column(Integer, ForeignKey("posts.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=func.now())
 
     user = relationship("User")
@@ -166,9 +169,9 @@ class Like(Base):
     __tablename__ = "likes"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    video_id = Column(Integer, ForeignKey("videos.id"), nullable=True)
-    post_id = Column(Integer, ForeignKey("posts.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    video_id = Column(Integer, ForeignKey("videos.id"), nullable=True, index=True)
+    post_id = Column(Integer, ForeignKey("posts.id"), nullable=True, index=True)
     created_at = Column(DateTime, default=func.now())
 
     user = relationship("User", back_populates="likes")
@@ -181,17 +184,20 @@ class Post(Base):
     id = Column(Integer, primary_key=True, index=True)
     content = Column(Text)
     image_url = Column(String, nullable=True)
-    owner_id = Column(Integer, ForeignKey("users.id"))
-    original_post_id = Column(Integer, ForeignKey("posts.id"), nullable=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), index=True)
+    original_post_id = Column(Integer, ForeignKey("posts.id"), nullable=True, index=True)
     views_count = Column(Integer, default=0)
     tags = Column(Text, nullable=True) # Comma-separated tags
 
     owner = relationship("User", back_populates="posts")
     original_post = relationship("Post", remote_side=[id])
     is_active = Column(Boolean, default=True)
-    discovery_score = Column(Float, default=0.0)
+    discovery_score = Column(Float, default=0.0, index=True)
     last_owner_interaction_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=func.now())
+    created_at = Column(DateTime, default=func.now(), index=True)
+    likes_count = Column(Integer, default=0)
+    comments_count = Column(Integer, default=0)
+    is_exclusive = Column(Boolean, default=False)
     
     likes = relationship("Like", back_populates="post", cascade="all, delete-orphan")
     comments = relationship("Comment", back_populates="post", cascade="all, delete-orphan")
@@ -201,10 +207,10 @@ class Comment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     content = Column(Text)
-    video_id = Column(Integer, ForeignKey("videos.id"), nullable=True)
-    post_id = Column(Integer, ForeignKey("posts.id"), nullable=True)
-    parent_id = Column(Integer, ForeignKey("comments.id"), nullable=True) # Threaded replies
-    owner_id = Column(Integer, ForeignKey("users.id"))
+    video_id = Column(Integer, ForeignKey("videos.id"), nullable=True, index=True)
+    post_id = Column(Integer, ForeignKey("posts.id"), nullable=True, index=True)
+    parent_id = Column(Integer, ForeignKey("comments.id"), nullable=True, index=True) # Threaded replies
+    owner_id = Column(Integer, ForeignKey("users.id"), index=True)
     created_at = Column(DateTime, default=func.now())
 
     owner = relationship("User", back_populates="comments")
@@ -339,3 +345,62 @@ class ChallengeEntry(Base):
     user = relationship("User")
     video = relationship("Video")
 
+
+class Wallet(Base):
+    __tablename__ = "wallets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, index=True)
+    balance = Column(Numeric(12, 2), default=0.00) # Precise NGN to 2 decimal places
+    currency = Column(String, default="NGN")
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    user = relationship("User", backref=backref("wallet", uselist=False))
+    transactions = relationship("Transaction", back_populates="wallet", cascade="all, delete-orphan")
+
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    wallet_id = Column(Integer, ForeignKey("wallets.id"), index=True)
+    amount = Column(Numeric(12, 2)) 
+    transaction_type = Column(String, index=True) # 'view_milestone', 'tip', 'subscription', 'payout'
+    reference_id = Column(String, nullable=True, index=True) # Stores 'video_34', 'user_1', etc.
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now(), index=True)
+
+    wallet = relationship("Wallet", back_populates="transactions")
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    subscriber_id = Column(Integer, ForeignKey("users.id"), index=True)
+    creator_id = Column(Integer, ForeignKey("users.id"), index=True)
+    monthly_price = Column(Numeric(12, 2), default=5000.00)
+    status = Column(String, default="active", index=True) # 'active', 'canceled'
+    next_billing_date = Column(DateTime)
+    created_at = Column(DateTime, default=func.now())
+    
+    subscriber = relationship("User", foreign_keys=[subscriber_id])
+    creator = relationship("User", foreign_keys=[creator_id])
+
+
+class PayoutRequest(Base):
+    __tablename__ = "payout_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    wallet_id = Column(Integer, ForeignKey("wallets.id"), index=True)
+    amount = Column(Numeric(12, 2))
+    status = Column(String, default="pending", index=True) # 'pending', 'processing', 'completed', 'rejected'
+    bank_details = Column(Text, nullable=True) # JSON string: { bank, account_number, account_name }
+    admin_note = Column(Text, nullable=True)
+    requested_at = Column(DateTime, default=func.now(), index=True)
+    processed_at = Column(DateTime, nullable=True)
+
+    user = relationship("User")
+    wallet = relationship("Wallet")

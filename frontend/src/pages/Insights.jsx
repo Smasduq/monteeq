@@ -64,7 +64,7 @@ const Insights = () => {
                 </button>
                 <div style={{ flex: 1 }}>
                     <h1 style={{ fontSize: '2.5rem', fontWeight: 800 }}>Editor Insights</h1>
-                    <p style={{ color: 'var(--text-secondary)' }}>Track your growth and celebrate your milestones on Montage</p>
+                    <p style={{ color: 'var(--text-secondary)' }}>Track your growth and celebrate your milestones on Monteeq</p>
                 </div>
 
                 <button
@@ -287,7 +287,7 @@ const Insights = () => {
                         <h2 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '1rem' }}>CONGRATULATIONS!</h2>
                         <p style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                             You've officially reached the <strong>{stats.new_milestone_reached.replace('_', ' ')}</strong> milestone!
-                            Your content is making a huge impact on Montage.
+                            Your content is making a huge impact on Monteeq.
                         </p>
 
                         <button

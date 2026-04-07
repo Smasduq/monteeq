@@ -67,7 +67,7 @@ const AdPreRoll = ({ onComplete }) => {
                             </div>
                         </>
                     ) : (
-                        <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--accent-primary)' }}>MONTAGE</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--accent-primary)' }}>MONTEEQ</div>
                     )}
                 </div>
 

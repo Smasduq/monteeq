@@ -1,4 +1,4 @@
-# 🎥 Montage
+# 🎥 Monteeq
 
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/Frontend-React-61DAFB?style=flat-square&logo=react&logoColor=black)](https://reactjs.org/)
@@ -6,7 +6,7 @@
 [![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-336791?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-**Montage** is a high-performance, full-stack video platform designed for creators. It features a modern React-based interface, a robust FastAPI backend, and a specialized Rust-powered processing engine for high-efficiency video transcoding.
+**Monteeq** is a high-performance, full-stack video platform designed for creators. It features a modern React-based interface, a robust FastAPI backend, and a specialized Rust-powered processing engine for high-efficiency video transcoding.
 
 ---
 
@@ -55,7 +55,7 @@
 - Node.js 18+ (for local development)
 
 ### One-Command Setup (Docker)
-The easiest way to get Montage running is using Docker Compose:
+The easiest way to get Monteeq running is using Docker Compose:
 
 ```bash
 docker-compose up --build
@@ -71,7 +71,7 @@ This will spin up:
 Create a `.env` file in the `backend/` directory based on the following template:
 
 ```ini
-DATABASE_URL=postgresql://postgres:password@localhost:5432/montage
+DATABASE_URL=postgresql://postgres:password@localhost:5432/monteeq
 SECRET_KEY=your_super_secret_key
 S3_ACCESS_KEY=your_b2_key_id
 S3_SECRET_KEY=your_b2_application_key

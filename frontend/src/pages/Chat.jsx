@@ -216,7 +216,7 @@ const Chat = () => {
                     <Shield size={64} color="var(--accent-primary)" style={{ marginBottom: '1.5rem' }} />
                     <h2>Secure End-to-End Chat</h2>
                     <p style={{ margin: '1rem 0', color: 'var(--text-secondary)' }}>
-                        To protect your privacy, Montage uses E2EE. Your messages are encrypted on your device and can only be read by you and the recipient.
+                        To protect your privacy, Monteeq uses E2EE. Your messages are encrypted on your device and can only be read by you and the recipient.
                     </p>
                     <button
                         className="btn-active glass"

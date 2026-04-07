@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { viewVideo } from '../api';
 
-const FlashCard = ({ video, isActive, onLike, onComment, onShare, onFollow, muted, toggleMute }) => {
+const FlashCard = ({ video, isActive, onLike, onComment, onShare, onFollow, muted, toggleMute, shouldRender = true }) => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const videoRef = useRef(null);
@@ -78,7 +78,7 @@ const FlashCard = ({ video, isActive, onLike, onComment, onShare, onFollow, mute
             <div className="video-wrapper" onClick={handleTap}>
                 <video
                     ref={videoRef}
-                    src={video.video_url}
+                    src={shouldRender ? video.video_url : ""}
                     loop
                     playsInline
                     onTimeUpdate={handleTimeUpdate}

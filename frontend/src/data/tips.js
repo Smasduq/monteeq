@@ -81,7 +81,7 @@ export const editorTips = [
     },
     {
         title: "Cross-Platform Hype",
-        content: "Share snippets of your Montage content on other socials. Driving outside traffic to your profile is a huge plus for growth.",
+        content: "Share snippets of your Monteeq content on other socials. Driving outside traffic to your profile is a huge plus for growth.",
         icon: Share2,
         color: "#0ea5e9"
     },
@@ -153,7 +153,7 @@ export const editorTips = [
     },
     {
         title: "Exclusivity Pays",
-        content: "Give your Montage followers something they can't get elsewhere. Behind-the-scenes content or early access builds exclusivity.",
+        content: "Give your Monteeq followers something they can't get elsewhere. Behind-the-scenes content or early access builds exclusivity.",
         icon: Star,
         color: "#fbbf24"
     }

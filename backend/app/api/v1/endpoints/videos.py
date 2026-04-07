@@ -69,6 +69,18 @@ async def get_search_suggestions(q: Optional[str] = "", db: Session = Depends(ge
 
 @router.get("/trending-suggestions")
 async def get_trending_suggestions(db: Session = Depends(get_db)):
+    import redis
+    import json
+    
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    try:
+        redis_client = redis.StrictRedis.from_url(redis_url, decode_responses=True)
+        cached = redis_client.get("trending_suggestions")
+        if cached:
+            return json.loads(cached)
+    except Exception:
+        redis_client = None
+
     # 1. High views (Trending)
     trending_videos = db.query(Video).filter(Video.status == "approved").order_by(Video.views.desc()).limit(5).all()
     
@@ -98,7 +110,14 @@ async def get_trending_suggestions(db: Session = Depends(get_db)):
             suggestions.append(val)
             seen.add(val)
             
-    return suggestions[:10]
+    result = suggestions[:10]
+    if redis_client:
+        try:
+            redis_client.setex("trending_suggestions", 300, json.dumps(result))
+        except Exception:
+            pass
+            
+    return result
 
 @router.get("/{video_id}", response_model=schemas.Video)
 def read_video(video_id: int, db: Session = Depends(get_db), current_user: Optional[dict] = Depends(get_current_user_optional)):
@@ -109,171 +128,7 @@ def read_video(video_id: int, db: Session = Depends(get_db), current_user: Optio
     return db_video
 
 
-async def background_process_video(
-    temp_file_path: str,
-    video_type: str,
-    title: str,
-    video_id: int,
-    thumbnail_provided: bool,
-    task_id: str
-):
-    db = SessionLocal()
-    try:
-        # Phase 1: Communication with Rust Service
-        try:
-            async with httpx.AsyncClient() as client:
-                rust_response = await client.post(
-                    f"{config.RUST_SERVICE_URL}/process",
-                    json={
-                        "video_id": temp_file_path,
-                        "target_format": video_type,
-                        "skip_thumbnail": thumbnail_provided,
-                        "task_id": task_id
-                    },
-                    timeout=600.0
-                )
-                
-                import asyncio
-                max_retries = 300 # 10 minutes with 2s sleep
-                retries = 0
-                while retries < max_retries:
-                    try:
-                        status_resp = await client.get(f"{config.RUST_SERVICE_URL}/status/{task_id}")
-                        if status_resp.status_code == 200:
-                            status_data = status_resp.json()
-                            if status_data:
-                                if status_data.get("status") == "completed":
-                                    break
-                                if status_data.get("status") == "error":
-                                    raise Exception(f"Rust processing error: {status_data.get('message')}")
-                        elif status_resp.status_code == 404:
-                             pass
-                    except Exception as e:
-                        if "Rust processing error" in str(e):
-                            raise e
-                        print(f"Polling error (try {retries}): {e}")
-                    
-                    await asyncio.sleep(2)
-                    retries += 1
-                
-                if retries >= max_retries:
-                    raise Exception(f"Background processing timed out for task {task_id}")
-
-        except Exception as e:
-            print(f"Error in background processing phase: {e}")
-            # Rollback quota and mark as failed
-            video = db.query(Video).filter(Video.id == video_id).first()
-            if video:
-                video.status = "failed"
-                video.failed_at = func.now()
-                owner = db.query(User).filter(User.id == video.owner_id).first()
-                if owner:
-                    if video.video_type == "flash":
-                        owner.flash_uploads = max(0, (owner.flash_uploads or 1) - 1)
-                    else:
-                        owner.home_uploads = max(0, (owner.home_uploads or 1) - 1)
-                db.commit()
-            return
-
-        # Phase 2: Post-processing (Moving files and updating DB)
-        try:
-            # Ensure base filename is safe and unique
-            clean_title = "".join([c if c.isalnum() else "_" for c in title])
-            timestamp = int(os.path.getmtime(temp_file_path))
-            base_filename = f"{clean_title}_{timestamp}"
-            
-            def save_resolution(suffix):
-                src = f"{temp_file_path}_{suffix}.mp4"
-                if not os.path.exists(src):
-                    return None
-                    
-                # Storage Abstraction (Local or S3/B2)
-                s3_key = f"videos/{base_filename}_{suffix}.mp4"
-                return storage.upload_file(src, s3_key)
-
-            url_480p = save_resolution("480p")
-            url_720p = save_resolution("720p")
-            url_1080p = save_resolution("1080p")
-            url_2k = save_resolution("1440p")
-            url_4k = save_resolution("2160p")
-            
-            # Fallback logic for the main video URL
-            video_url = url_720p or url_1080p or url_480p or ""
-            
-            temp_thumb_path = f"{temp_file_path}.jpg"
-            thumbnail_url = None
-            
-            if not thumbnail_provided and os.path.exists(temp_thumb_path):
-                # Storage Abstraction (Local or S3/B2)
-                s3_key = f"thumbs/{base_filename}.jpg"
-                thumbnail_url = storage.upload_file(temp_thumb_path, s3_key)
-
-            # Get Duration
-            duration = 0
-            try:
-                import subprocess
-                probe_cmd = [
-                    "ffprobe", "-v", "error", "-show_entries", "format=duration",
-                    "-of", "default=noprint_wrappers=1:nokey=1", temp_file_path
-                ]
-                duration_str = subprocess.check_output(probe_cmd).decode('utf-8').strip()
-                duration = int(float(duration_str))
-            except Exception as e:
-                print(f"Failed to get duration: {e}")
-
-            # Update Database
-            video = db.query(Video).filter(Video.id == video_id).first()
-            if video:
-                video.video_url = video_url
-                video.url_480p = url_480p
-                video.url_720p = url_720p
-                video.url_1080p = url_1080p
-                video.url_2k = url_2k
-                video.url_4k = url_4k
-                video.duration = duration
-                # video.status = "approved" # REMOVED AUTO-APPROVAL
-                video.failed_at = None # Clear if it was a retry
-                
-                if thumbnail_url:
-                    video.thumbnail_url = thumbnail_url
-                
-                # Automated Video Recognition
-                try:
-                    import subprocess
-                    import json
-                    import sys
-                    # Dynamic path resolution for Linux
-                    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-                    recognition_script = os.path.join(backend_dir, "..", "video-service", "scripts", "video_recognition.py")
-                    
-                    if os.path.exists(recognition_script):
-                        rec_result = subprocess.run(
-                            [sys.executable, recognition_script, temp_file_path],
-                            capture_output=True, text=True, timeout=60
-                        )
-                        if rec_result.returncode == 0:
-                            auto_tags = json.loads(rec_result.stdout)
-                            if auto_tags:
-                                # Merge with existing tags if any
-                                existing_tags = [t.strip() for t in (video.tags or "").split(",") if t.strip()]
-                                all_tags = list(set(existing_tags + auto_tags))
-                                video.tags = ",".join(all_tags)
-                except Exception as e:
-                    print(f"Video recognition failed: {e}")
-
-                db.commit()
-        except Exception as e:
-            print(f"Error in post-processing: {e}")
-
-    finally:
-        db.close()
-        # Clean up temp
-        temp_dir = os.path.dirname(temp_file_path)
-        if os.path.exists(temp_dir):
-            try:
-                shutil.rmtree(temp_dir)
-            except Exception as e:
-                print(f"Error cleaning up temp dir {temp_dir}: {e}")
+# Processing logic migrated to Celery workers in app/tasks/video_tasks.py
 
 def delete_video_files(video: Video):
     """Utility to delete all files (local, S3/B2, or Supabase) associated with a video."""
@@ -428,8 +283,8 @@ async def upload_video(
     
     db_video = crud_video.create_video(db, video_create_data, user_id=current_user.id)
 
-    background_tasks.add_task(
-        background_process_video,
+    from app.tasks.video_tasks import process_video_task
+    process_video_task.delay(
         temp_file_path,
         video_type,
         title,
@@ -481,8 +336,8 @@ async def reupload_video(
     video.failed_at = None
     db.commit()
     
-    background_tasks.add_task(
-        background_process_video,
+    from app.tasks.video_tasks import process_video_task
+    process_video_task.delay(
         temp_file_path,
         video.video_type,
         video.title,

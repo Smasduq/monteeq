@@ -26,7 +26,7 @@ const WhatWeDo = () => {
       <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
         <h2 className="partner-hero-title" style={{ fontSize: '2.5rem', marginBottom: '1.5rem' }}>What We Do</h2>
         <p className="partner-hero-desc" style={{ marginBottom: 0 }}>
-          At Montage, we believe every brand has a story that deserves to go viral. We provide the platform where brands meets unparalleled creative talent.
+          At Monteeq, we believe every brand has a story that deserves to go viral. We provide the platform where brands meets unparalleled creative talent.
         </p>
       </div>
 

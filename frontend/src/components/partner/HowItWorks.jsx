@@ -26,7 +26,7 @@ const HowItWorks = () => {
       <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
         <h2 className="partner-hero-title" style={{ fontSize: '2.5rem', marginBottom: '1.5rem' }}>How It Works</h2>
         <p className="partner-hero-desc" style={{ marginBottom: 0 }}>
-          Launching a campaign on Montage is as simple as 1, 2, 3.
+          Launching a campaign on Monteeq is as simple as 1, 2, 3.
         </p>
       </div>
 

@@ -118,7 +118,7 @@ const Challenges = () => {
             <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
                 <Trophy size={48} color="var(--accent-primary)" style={{ opacity: 0.5 }} />
             </motion.div>
-            <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>Loading Montage Challenges...</p>
+            <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>Loading Monteeq Challenges...</p>
         </div>
     );
 

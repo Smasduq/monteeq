@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home as HomeIcon, Zap, Layout, UploadCloud, LogIn, Clapperboard, Trophy, TrendingUp, MessageSquare } from 'lucide-react';
+import { Home as HomeIcon, Zap, Layout, UploadCloud, LogIn, Clapperboard, Trophy, TrendingUp, MessageSquare, Wallet, Telescope } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -25,6 +25,10 @@ const Sidebar = ({ isOpen, onClose }) => {
                     <Trophy size={20} color="var(--accent-primary)" />
                     <span>Challenges</span>
                 </NavLink>
+                <NavLink to="/about" onClick={onClose} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                    <Telescope size={20} color="#60a5fa" />
+                    <span>About</span>
+                </NavLink>
 
                 {token && (
                     <NavLink to="/manage" onClick={onClose} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
@@ -42,6 +46,12 @@ const Sidebar = ({ isOpen, onClose }) => {
                     <NavLink to="/insights" onClick={onClose} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <TrendingUp size={20} color="#f59e0b" />
                         <span>Insights</span>
+                    </NavLink>
+                )}
+                {token && (
+                    <NavLink to="/monetization" onClick={onClose} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                        <Wallet size={20} color="#eab308" />
+                        <span>Monetization</span>
                     </NavLink>
                 )}
                 {token && (

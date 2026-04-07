@@ -33,7 +33,7 @@ async def login_for_access_token(
             detail="Email not verified. Please verify your email first.",
         )
 
-    if user.two_factor_enabled:
+    if getattr(user, 'two_factor_enabled', False) is True:
         methods = ["totp"]
         if user.recovery_codes:
             methods.append("recovery_code")
@@ -137,7 +137,7 @@ async def google_auth(auth_data: schemas.UserGoogleAuth, db: Session = Depends(g
             db.commit()
             db.refresh(user)
 
-        if user.two_factor_enabled:
+        if getattr(user, 'two_factor_enabled', False) is True:
             methods = ["totp"]
             if user.recovery_codes:
                 methods.append("recovery_code")

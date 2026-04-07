@@ -22,7 +22,7 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
     const isHomePage = location.pathname === '/';
 
     useEffect(() => {
-        const history = JSON.parse(localStorage.getItem('montage_search_history') || '[]');
+        const history = JSON.parse(localStorage.getItem('monteeq_search_history') || '[]');
         setSearchHistory(history);
 
         const loadTrending = async () => {
@@ -92,9 +92,9 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
 
     const saveSearch = (query) => {
         if (!query || query.startsWith('@')) return; // Don't save empty or @user handles
-        const history = JSON.parse(localStorage.getItem('montage_search_history') || '[]');
+        const history = JSON.parse(localStorage.getItem('monteeq_search_history') || '[]');
         const newHistory = [query, ...history.filter(h => h !== query)].slice(0, 5);
-        localStorage.setItem('montage_search_history', JSON.stringify(newHistory));
+        localStorage.setItem('monteeq_search_history', JSON.stringify(newHistory));
         setSearchHistory(newHistory);
     };
 
@@ -126,8 +126,8 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
     };
 
     const handleLogout = () => {
-        localStorage.removeItem('montage_token');
-        localStorage.removeItem('montage_user');
+        localStorage.removeItem('monteeq_token');
+        localStorage.removeItem('monteeq_user');
         window.location.href = '/login';
     };
 
@@ -208,14 +208,14 @@ const Header = ({ onMenuToggle, isMenuOpen }) => {
                         background: 'linear-gradient(to right, #fff, #888)',
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent',
-                    }}>MONTAGE</span>
+                    }}>MONTEEQ</span>
                 </div>
 
                 <NavLink 
                     to="/partner" 
                     className="partner-nav-link desktop-only"
                 >
-                    Partner with Montage
+                    Partner with Monteeq
                 </NavLink>
 
             </div>
