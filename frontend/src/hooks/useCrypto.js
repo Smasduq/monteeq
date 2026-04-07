@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 
-const DB_NAME = 'MontageCryptoDB';
+const DB_NAME = 'MonteeqCryptoDB';
 const STORE_NAME = 'Keys';
 const KEY_NAME = 'ChatPrivateKey';
 

@@ -60,13 +60,14 @@ def get_videos(db: Session, video_type: Optional[str] = None, filter_status: str
             
         videos.sort(key=lambda x: x.personalized_score, reverse=True)
     
-    for video in videos:
-        video.likes_count = db.query(func.count(Like.video_id)).filter(Like.video_id == video.id).scalar() or 0
-        video.comments_count = db.query(func.count(Comment.id)).filter(Comment.video_id == video.id).scalar() or 0
-        
-        if current_user_id:
-            video.liked_by_user = db.query(Like).filter(Like.video_id == video.id, Like.user_id == current_user_id).first() is not None
-        else:
+    if current_user_id and videos:
+        video_ids = [v.id for v in videos]
+        liked_result = db.query(Like.video_id).filter(Like.user_id == current_user_id, Like.video_id.in_(video_ids)).all()
+        liked_video_ids = {r[0] for r in liked_result}
+        for video in videos:
+            video.liked_by_user = video.id in liked_video_ids
+    else:
+        for video in videos:
             video.liked_by_user = False
             
     return videos
@@ -93,13 +94,14 @@ def search_videos(db: Session, query_str: str, status: str = "approved", current
         
     videos = query.all()
     
-    for video in videos:
-        video.likes_count = db.query(func.count(Like.video_id)).filter(Like.video_id == video.id).scalar() or 0
-        video.comments_count = db.query(func.count(Comment.id)).filter(Comment.video_id == video.id).scalar() or 0
-        
-        if current_user_id:
-            video.liked_by_user = db.query(Like).filter(Like.video_id == video.id, Like.user_id == current_user_id).first() is not None
-        else:
+    if current_user_id and videos:
+        video_ids = [v.id for v in videos]
+        liked_result = db.query(Like.video_id).filter(Like.user_id == current_user_id, Like.video_id.in_(video_ids)).all()
+        liked_video_ids = {r[0] for r in liked_result}
+        for video in videos:
+            video.liked_by_user = video.id in liked_video_ids
+    else:
+        for video in videos:
             video.liked_by_user = False
             
     return videos
@@ -123,13 +125,14 @@ def search_posts(db: Session, query_str: str, current_user_id: int = None):
             
     posts = query.order_by(desc(Post.discovery_score), Post.created_at.desc()).all()
     
-    for post in posts:
-        post.likes_count = db.query(func.count(Like.id)).filter(Like.post_id == post.id).scalar() or 0
-        post.comments_count = db.query(func.count(Comment.id)).filter(Comment.post_id == post.id).scalar() or 0
-        
-        if current_user_id:
-            post.liked_by_user = db.query(Like).filter(Like.post_id == post.id, Like.user_id == current_user_id).first() is not None
-        else:
+    if current_user_id and posts:
+        post_ids = [p.id for p in posts]
+        liked_result = db.query(Like.post_id).filter(Like.user_id == current_user_id, Like.post_id.in_(post_ids)).all()
+        liked_post_ids = {r[0] for r in liked_result}
+        for post in posts:
+            post.liked_by_user = post.id in liked_post_ids
+    else:
+        for post in posts:
             post.liked_by_user = False
             
     return posts
@@ -138,9 +141,6 @@ def get_video(db: Session, video_id: int, current_user_id: int = None):
     video = db.query(Video).filter(Video.id == video_id).first()
     if not video:
         return None
-    
-    video.likes_count = db.query(func.count(Like.video_id)).filter(Like.video_id == video_id).scalar() or 0
-    video.comments_count = db.query(func.count(Comment.id)).filter(Comment.video_id == video_id).scalar() or 0
     
     if current_user_id:
         video.liked_by_user = db.query(Like).filter(Like.video_id == video_id, Like.user_id == current_user_id).first() is not None
@@ -184,11 +184,19 @@ def toggle_like(db: Session, user_id: int, video_id: Optional[int] = None, post_
     existing = query.first()
     if existing:
         db.delete(existing)
+        if video_id:
+            db.query(Video).filter(Video.id == video_id).update({"likes_count": Video.likes_count - 1})
+        elif post_id:
+            db.query(Post).filter(Post.id == post_id).update({"likes_count": Post.likes_count - 1})
         db.commit()
         return False
     else:
         new_like = Like(user_id=user_id, video_id=video_id, post_id=post_id)
         db.add(new_like)
+        if video_id:
+            db.query(Video).filter(Video.id == video_id).update({"likes_count": Video.likes_count + 1})
+        elif post_id:
+            db.query(Post).filter(Post.id == post_id).update({"likes_count": Post.likes_count + 1})
         db.commit()
 
         # Update Discovery Score
@@ -268,6 +276,12 @@ def increment_view(db: Session, user_id: Optional[int] = None, video_id: Optiona
             target.views = (target.views or 0) + 1
             db.commit()
             db.refresh(target)
+            
+            # Monetization Trigger: $0.1 per 1000 views
+            if target.views > 0 and target.views % 1000 == 0:
+                from app.crud.monetization import credit_view_milestone
+                credit_view_milestone(db, target.id)
+                
             return target
     elif post_id:
         target = db.query(Post).filter(Post.id == post_id).first()
@@ -285,50 +299,8 @@ def increment_view(db: Session, user_id: Optional[int] = None, video_id: Optiona
     return None
 
 def update_discovery_score(db: Session, video_id: Optional[int] = None, post_id: Optional[int] = None):
-    """
-    Discovery Algorithm:
-    - Base Score = (Likes * 10) + (Comments * 20) + (Shares * 30) + (Views * 1)
-    - Creator Boost: +50 if the owner interacted with the comments
-    - Recency Decay: Gravity factor (1.8) applied to age in hours
-    """
-    target = None
-    if video_id:
-        target = db.query(Video).filter(Video.id == video_id).first()
-    elif post_id:
-        target = db.query(Post).filter(Post.id == post_id).first()
-    
-    if not target:
-        return
-        
-    # Engagement stats
-    likes_count = db.query(func.count(Like.id)).filter(
-        Like.video_id == video_id if video_id else Like.post_id == post_id
-    ).scalar() or 0
-    
-    comments_count = db.query(func.count(Comment.id)).filter(
-        Comment.video_id == video_id if video_id else Comment.post_id == post_id
-    ).scalar() or 0
-    
-    shares_count = target.shares if video_id else 0
-    views_count = target.views if video_id else target.views_count
-    
-    # Base Engagement Score
-    score = (likes_count * 10) + (comments_count * 20) + (shares_count * 30) + (views_count * 1)
-    
-    # Creator Interaction Boost (+50)
-    if target.last_owner_interaction_at:
-        score += 50
-        
-    # Recency Decay
-    # age = hours since creation
-    age_seconds = (datetime.now() - target.created_at).total_seconds()
-    age_hours = max(age_seconds / 3600, 0)
-    
-    gravity = 1.8
-    final_score = score / pow((age_hours + 2), gravity)
-    
-    target.discovery_score = final_score
-    db.commit()
+    from app.tasks.video_tasks import update_discovery_score_task
+    update_discovery_score_task.delay(video_id=video_id, post_id=post_id)
 
 def get_posts(db: Session):
     return db.query(Post).all()
@@ -341,6 +313,12 @@ def create_comment(db: Session, comment: schemas.CommentBase, user_id: int, vide
     db_comment = Comment(**comment_data, video_id=video_id, post_id=post_id, owner_id=user_id)
     # The parent_id is now handled automatically because it's in comment_data (schemas.CommentCreate)
     db.add(db_comment)
+    
+    if video_id:
+        db.query(Video).filter(Video.id == video_id).update({"comments_count": Video.comments_count + 1})
+    elif post_id:
+        db.query(Post).filter(Post.id == post_id).update({"comments_count": Post.comments_count + 1})
+        
     db.commit()
     db.refresh(db_comment)
 
@@ -463,7 +441,16 @@ def delete_comment(db: Session, comment_id: int, user_id: int):
                 
     if not can_delete:
         return False
-        
+    # Store these before deleting
+    video_id = comment.video_id
+    post_id = comment.post_id
+
     db.delete(comment)
+    
+    if video_id:
+        db.query(Video).filter(Video.id == video_id).update({"comments_count": Video.comments_count - 1})
+    elif post_id:
+        db.query(Post).filter(Post.id == post_id).update({"comments_count": Post.comments_count - 1})
+        
     db.commit()
     return True

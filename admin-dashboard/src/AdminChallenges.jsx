@@ -141,7 +141,7 @@ const AdminChallenges = ({ token, setToken, theme, toggleTheme }) => {
                             <ShieldCheck size={24} color="var(--accent)" />
                         </div>
                         <span className="jakarta" style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.025em' }}>
-                            Montage Admin
+                            Monteeq Admin
                         </span>
                     </div>
 
@@ -214,7 +214,7 @@ const AdminChallenges = ({ token, setToken, theme, toggleTheme }) => {
                                         <td>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)' }}>
                                                 <Building size={16} />
-                                                <span style={{ fontWeight: 600 }}>{c.brand || 'Montage Original'}</span>
+                                                <span style={{ fontWeight: 600 }}>{c.brand || 'Monteeq Original'}</span>
                                             </div>
                                         </td>
                                         <td>

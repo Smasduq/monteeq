@@ -32,7 +32,7 @@ const Benefits = () => {
         <div style={{ flex: 1 }}>
           <h2 className="partner-hero-title" style={{ fontSize: '2.5rem', textAlign: 'left', marginBottom: '2rem' }}>What You Get</h2>
           <p className="partner-hero-desc" style={{ textAlign: 'left', maxWidth: '100%', marginBottom: '2.5rem' }}>
-            Montage isn't just about video editing. It's about building a brand that's native to the digital-first era. Partnering with us gives you the competitive edge in short-form content.
+            Monteeq isn't just about video editing. It's about building a brand that's native to the digital-first era. Partnering with us gives you the competitive edge in short-form content.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {benefits.slice(0, 2).map((benefit, i) => (

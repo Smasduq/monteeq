@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getStats, getUsers, promoteUser, getStorageMode, updateStorageMode, getAdminConfig } from './api';
-import { Users, Video, ShieldCheck, LogOut, Search, Cloud, Database, ExternalLink, Sun, Moon, MoreHorizontal, ArrowUpRight, Cpu, Trophy } from 'lucide-react';
+import { Users, Video, ShieldCheck, LogOut, Search, Cloud, Database, ExternalLink, Sun, Moon, MoreHorizontal, ArrowUpRight, Cpu, Trophy, CreditCard } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from './context/NotificationContext';
 
@@ -101,7 +101,7 @@ const Dashboard = ({ token, setToken, theme, toggleTheme }) => {
                         </div>
                         <div>
                             <span className="jakarta" style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.025em', display: 'block', lineHeight: 1.2 }}>
-                                Montage Admin
+                                Monteeq Admin
                             </span>
                             {adminConfig.rust_service_url && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
@@ -160,6 +160,9 @@ const Dashboard = ({ token, setToken, theme, toggleTheme }) => {
                         <nav style={{ display: 'flex', gap: '8px' }}>
                              <button onClick={() => navigate('/challenges')} className="btn btn-ghost">
                                 <Trophy size={18} /> Challenges
+                            </button>
+                             <button onClick={() => navigate('/payouts')} className="btn btn-ghost" style={{ color: '#fbbf24' }}>
+                                <CreditCard size={18} /> Payouts
                             </button>
                              <button onClick={() => navigate('/approvals')} className="btn btn-primary">
                                 <Video size={18} /> Review Queue

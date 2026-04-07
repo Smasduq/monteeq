@@ -19,7 +19,7 @@ const Options = () => {
     {
       icon: <MessageSquare />,
       title: "Content Collaboration",
-      description: "Co-create content with our community for unique experiences that resonate with the Montage audience.",
+      description: "Co-create content with our community for unique experiences that resonate with the Monteeq audience.",
       benefits: ["Unique ideas", "Native placement", "Creative synergy"]
     }
   ];

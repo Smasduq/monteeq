@@ -46,7 +46,7 @@ const ContactForm = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
              <div className="partner-glass" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', borderRadius: '1rem', color: 'var(--partner-text-gray)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 <Mail size={18} style={{ color: 'var(--partner-primary)' }} />
-                partnerships@montage.com
+                partnerships@monteeq.com
              </div>
              <div className="partner-glass" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', borderRadius: '1rem', color: 'var(--partner-text-gray)', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 <MessageSquare size={18} style={{ color: 'var(--partner-primary)' }} />

@@ -78,7 +78,7 @@ const Partner = () => {
              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '800px', height: '300px', backgroundColor: 'rgba(255, 62, 62, 0.1)', borderRadius: '50%', filter: 'blur(120px)', zIndex: -10 }} />
              <h2 className="partner-hero-title">Ready to revolutionize <br /> your brand's <span className="partner-gradient-text">content?</span></h2>
              <p className="partner-hero-desc">
-                Join dozens of brands who are already scaling their reach through the power of Montage editors.
+                Join dozens of brands who are already scaling their reach through the power of Monteeq editors.
              </p>
              <button 
                onClick={scrollToContact}
@@ -97,9 +97,9 @@ const Partner = () => {
            <div className="partner-footer-inner">
               <div className="partner-footer-logo">
                  <div style={{ width: '2.5rem', height: '2.5rem', borderRadius: '0.75rem', backgroundColor: 'var(--partner-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, color: 'white', fontStyle: 'italic', fontSize: '1.25rem' }}>M</div>
-                 <span style={{ fontWeight: 800, letterSpacing: '0.15em', fontSize: '1.25rem', textTransform: 'uppercase' }}>Montage</span>
+                 <span style={{ fontWeight: 800, letterSpacing: '0.15em', fontSize: '1.25rem', textTransform: 'uppercase' }}>Monteeq</span>
               </div>
-              <p className="partner-footer-copy">© 2026 Montage Platform. All rights reserved for viral growth.</p>
+              <p className="partner-footer-copy">© 2026 Monteeq Platform. All rights reserved for viral growth.</p>
               <div className="partner-footer-links">
                  <a href="#" className="partner-footer-link">Twitter</a>
                  <a href="#" className="partner-footer-link">Instagram</a>

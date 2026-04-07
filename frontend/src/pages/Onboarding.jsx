@@ -63,7 +63,7 @@ const Onboarding = () => {
         },
         {
             title: "How did you find us?",
-            subtitle: "We'd love to know where you heard about Montage",
+            subtitle: "We'd love to know where you heard about Monteeq",
             icon: <MapPin className="text-blue-400" size={32} />
         },
         {

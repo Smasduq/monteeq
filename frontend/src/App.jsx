@@ -23,10 +23,12 @@ import ManageContent from './pages/ManageContent';
 import Achievements from './pages/Achievements';
 import Notifications from './pages/Notifications';
 import Insights from './pages/Insights';
+import Monetization from './pages/Monetization';
 import Performance from './pages/Performance';
 import Onboarding from './pages/Onboarding';
-import Partner from './pages/Partner';
+import PartnerV2 from './pages/PartnerV2';
 import Challenges from './pages/Challenges';
+import About from './pages/About';
 import NotificationManager from './components/NotificationManager';
 
 import Header from './components/Header';
@@ -103,8 +105,10 @@ function AppContent() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-                <Route path="/partner" element={<Partner />} />
+                <Route path="/partner" element={<PartnerV2 />} />
                 <Route path="/challenges" element={<Challenges />} />
+                <Route path="/monetization" element={<ProtectedRoute><Monetization /></ProtectedRoute>} />
+                <Route path="/about" element={<About />} />
 
               </Routes>
             </div>
@@ -121,7 +125,7 @@ function AppContent() {
       {!token && (
         <Link to="/login" className="floating-auth-pill glass">
           <Zap size={20} fill="white" />
-          Join Montage
+          Join Monteeq
         </Link>
       )}
     </div>

@@ -312,7 +312,10 @@ const Flash = () => {
                             let clipsSinceLastAd = 0;
                             const nextAdAt = 5; // Fixed interval of 5 or can be random 4-7
 
+                            const activeIndex = clips.findIndex(c => c.id === activeVideoId);
                             clips.forEach((clip, index) => {
+                                const shouldRender = Math.abs(activeIndex - index) <= 2 || activeIndex === -1;
+                                
                                 items.push(
                                     <div
                                         className="flash-item-container"
@@ -329,6 +332,7 @@ const Flash = () => {
                                             onFollow={() => handleFollow(clip.owner?.id)}
                                             muted={muted}
                                             toggleMute={() => setMuted(!muted)}
+                                            shouldRender={shouldRender}
                                         />
                                     </div>
                                 );
