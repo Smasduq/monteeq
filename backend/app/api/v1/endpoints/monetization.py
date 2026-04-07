@@ -6,7 +6,7 @@ import datetime
 from app.db.session import get_db
 from app.schemas import schemas
 from app.core.dependencies import get_current_user
-from app.models.models import User, Wallet, Transaction, Subscription, PayoutRequest
+from app.models.models import User, Wallet, Transaction, PayoutRequest
 from app.crud.monetization import get_or_create_wallet, process_tip
 
 router = APIRouter()
@@ -33,38 +33,6 @@ def send_tip(
     if not creator:
         raise HTTPException(status_code=404, detail="Creator not found")
     return process_tip(db, from_user_id=current_user.id, to_user_id=creator.id, amount=amount)
-
-@router.post("/subscribe/{user_id}", response_model=schemas.Subscription)
-def subscribe_to_creator(
-    user_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Subscribe to a creator for exclusive home/flash videos."""
-    if current_user.id == user_id:
-        raise HTTPException(status_code=400, detail="Cannot subscribe to yourself")
-    creator = db.query(User).filter(User.id == user_id).first()
-    if not creator:
-        raise HTTPException(status_code=404, detail="Creator not found")
-    existing = db.query(Subscription).filter(
-        Subscription.subscriber_id == current_user.id,
-        Subscription.creator_id == creator.id,
-        Subscription.status == 'active'
-    ).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Already subscribed")
-
-    from dateutil.relativedelta import relativedelta
-    sub = Subscription(
-        subscriber_id=current_user.id,
-        creator_id=creator.id,
-        monthly_price=5000.00,
-        next_billing_date=datetime.datetime.now() + relativedelta(months=1)
-    )
-    db.add(sub)
-    db.commit()
-    db.refresh(sub)
-    return sub
 
 # ------------------------------------------------------------------ #
 #  PAYOUT REQUEST ENDPOINTS

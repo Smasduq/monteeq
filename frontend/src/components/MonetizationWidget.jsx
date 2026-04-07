@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, DollarSign, Crown, TrendingUp, Send, CheckCircle, PieChart } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
-// Assuming fetch function from api.js exists: import { sendTip, getCreatorWallet } from '../api';
+import { sendTip, getCreatorWallet } from '../api';
 
 const MonetizationWidget = ({ video, isOwner }) => {
     const { token } = useAuth();
@@ -17,17 +17,22 @@ const MonetizationWidget = ({ video, isOwner }) => {
     const viewsToNextPayout = 1000 - (views % 1000);
     const progressPercentage = ((views % 1000) / 1000) * 100;
     
-    // Mock Dashboard states for Creator
+    // Wallet state for Creator
     const [wallet, setWallet] = useState({ balance: 0.0, currency: 'NGN' });
 
     useEffect(() => {
         if (isOwner && token) {
-            // Fetch real wallet data here in production
-            // For now, mock based on views
-            const viewEarnings = Math.floor(views / 1000) * 99;
-            setWallet({ balance: viewEarnings, currency: 'NGN' });
+            const fetchWallet = async () => {
+                try {
+                    const data = await getCreatorWallet(token);
+                    setWallet(data);
+                } catch (err) {
+                    console.error("Failed to fetch wallet:", err);
+                }
+            };
+            fetchWallet();
         }
-    }, [isOwner, views, token]);
+    }, [isOwner, token]);
 
     const handleTip = async () => {
         if (!token) {
@@ -35,13 +40,17 @@ const MonetizationWidget = ({ video, isOwner }) => {
             return;
         }
         setTipping(true);
-        // await sendTip(video.owner.id, tipAmount, token);
-        setTimeout(() => {
+        try {
+            await sendTip(video.owner_id || video.owner?.id, tipAmount, token);
             setTipping(false);
             setTipSuccess(true);
-            showNotification('success', `Sent ₦${tipAmount} to @${video.owner.username}!`);
+            showNotification('success', `Sent ₦${tipAmount} to @${video.owner?.username || 'the creator'}!`);
             setTimeout(() => setTipSuccess(false), 3000);
-        }, 1000);
+        } catch (err) {
+            console.error("Tip failed:", err);
+            setTipping(false);
+            showNotification('error', "Failed to send tip.");
+        }
     };
 
     return (
@@ -65,18 +74,15 @@ const MonetizationWidget = ({ video, isOwner }) => {
                             animate={{ scale: 1 }}
                             className="balance"
                         >
-                            ₦{wallet.balance.toLocaleString()}
+                            ₦{Number(wallet.balance).toLocaleString()}
                         </motion.h2>
                         
                         <div className="earnings-split">
                             <div className="split-item">
-                                <DollarSign size={16} /> <span>Ads: ₦{(wallet.balance * 0.7).toLocaleString()}</span>
+                                <DollarSign size={16} /> <span>Ads: Coming Soon</span>
                             </div>
                             <div className="split-item">
-                                <Sparkles size={16} /> <span>Tips: ₦{(wallet.balance * 0.2).toLocaleString()}</span>
-                            </div>
-                            <div className="split-item">
-                                <Crown size={16} /> <span>Subs: ₦{(wallet.balance * 0.1).toLocaleString()}</span>
+                                <Sparkles size={16} /> <span>Live: ₦{Number(wallet.balance).toLocaleString()}</span>
                             </div>
                         </div>
                     </div>
@@ -97,7 +103,6 @@ const MonetizationWidget = ({ video, isOwner }) => {
                         <p className="milestone-desc">Earn ₦99.00 every 1,000 views</p>
                     </div>
 
-                    {/* Simple CSS Bar Chart representation */}
                     <div className="mini-chart">
                         <div className="chart-bars">
                             <div className="bar" style={{ height: '30%' }}></div>
@@ -116,26 +121,11 @@ const MonetizationWidget = ({ video, isOwner }) => {
                     animate={{ opacity: 1, x: 0 }}
                     className="public-monetization-panel"
                 >
-                    {/* Subscription Banner */}
-                    <motion.div 
-                        whileHover={{ scale: 1.02 }}
-                        className="subscribe-banner glass-panel"
-                    >
-                        <div className="sub-icon">
-                            <Crown size={28} className="text-neon" />
-                        </div>
-                        <div className="sub-info">
-                            <h4>Exclusive Access</h4>
-                            <p>Subscribe for ₦5,000/mo</p>
-                        </div>
-                        <button className="sub-btn">Join</button>
-                    </motion.div>
-
                     {/* Tip Container */}
-                    <div className="tip-container glass-panel mt-4">
+                    <div className="tip-container glass-panel">
                         <h4>Show some love!</h4>
                         <div className="tip-presets">
-                            {[500, 1000, 5000].map(amt => (
+                            {[500, 1000, 2500].map(amt => (
                                 <button 
                                     key={amt}
                                     className={`preset-btn ${tipAmount === amt ? 'active' : ''}`}
@@ -164,7 +154,7 @@ const MonetizationWidget = ({ video, isOwner }) => {
                         
                         {/* Milestone gamification for viewers */}
                         <div className="public-milestone">
-                            <p>Help @{video.owner.username} reach their next milestone!</p>
+                            <p>Help @{video.owner?.username || 'creator'} reach their next milestone!</p>
                             <div className="progress-bg small">
                                 <motion.div 
                                     className="progress-bar neon-pulse"
