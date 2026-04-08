@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
 import {
   Wallet, TrendingUp, DollarSign, Sparkles, Crown,
   CreditCard, ChevronRight, Zap, BarChart2, Info,
-  X, CheckCircle, Clock, AlertCircle, Building2
+  X, CheckCircle, Clock, AlertCircle, Building2, Star
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { getCreatorWallet, requestPayout, getMyPayoutRequests } from '../api';
 import { PageSkeleton } from '../components/Skeleton';
 import './Monetization.css';
@@ -29,8 +29,8 @@ function useCountUp(target, duration = 1200) {
   return value;
 }
 
-const TX_DOT   = { view_milestone: 'tx-dot-view', tip: 'tx-dot-tip', subscription: 'tx-dot-sub' };
-const TX_LABEL = { view_milestone: 'View Milestone', tip: 'Direct Tip', subscription: 'Subscription' };
+const TX_DOT   = { view_milestone: 'tx-dot-view', tip: 'tx-dot-tip' };
+const TX_LABEL = { view_milestone: 'Ad Revenue', tip: 'Direct Tip' };
 
 const SPARKLINE = [
   { label: 'M', h: 35 }, { label: 'T', h: 55 }, { label: 'W', h: 45 },
@@ -157,7 +157,8 @@ const PayoutModal = ({ balance, token, onClose, onSuccess }) => {
 
 /* ============== Main Page ============== */
 const Monetization = () => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const navigate = useNavigate();
   const [wallet,      setWallet]      = useState(null);
   const [payouts,     setPayouts]     = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -178,20 +179,25 @@ const Monetization = () => {
 
   useEffect(() => { fetchData(); }, [token]);
 
-  const balance   = wallet ? Number(wallet.balance) : 0;
-  const adRevenue = balance * 0.70;
-  const tips      = balance * 0.20;
-  const subs      = balance * 0.10;
-  const txList    = wallet?.transactions ?? [];
+  const balance = wallet ? Number(wallet.balance) : 0;
+  const txList  = wallet?.transactions ?? [];
 
-  const estimatedViews    = Math.round(balance / 99 * 1000);
+  // Calculate actual totals from transaction history
+  const adRevenue = txList
+    .filter(tx => tx.transaction_type === 'view_milestone')
+    .reduce((sum, tx) => sum + Number(tx.amount), 0);
+    
+  const tips = txList
+    .filter(tx => tx.transaction_type === 'tip')
+    .reduce((sum, tx) => sum + Number(tx.amount), 0);
+
+  const estimatedViews    = Math.round(adRevenue / 99 * 1000);
   const viewsToNext       = 1000 - (estimatedViews % 1000);
   const milestoneProgress = Math.round(((estimatedViews % 1000) / 1000) * 100);
 
   const animBalance = useCountUp(balance);
   const animAds     = useCountUp(adRevenue);
   const animTips    = useCountUp(tips);
-  const animSubs    = useCountUp(subs);
 
   const fmt = n => n.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -229,10 +235,6 @@ const Monetization = () => {
             <div className="mon-split-label"><div className="mon-split-icon icon-tips"><Sparkles size={16} /></div>Direct Tips</div>
             <div className="mon-split-amount">₦{fmt(animTips)}</div>
           </div>
-          <div className="mon-split-card">
-            <div className="mon-split-label"><div className="mon-split-icon icon-subs"><Crown size={16} /></div>Subscriptions</div>
-            <div className="mon-split-amount">₦{fmt(animSubs)}</div>
-          </div>
         </div>
       </div>
 
@@ -241,7 +243,7 @@ const Monetization = () => {
 
         {/* Milestone */}
         <div className="mon-panel">
-          <div className="mon-panel-heading"><div className="icon-badge"><TrendingUp size={18} /></div>Views Milestone</div>
+          <div className="mon-panel-heading"><div className="icon-badge"><TrendingUp size={18} /></div>Ad Revenue Milestone</div>
           <div className="mon-milestone-info">
             <span style={{ color: 'var(--text-secondary)' }}>~{estimatedViews.toLocaleString()} views</span>
             <span className="mon-views-left">{viewsToNext.toLocaleString()} to next ₦99</span>
@@ -297,7 +299,7 @@ const Monetization = () => {
           <div className="mon-info-row">
             <div className="mon-info-icon"><DollarSign size={18} color="#ff3b30" /></div>
             <div className="mon-info-text">
-              <strong>View Milestones</strong>
+              <strong>Ad Revenue (Views)</strong>
               <span>Earn ₦99 automatically every 1,000 views. No action needed.</span>
             </div>
           </div>
@@ -309,13 +311,35 @@ const Monetization = () => {
             </div>
           </div>
           <div className="mon-info-row">
-            <div className="mon-info-icon"><Crown size={18} color="#a855f7" /></div>
+            <div className="mon-info-icon" style={{ background: 'rgba(255, 215, 0, 0.1)' }}><TrendingUp size={18} color="#ffd700" /></div>
             <div className="mon-info-text">
-              <strong>Subscriptions</strong>
-              <span>Earn ₦5,000/month per subscriber for exclusive content access.</span>
+              <strong>Viral Growth</strong>
+              <span>High engagement levels boost your video in the global feed.</span>
             </div>
           </div>
         </div>
+
+        {/* Monteeq Pro Perks Upsell */}
+        {!user?.is_premium && (
+          <div className="mon-panel mon-pro-upsell">
+            <div className="mon-panel-heading"><div className="icon-badge pro-gold"><Crown size={18} /></div>Monteeq Pro Benefits</div>
+            <div className="mon-pro-feature">
+              <Star size={14} className="pro-star" />
+              <span><strong>0% Commission</strong> on all tips and ad revenue.</span>
+            </div>
+            <div className="mon-pro-feature">
+              <Star size={14} className="pro-star" />
+              <span><strong>4K Cinematic</strong> streaming and priority transcoding.</span>
+            </div>
+            <div className="mon-pro-feature">
+              <Star size={14} className="pro-star" />
+              <span><strong>Verified Badge</strong> and Gold Challenge access.</span>
+            </div>
+            <button className="mon-pro-learn-more" onClick={() => navigate('/pro')}>
+              Learn More & Upgrade <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* PAYOUT HISTORY */}

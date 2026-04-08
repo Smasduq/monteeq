@@ -1,481 +1,337 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Check, FastForward, Rewind } from 'lucide-react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import Hls from 'hls.js';
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Monitor, Square, ChevronRight, ChevronLeft } from 'lucide-react';
+import styles from './VideoPlayer.module.css';
+import { initView, sendHeartbeat } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { useNotification } from '../context/NotificationContext';
-import ShortcutGuide from './ShortcutGuide';
-import AdPreRoll from './AdPreRoll';
 
-const VideoPlayer = ({ video, autoPlay = false, onTimeUpdate }) => {
-    const videoRef = useRef(null);
-    const containerRef = useRef(null);
-    const { user } = useAuth();
-    const { showNotification } = useNotification();
+const VideoPlayer = ({ 
+  src, 
+  poster, 
+  autoPlay = false, 
+  onTimeUpdate, 
+  isTheaterMode = false, 
+  toggleTheaterMode,
+  videoId
+}) => {
+  const { token } = useAuth();
+  const videoRef = useRef(null);
+  const containerRef = useRef(null);
+  const hlsRef = useRef(null);
+  const progressBarRef = useRef(null);
+  
+  // View Tracking Refs
+  const viewTicketRef = useRef(null);
+  const sessionIdRef = useRef(null);
+  const heartbeatIntervalRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [hoverTime, setHoverTime] = useState(null);
+  const [hoverX, setHoverX] = useState(0);
+  const [showControls, setShowControls] = useState(true);
+  const [osd, setOsd] = useState({ icon: null, visible: false });
+  const controlsTimeout = useRef(null);
 
-    // State
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [volume, setVolume] = useState(1);
-    const [isMuted, setIsMuted] = useState(false);
-    const [isFullscreen, setIsFullscreen] = useState(false);
-    const [duration, setDuration] = useState(0);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [showControls, setShowControls] = useState(true);
-    const [showGuide, setShowGuide] = useState(false);
-    const [osd, setOsd] = useState({ visible: false, icon: null, text: '', key: 0 });
-    const osdTimeout = useRef(null);
+  // Initialize HLS
+  useEffect(() => {
+    if (!videoRef.current) return;
 
-    const isPremiumOrAdmin = user?.is_premium || user?.role === 'admin';
-    const [adComplete, setAdComplete] = useState(isPremiumOrAdmin);
+    if (Hls.isSupported() && src?.endsWith('.m3u8')) {
+      const hls = new Hls({
+        capLevelToPlayerSize: true,
+        autoStartLoad: true,
+      });
+      hls.loadSource(src);
+      hls.attachMedia(videoRef.current);
+      hlsRef.current = hls;
 
-    const showOSD = (icon, text) => {
-        if (osdTimeout.current) clearTimeout(osdTimeout.current);
-        setOsd({ visible: true, icon, text, key: Date.now() });
-        osdTimeout.current = setTimeout(() => {
-            setOsd(prev => ({ ...prev, visible: false }));
-        }, 1000);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        if (autoPlay) videoRef.current.play().catch(() => {});
+      });
+
+      return () => {
+        hls.destroy();
+      };
+    } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+      // Native HLS support (Safari)
+      videoRef.current.src = src;
+      if (autoPlay) videoRef.current.play().catch(() => {});
+    } else {
+      // Fallback for standard MP4
+      videoRef.current.src = src;
+    }
+  }, [src, autoPlay]);
+
+  // Keyboard Listeners
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      switch (e.key.toLowerCase()) {
+        case 'k':
+        case ' ':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'j':
+          e.preventDefault();
+          seek(-10);
+          break;
+        case 'l':
+          e.preventDefault();
+          seek(10);
+          break;
+        case 'f':
+          e.preventDefault();
+          toggleFullscreen();
+          break;
+        case 't':
+          e.preventDefault();
+          toggleTheaterMode?.();
+          break;
+        case ',': // Frame Back
+          e.preventDefault();
+          stepFrame(-1);
+          break;
+        case '.': // Frame Forward
+          e.preventDefault();
+          stepFrame(1);
+          break;
+        default:
+          break;
+      }
     };
 
-    useEffect(() => {
-        const hasSeenGuide = localStorage.getItem('monteeq_shortcuts_seen');
-        if (!hasSeenGuide) {
-            setShowGuide(true);
-        }
-    }, []);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleTheaterMode]);
 
-    const handleDismissGuide = () => {
-        setShowGuide(false);
-        localStorage.setItem('monteeq_shortcuts_seen', 'true');
-    };
+  // Heartbeat Mechanism
+  useEffect(() => {
+    if (!videoId) return;
 
-    // Resolution State
-    const [currentResolution, setCurrentResolution] = useState(null); // '720p', '1080p', etc.
-    const [currentSrc, setCurrentSrc] = useState(null);
-    const [showSettings, setShowSettings] = useState(false);
-    const [availableResolutions, setAvailableResolutions] = useState([]);
-
-    // Initialize resolutions
-    useEffect(() => {
-        if (!video) return;
-
-        const resList = [];
-        if (video.url_4k) resList.push({ label: '4K', value: '4k', src: video.url_4k, premium: true });
-        if (video.url_2k) resList.push({ label: '2K', value: '2k', src: video.url_2k, premium: true });
-        if (video.url_1080p) resList.push({ label: '1080p', value: '1080p', src: video.url_1080p, premium: true });
-        if (video.url_720p) resList.push({ label: '720p', value: '720p', src: video.url_720p, premium: false });
-        if (video.url_480p) resList.push({ label: '480p', value: '480p', src: video.url_480p, premium: false });
-
-        // Fallback to video_url if specific resolutions missing or as default
-        if (resList.length === 0 && video.video_url) {
-            resList.push({ label: 'Auto', value: 'auto', src: video.video_url, premium: false });
-        }
-
-        setAvailableResolutions(resList);
-
-        // Set default resolution (720p or highest available free)
-        const defaultRes = resList.find(r => r.value === '720p') || resList.find(r => !r.premium) || resList[resList.length - 1];
-        if (defaultRes) {
-            setCurrentResolution(defaultRes.value);
-            setCurrentSrc(defaultRes.src);
-        }
-    }, [video]);
-
-    useEffect(() => {
-        if (videoRef.current && currentSrc) {
-            videoRef.current.load();
-        }
-    }, [currentSrc]);
-
-    useEffect(() => {
-        if (videoRef.current && autoPlay && adComplete) {
-            videoRef.current.play()
-                .then(() => setIsPlaying(true))
-                .catch((err) => {
-                    console.warn("Autoplay failed, user interaction required:", err);
-                    setIsPlaying(false);
-                });
-        }
-    }, [autoPlay, adComplete]);
-
-    const changeResolution = (resObject) => {
-        if (resObject.premium && !isPremiumOrAdmin) {
-            showNotification('info', "Premium Quality", { message: "This quality is available for Premium users only." });
-            return;
-        }
-
-        if (resObject.value === currentResolution) return;
-
-        const time = videoRef.current.currentTime;
-        const wasPlaying = !videoRef.current.paused;
-
-        setCurrentResolution(resObject.value);
-        setCurrentSrc(resObject.src);
-        setShowSettings(false);
-
-        // React will update src, then we need to restore state after load
-        // We use a small timeout or event listener for 'loadedmetadata' mostly handled by react re-render flow
-        // But optimally:
-        setTimeout(() => {
-            if (videoRef.current) {
-                videoRef.current.currentTime = time;
-                if (wasPlaying) videoRef.current.play();
-            }
-        }, 100);
-    };
-
-    const togglePlay = async () => {
+    const startHeartbeat = async () => {
+      if (!viewTicketRef.current || !sessionIdRef.current) {
         try {
-            if (videoRef.current.paused) {
-                await videoRef.current.play();
-                setIsPlaying(true);
-            } else {
-                videoRef.current.pause();
-                setIsPlaying(false);
-            }
+          const res = await initView(videoId, token);
+          if (res.ticket) {
+            viewTicketRef.current = res.ticket;
+            sessionIdRef.current = res.session_id;
+            console.log("View session initialized:", res.session_id);
+          }
         } catch (err) {
-            console.error("Playback error:", err);
+          console.error("Failed to initialize view session:", err);
+          return;
         }
-    };
+      }
 
-    const handleTimeUpdate = (e) => {
-        const current = videoRef.current.currentTime;
-        const dur = videoRef.current.duration;
-        setCurrentTime(current);
-        setDuration(dur);
-        setProgress((current / dur) * 100);
-
-        if (onTimeUpdate) {
-            onTimeUpdate(e);
+      // Send immediate first heartbeat or wait 10s
+      heartbeatIntervalRef.current = setInterval(async () => {
+        if (viewTicketRef.current && sessionIdRef.current) {
+          try {
+            await sendHeartbeat(videoId, sessionIdRef.current, viewTicketRef.current);
+          } catch (err) {
+            console.error("Heartbeat failed:", err);
+            // If session expired, we might want to re-init
+          }
         }
+      }, 10000);
     };
 
-    const handleSeek = (e) => {
-        const seekTime = (e.target.value / 100) * videoRef.current.duration;
-        videoRef.current.currentTime = seekTime;
-        setProgress(e.target.value);
+    if (isPlaying) {
+      startHeartbeat();
+    } else {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+      }
     };
+  }, [isPlaying, videoId, token]);
 
-    const toggleMute = () => {
-        videoRef.current.muted = !videoRef.current.muted;
-        setIsMuted(videoRef.current.muted);
-    };
+  // Methods
+  const togglePlay = useCallback(() => {
+    if (videoRef.current.paused) {
+      videoRef.current.play();
+      setIsPlaying(true);
+      triggerOSD(<Play fill="white" />);
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
+      triggerOSD(<Pause fill="white" />);
+    }
+  }, []);
 
-    const handleVolumeChange = (e) => {
-        const newVolume = parseFloat(e.target.value);
-        videoRef.current.volume = newVolume;
-        setVolume(newVolume);
-        setIsMuted(newVolume === 0);
-    };
+  const seek = (seconds) => {
+    videoRef.current.currentTime = Math.max(0, Math.min(videoRef.current.duration, videoRef.current.currentTime + seconds));
+    triggerOSD(seconds > 0 ? <ChevronRight /> : <ChevronLeft />);
+  };
 
-    const toggleFullscreen = () => {
-        if (!document.fullscreenElement) {
-            containerRef.current.requestFullscreen().catch(err => {
-                console.error(`Error attempting to enable full-screen mode: ${err.message}`);
-            });
-            setIsFullscreen(true);
-        } else {
-            document.exitFullscreen();
-            setIsFullscreen(false);
-        }
-    };
+  const stepFrame = (frames) => {
+    const FPS = 24; // Standard cinematic framerate
+    videoRef.current.currentTime = Math.max(0, Math.min(videoRef.current.duration, videoRef.current.currentTime + (frames / FPS)));
+    triggerOSD(<Monitor size={20} />);
+  };
 
-    // Keyboard Shortcuts
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            // Don't trigger shortcuts if user is typing in an input or textarea
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const triggerOSD = (icon) => {
+    setOsd({ icon, visible: true });
+    setTimeout(() => setOsd({ icon: null, visible: false }), 800);
+  };
 
-            switch (e.key.toLowerCase()) {
-                case ' ':
-                case 'k':
-                    e.preventDefault();
-                    togglePlay();
-                    showOSD(videoRef.current.paused ? <Pause size={40} /> : <Play size={40} fill="white" />, videoRef.current.paused ? 'Paused' : 'Playing');
-                    break;
-                case 'f':
-                    e.preventDefault();
-                    toggleFullscreen();
-                    break;
-                case 'm':
-                    e.preventDefault();
-                    const nextMute = !videoRef.current.muted;
-                    toggleMute();
-                    showOSD(nextMute ? <VolumeX size={40} /> : <Volume2 size={40} />, nextMute ? 'Muted' : 'Unmuted');
-                    break;
-                case 'arrowright':
-                    e.preventDefault();
-                    videoRef.current.currentTime = Math.min(videoRef.current.duration, videoRef.current.currentTime + 5);
-                    showOSD(<FastForward size={40} />, '+5s');
-                    break;
-                case 'arrowleft':
-                    e.preventDefault();
-                    videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 5);
-                    showOSD(<Rewind size={40} />, '-5s');
-                    break;
-                case 'l':
-                    e.preventDefault();
-                    videoRef.current.currentTime = Math.min(videoRef.current.duration, videoRef.current.currentTime + 10);
-                    showOSD(<FastForward size={40} />, '+10s');
-                    break;
-                case 'j':
-                    e.preventDefault();
-                    videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10);
-                    showOSD(<Rewind size={40} />, '-10s');
-                    break;
-                case 'arrowup':
-                    e.preventDefault();
-                    const newVolUp = Math.min(1, videoRef.current.volume + 0.1);
-                    videoRef.current.volume = newVolUp;
-                    setVolume(newVolUp);
-                    setIsMuted(newVolUp === 0);
-                    showOSD(<Volume2 size={40} />, `${Math.round(newVolUp * 100)}%`);
-                    break;
-                case 'arrowdown':
-                    e.preventDefault();
-                    const newVolDown = Math.max(0, videoRef.current.volume - 0.1);
-                    videoRef.current.volume = newVolDown;
-                    setVolume(newVolDown);
-                    setIsMuted(newVolDown === 0);
-                    showOSD(<Volume2 size={40} />, `${Math.round(newVolDown * 100)}%`);
-                    break;
-                default:
-                    break;
-            }
-        };
+  const handleTimeUpdate = () => {
+    const current = videoRef.current.currentTime;
+    const dur = videoRef.current.duration;
+    setCurrentTime(current);
+    setDuration(dur);
+    setProgress((current / dur) * 100);
+    onTimeUpdate?.({ target: videoRef.current });
+  };
 
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isPlaying, isMuted, volume]); // Dependencies to ensure current state is captured if needed, though mostly using refs/dom directly for some
+  const handleProgressBarClick = (e) => {
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    videoRef.current.currentTime = pos * videoRef.current.duration;
+  };
 
+  const handleMouseMove = (e) => {
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const pos = x / rect.width;
+    setHoverTime(pos * videoRef.current.duration);
+    setHoverX(x);
 
-    const formatTime = (time) => {
-        if (isNaN(time)) return "0:00";
-        const minutes = Math.floor(time / 60);
-        const seconds = Math.floor(time % 60);
-        return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-    };
+    // Show controls on mouse move
+    setShowControls(true);
+    if (controlsTimeout.current) clearTimeout(controlsTimeout.current);
+    if (isPlaying) {
+      controlsTimeout.current = setTimeout(() => setShowControls(false), 3000);
+    }
+  };
 
-    return (
-        <div
-            ref={containerRef}
-            className="custom-video-player"
-            style={{
-                position: 'relative',
-                width: '100%',
-                height: '100%',
-                backgroundColor: 'black',
-                overflow: 'hidden',
-                borderRadius: isFullscreen ? '0' : '1rem'
-            }}
-            onMouseEnter={() => setShowControls(true)}
-            onMouseLeave={() => isPlaying && setShowControls(false)}
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
+  const handleVolumeChange = (e) => {
+    const val = parseFloat(e.target.value);
+    videoRef.current.volume = val;
+    setVolume(val);
+    setIsMuted(val === 0);
+  };
+
+  const formatTime = (seconds) => {
+    if (isNaN(seconds)) return '0:00';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if (h > 0) return `${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  return (
+    <div 
+      ref={containerRef}
+      className={`${styles.playerWrapper} ${isTheaterMode ? styles.theaterMode : ''}`}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => isPlaying && setShowControls(false)}
+    >
+      <video
+        ref={videoRef}
+        className={styles.videoElement}
+        poster={poster}
+        onClick={togglePlay}
+        onTimeUpdate={handleTimeUpdate}
+        playsInline
+      />
+
+      {/* OSD */}
+      <div className={`${styles.osd} ${osd.visible ? styles.osdActive : ''}`}>
+        {osd.icon}
+      </div>
+
+      {/* Custom Controls */}
+      <div className={`${styles.controlsOverlay} ${showControls ? styles.visible : ''}`}>
+        
+        {/* Seek Bar */}
+        <div 
+          ref={progressBarRef}
+          className={styles.seekBarContainer}
+          onClick={handleProgressBarClick}
+          onMouseMove={handleMouseMove}
         >
-            <video
-                ref={videoRef}
-                src={currentSrc}
-                poster={video?.thumbnail_url}
-                onClick={togglePlay}
-                onTimeUpdate={handleTimeUpdate}
-                playsInline
-                muted={autoPlay && !isPlaying}
-                crossOrigin="anonymous"
-                style={{ width: '100%', height: '100%', objectFit: 'contain', filter: adComplete ? 'none' : 'blur(20px)' }}
-            />
-
-            {!adComplete && (
-                <AdPreRoll onComplete={() => setAdComplete(true)} />
-            )}
-
-            {showGuide && <ShortcutGuide onDismiss={handleDismissGuide} />}
-
-            {/* OSD Overlay */}
-            <div key={osd.key} className={`player-osd ${osd.visible ? 'visible' : ''}`}>
-                <div className="osd-content">
-                    {osd.icon}
-                    <span>{osd.text}</span>
-                </div>
+          <div className={styles.seekBarBg} />
+          <div className={styles.seekBarProgress} style={{ width: `${progress}%` }} />
+          <div className={styles.seekBarHandle} style={{ left: `${progress}%` }} />
+          
+          {hoverTime !== null && (
+            <div className={styles.hoverPreview} style={{ left: hoverX }}>
+              {formatTime(hoverTime)}
             </div>
-
-            {/* Controls Overlay */}
-            <div
-                className={`player-controls glass ${showControls ? 'visible' : 'hidden'}`}
-                style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    padding: '1rem',
-                    background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.5rem',
-                    transition: 'none',
-                    opacity: showControls ? 1 : 0,
-                    zIndex: 20
-                }}
-            >
-                {/* Progress Bar */}
-                <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={isNaN(progress) ? 0 : progress}
-                    onChange={handleSeek}
-                    style={{
-                        width: '100%',
-                        height: '4px',
-                        accentColor: 'var(--accent-primary)',
-                        cursor: 'pointer'
-                    }}
-                />
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <button
-                            onClick={togglePlay}
-                            className="control-btn"
-                            style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
-                            title={isPlaying ? "Pause (k/Space)" : "Play (k/Space)"}
-                        >
-                            {isPlaying ? <Pause size={24} /> : <Play size={24} fill="white" />}
-                        </button>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <button
-                                onClick={toggleMute}
-                                style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
-                                title={isMuted ? "Unmute (m)" : "Mute (m)"}
-                            >
-                                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-                            </button>
-                            <input
-                                type="range"
-                                min="0"
-                                max="1"
-                                step="0.1"
-                                value={isMuted ? 0 : (isNaN(volume) ? 1 : volume)}
-                                onChange={handleVolumeChange}
-                                style={{ width: '60px', accentColor: 'white' }}
-                            />
-                        </div>
-
-                        <span style={{ fontSize: '0.9rem', color: '#ddd' }}>
-                            {formatTime(currentTime)} / {formatTime(duration)}
-                        </span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        {/* Settings Menu */}
-                        <div style={{ position: 'relative' }}>
-                            <button
-                                onClick={() => setShowSettings(!showSettings)}
-                                style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
-                                title="Settings"
-                            >
-                                <Settings size={20} />
-                            </button>
-
-                            {showSettings && (
-                                <div className="settings-menu glass" style={{
-                                    position: 'absolute',
-                                    bottom: '100%',
-                                    right: 0,
-                                    marginBottom: '10px',
-                                    borderRadius: '8px',
-                                    padding: '0.5rem',
-                                    background: 'rgba(0,0,0,0.9)',
-                                    minWidth: '150px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '0.5rem'
-                                }}>
-                                    <h4 style={{ margin: '0 0.5rem', fontSize: '0.8rem', color: '#aaa', textTransform: 'uppercase' }}>Quality</h4>
-                                    {availableResolutions.map(res => (
-                                        <button
-                                            key={res.value}
-                                            onClick={() => changeResolution(res)}
-                                            title={`Change Quality to ${res.label}`}
-                                            style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                padding: '0.5rem',
-                                                background: 'none',
-                                                border: 'none',
-                                                color: res.premium && !isPremiumOrAdmin ? '#666' : 'white',
-                                                cursor: res.premium && !isPremiumOrAdmin ? 'not-allowed' : 'pointer',
-                                                textAlign: 'left',
-                                                borderRadius: '4px',
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                if (!res.premium || isPremiumOrAdmin) e.target.style.background = 'rgba(255,255,255,0.1)'
-                                            }}
-                                            onMouseLeave={(e) => e.target.style.background = 'none'}
-                                        >
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                {res.label}
-                                                {res.premium && <span style={{ fontSize: '0.7rem', background: 'var(--accent-primary)', padding: '1px 4px', borderRadius: '4px', color: 'black', fontWeight: 'bold' }}>PRO</span>}
-                                            </span>
-                                            {currentResolution === res.value && <Check size={16} color="var(--accent-primary)" />}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        <button
-                            onClick={toggleFullscreen}
-                            style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
-                            title="Fullscreen (f)"
-                        >
-                            {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
-                        </button>
-
-                    </div>
-                </div>
-            </div>
-
-            <style>{`
-                .player-osd {
-                    position: absolute;
-                    inset: 0;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    pointer-events: none;
-                    opacity: 0;
-                    transition: none;
-                    z-index: 30;
-                }
-                .player-osd.visible {
-                    opacity: 1;
-                }
-                .osd-content {
-                    background: transparent;
-                    backdrop-filter: none;
-                    padding: 2rem;
-                    border-radius: 50%;
-                    color: white;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 1rem;
-                    min-width: 140px;
-                    min-height: 140px;
-                    justify-content: center;
-                    border: none;
-                }
-                .osd-content svg {
-                    filter: drop-shadow(0 0 10px rgba(0,0,0,0.8));
-                }
-                .osd-content span {
-                    font-size: 1.2rem;
-                    font-weight: 800;
-                    text-transform: uppercase;
-                    text-shadow: 0 0 10px rgba(0,0,0,0.8);
-                }
-            `}</style>
+          )}
         </div>
-    );
+
+        <div className={styles.bottomControls}>
+          <div className={styles.leftControls}>
+            <button className={styles.controlButton} onClick={togglePlay}>
+              {isPlaying ? <Pause size={24} fill="white" /> : <Play size={24} fill="white" />}
+            </button>
+            
+            <div className={styles.volumeContainer}>
+              <button className={styles.controlButton} onClick={() => {
+                videoRef.current.muted = !isMuted;
+                setIsMuted(!isMuted);
+              }}>
+                {isMuted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+              </button>
+              <input 
+                type="range" 
+                min="0" 
+                max="1" 
+                step="0.01" 
+                value={isMuted ? 0 : volume} 
+                onChange={handleVolumeChange}
+                className={styles.volumeSlider}
+              />
+            </div>
+
+            <span className={styles.timeDisplay}>
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
+          </div>
+
+          <div className={styles.rightControls}>
+            <button 
+              className={styles.controlButton} 
+              onClick={toggleTheaterMode}
+              title="Theater Mode (t)"
+            >
+              {isTheaterMode ? <Square size={20} /> : <Monitor size={20} />}
+            </button>
+            
+            <button className={styles.controlButton} onClick={toggleFullscreen}>
+              <Maximize size={20} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default VideoPlayer;
