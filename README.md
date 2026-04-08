@@ -1,87 +1,79 @@
-# 🎥 Monteeq
+<div align="center">
+  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/play-square.svg" width="60" height="60" alt="Monteeq Logo"/>
+  <h1>Monteeq</h1>
+  <p><em>A high-performance, full-stack video platform designed for creators.</em></p>
+  
+  [![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+  [![React](https://img.shields.io/badge/Frontend-React-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
+  [![Rust](https://img.shields.io/badge/Media_Service-Rust-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+  [![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+</div>
 
-[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/Frontend-React-61DAFB?style=flat-square&logo=react&logoColor=black)](https://reactjs.org/)
-[![Rust](https://img.shields.io/badge/Media_Service-Rust-000000?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-336791?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+<hr/>
 
-**Monteeq** is a high-performance, full-stack video platform designed for creators. It features a modern React-based interface, a robust FastAPI backend, and a specialized Rust-powered processing engine for high-efficiency video transcoding.
+<h3>
+  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/sparkles.svg" width="20" height="20" alt="Features" align="center"/>
+  Key Features
+</h3>
 
----
+<ul>
+  <li><b>Modern UI/UX</b>: Responsive dark-mode interface built with React, Vite, and Framer Motion for smooth animations.</li>
+  <li><b>Multi-Format Video Support</b>: Support for 'Home' (standard) and 'Flash' (short-form) video types.</li>
+  <li><b>High-Speed Transcoding</b>: Dedicated Rust microservice for heavy video processing tasks.</li>
+  <li><b>Creator Analytics</b>: Advanced performance tracking with monthly growth insights and interactive charts.</li>
+  <li><b>Social Interactions</b>: Threaded comment system, likes, reposts, and real-time notifications.</li>
+  <li><b>Achievement System</b>: Milestone tracking for creators to reward engagement.</li>
+  <li><b>S3-Compatible Storage</b>: Seamlessly integrated with Backblaze B2 for scalable media hosting.</li>
+  <li><b>Secure Authentication</b>: Google OAuth2 integration and JWT-based session management.</li>
+</ul>
 
-## ✨ Key Features
+<hr/>
 
-- 🌓 **Modern UI/UX**: Responsive dark-mode interface built with React, Vite, and Framer Motion for smooth animations.
-- 📂 **Multi-Format Video Support**: Support for 'Home' (standard) and 'Flash' (short-form) video types.
-- ⚡ **High-Speed Transcoding**: Dedicated Rust microservice for heavy video processing tasks.
-- 📊 **Creator Analytics**: Advanced performance tracking with monthly growth insights and interactive charts.
-- 💬 **Social Interactions**: Threaded comment system, likes, reposts, and real-time notifications.
-- 🏆 **Achievement System**: Milestone tracking for creators to reward engagement.
-- ☁️ **S3-Compatible Storage**: Seamlessly integrated with Backblaze B2 for scalable media hosting.
-- 🔐 **Secure Authentication**: Google OAuth2 integration and JWT-based session management.
+<h3>
+  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/layers.svg" width="20" height="20" alt="Tech Stack" align="center"/>
+  Tech Stack
+</h3>
 
----
+<table>
+  <tr>
+    <td><b>Frontend</b></td>
+    <td>React 19, Vite, Framer Motion, Vanilla CSS, Recharts, Lucide React</td>
+  </tr>
+  <tr>
+    <td><b>Backend</b></td>
+    <td>FastAPI, Httpx, PostgreSQL, SQLAlchemy, Alembic</td>
+  </tr>
+  <tr>
+    <td><b>Media Engine</b></td>
+    <td>Rust (FFmpeg integration)</td>
+  </tr>
+  <tr>
+    <td><b>Infrastructure</b></td>
+    <td>Docker, Docker Compose, Backblaze B2 (S3-API)</td>
+  </tr>
+</table>
 
-## 🛠️ Tech Stack
+<hr/>
 
-### Frontend
-- **Framework**: [React 19](https://react.dev/) + [Vite](https://vitejs.dev/)
-- **State Management**: React Context & Hooks
-- **Styling**: Vanilla CSS (Custom UI patterns)
-- **Animations**: [Framer Motion](https://www.framer.com/motion/)
-- **Charts**: [Recharts](https://recharts.org/)
-- **Icons**: [Lucide React](https://lucide.dev/)
+<h3>
+  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/lightbulb.svg" width="20" height="20" alt="Vision" align="center"/>
+  Platform Vision
+</h3>
 
-### Backend
-- **Framework**: [FastAPI](https://fastapi.tiangolo.com/)
-- **Asynchronous I/O**: [Httpx](https://www.python-httpx.org/)
-- **Database**: [PostgreSQL](https://www.postgresql.org/)
-- **ORM**: [SQLAlchemy](https://www.sqlalchemy.org/)
-- **Migrations**: [Alembic](https://alembic.sqlalchemy.org/)
-- **Media Engine**: [Rust](https://www.rust-lang.org/) (FFmpeg integration)
+Monteeq is built to redefine what a creator platform looks and feels like. We believe in providing an ultra-premium, cinematic experience—affectionately stylized as the **"Gilded Obsidian"** design system—that empowers creators to monetize effectively while engaging audiences in a hyper-optimized ecosystem.
 
-### Infrastructure
-- **Containerization**: [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/)
-- **Cloud Storage**: [Backblaze B2](https://www.backblaze.com/b2/cloud-storage.html) (S3-API)
+**Key Ecosystem Highlights:**
+- **Creator Monetization**: An embedded 'Monetization Widget' providing seamless tipping, premium subscriptions, and milestone-based community rewards.
+- **Trophy Room & Gamification**: Interactive public profiles highlighting a creator's successes, challenge wins, and top-tier metrics to boost audience trust and engagement.
+- **Performance Administration**: Detailed analytics tracking platform-wide growth curves, ensuring community administrators can maintain community health in real time.
+- **Architectural Scalability**: Decoupling resource-heavy media transcoding into a specialized async Rust engine ensures that the FastAPI business layer remains consistently responsive, regardless of concurrent uploads.
 
----
+<hr/>
 
-## 🚀 Getting Started
-
-### Prerequisites
-- [Docker](https://www.docker.com/get-started) & [Docker Compose](https://docs.docker.com/compose/install/)
-- Python 3.10+ (for local development)
-- Node.js 18+ (for local development)
-
-### One-Command Setup (Docker)
-The easiest way to get Monteeq running is using Docker Compose:
-
-```bash
-docker-compose up --build
-```
-
-This will spin up:
-- **Backend API**: `http://localhost:8000`
-- **Frontend App**: `http://localhost:80`
-- **Video Service**: `http://localhost:8081`
-- **Database**: PostgreSQL on port `5432`
-
-### Environmental Configuration
-Create a `.env` file in the `backend/` directory based on the following template:
-
-```ini
-DATABASE_URL=postgresql://postgres:password@localhost:5432/monteeq
-SECRET_KEY=your_super_secret_key
-S3_ACCESS_KEY=your_b2_key_id
-S3_SECRET_KEY=your_b2_application_key
-S3_BUCKET_NAME=your_bucket_name
-S3_REGION=your_region
-```
-
----
-
-## 🏗️ Architecture
+<h3>
+  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/git-commit.svg" width="20" height="20" alt="Architecture" align="center"/>
+  Architecture
+</h3>
 
 ```mermaid
 graph TD
@@ -95,10 +87,10 @@ graph TD
     B2 -->|CDN Delivery| User
 ```
 
----
+<hr/>
 
-## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-<p align="center">Made with ❤️ for the Creative Community</p>
+<div align="center">
+  <p>This project is licensed under the MIT License - see the <a href="LICENSE">LICENSE</a> file for details.</p>
+  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/heart.svg" width="16" height="16" alt="Heart"/>
+  <p><em>Made for the Creative Community</em></p>
+</div>

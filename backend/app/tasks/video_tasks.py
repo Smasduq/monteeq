@@ -76,21 +76,26 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
             clean_title = "".join([c if c.isalnum() else "_" for c in title])
             timestamp = int(os.path.getmtime(temp_file_path))
             base_filename = f"{clean_title}_{timestamp}"
+            hls_dir = f"{temp_file_path}_hls"
+            video_url = ""
+            url_480p = None
+            url_720p = None
+            url_1080p = None
+            url_2k = None
+            url_4k = None
             
-            def save_resolution(suffix):
-                src = f"{temp_file_path}_{suffix}.mp4"
-                if not os.path.exists(src):
-                    return None
-                s3_key = f"videos/{base_filename}_{suffix}.mp4"
-                return storage.upload_file(src, s3_key)
+            if os.path.isdir(hls_dir):
+                for root, _, files in os.walk(hls_dir):
+                    for file in files:
+                        local_path = os.path.join(root, file)
+                        rel_path = os.path.relpath(local_path, hls_dir)
+                        s3_key = f"videos/{base_filename}_hls/{rel_path}".replace("\\\\", "/")
+                        url = storage.upload_file(local_path, s3_key)
+                        if file == "master.m3u8":
+                            video_url = url
+            else:
+                print(f"Warning: HLS directory {hls_dir} not found")
 
-            url_480p = save_resolution("480p")
-            url_720p = save_resolution("720p")
-            url_1080p = save_resolution("1080p")
-            url_2k = save_resolution("1440p")
-            url_4k = save_resolution("2160p")
-            
-            video_url = url_720p or url_1080p or url_480p or ""
             
             temp_thumb_path = f"{temp_file_path}.jpg"
             thumbnail_url = None

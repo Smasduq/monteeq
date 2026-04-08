@@ -4,6 +4,7 @@ from app.api.v1.api import api_router
 from app.core import dependencies
 # Database initialized via Supabase schema
 # Trigger reload - B2 Config Typo Fixed
+import app.worker
 
 from fastapi.staticfiles import StaticFiles
 import os

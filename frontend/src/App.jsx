@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link, useNavigate } from 'react-router-dom';
-import { Zap } from 'lucide-react';
+import { Zap, Crown } from 'lucide-react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -29,6 +29,7 @@ import Onboarding from './pages/Onboarding';
 import PartnerV2 from './pages/PartnerV2';
 import Challenges from './pages/Challenges';
 import About from './pages/About';
+import JoinPro from './pages/JoinPro';
 import NotificationManager from './components/NotificationManager';
 
 import Header from './components/Header';
@@ -109,6 +110,7 @@ function AppContent() {
                 <Route path="/challenges" element={<Challenges />} />
                 <Route path="/monetization" element={<ProtectedRoute><Monetization /></ProtectedRoute>} />
                 <Route path="/about" element={<About />} />
+                <Route path="/pro" element={<JoinPro />} />
 
               </Routes>
             </div>
@@ -126,6 +128,13 @@ function AppContent() {
         <Link to="/login" className="floating-auth-pill glass">
           <Zap size={20} fill="white" />
           Join Monteeq
+        </Link>
+      )}
+
+      {token && !isPremiumOrAdmin && (
+        <Link to="/pro" className="floating-pro-pill glass">
+          <Crown size={20} fill="#ffd700" />
+          Upgrade to Pro
         </Link>
       )}
     </div>

@@ -63,6 +63,7 @@ class User(Base):
     totp_secret = Column(String, nullable=True) # For app-based 2FA
     recovery_codes = Column(Text, nullable=True) # JSON list of hashed codes
     is_active = Column(Boolean, default=True) # For deactivation
+    created_at = Column(DateTime, default=func.now(), index=True)
 
     @property
     def flash_quota_limit(self):

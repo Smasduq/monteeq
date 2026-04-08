@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   Home as HomeIcon, Zap, Layout, UploadCloud, LogIn,
   Clapperboard, Trophy, TrendingUp, MessageSquare,
-  Wallet, Telescope, Handshake
+  Wallet, Telescope, Handshake, Crown
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -62,6 +62,14 @@ const Sidebar = ({ isOpen, onClose }) => {
             <NavItem to="/insights"     icon={<TrendingUp size={20} />}    label="Insights"        onClick={onClose} accent="#f59e0b" />
             <NavItem to="/achievements" icon={<Trophy size={20} />}        label="Achievements"    onClick={onClose} />
             <NavItem to="/monetization" icon={<Wallet size={20} />}        label="Monetization"    onClick={onClose} accent="#eab308" />
+            <NavItem 
+              to="/pro" 
+              icon={<Crown size={20} />} 
+              label="Monteeq Pro" 
+              onClick={onClose} 
+              accent="#ffd700"
+              bold 
+            />
           </>
         )}
 

@@ -2394,6 +2394,34 @@ h3,
   box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(168, 85, 247, 0.6);
 }
 
+.floating-pro-pill {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.8rem 2rem;
+  border-radius: 50px;
+  background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
+  color: #000;
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 1px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 215, 0, 0.4);
+  z-index: 1000;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  cursor: pointer;
+  animation: float-pill 3s ease-in-out infinite, fadeIn 0.5s ease-out;
+  text-decoration: none;
+}
+
+.floating-pro-pill:hover {
+  transform: translateX(-50%) translateY(-5px) scale(1.05);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(255, 215, 0, 0.6);
+}
+
 @keyframes float-pill {
 
   0%,
@@ -2407,7 +2435,8 @@ h3,
 }
 
 @media (min-width: 901px) {
-  .floating-auth-pill {
+  .floating-auth-pill,
+  .floating-pro-pill {
     display: none;
   }
 }
