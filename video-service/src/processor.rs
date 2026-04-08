@@ -132,6 +132,8 @@ async fn transcode_hls_multi(input: &str, output_dir: &str, source_height: i32) 
     println!("Transcoding multi-bitrate HLS from {}p", source_height);
     
     let output_pattern = format!("{}/%v.m3u8", output_dir);
+    let segment_pattern = format!("{}/%v_%03d.ts", output_dir);
+    
     let mut args = vec![
         "-i", input,
     ];
@@ -141,32 +143,28 @@ async fn transcode_hls_multi(input: &str, output_dir: &str, source_height: i32) 
     
     if source_height >= 1080 {
         filter = "[0:v]split=3[v1][v2][v3]; [v1]scale=w=-2:h=1080[v1out]; [v2]scale=w=-2:h=720[v2out]; [v3]scale=w=-2:h=480[v3out]".to_string();
-        stream_map = "v:0,a:0 v:1,a:1 v:2,a:2".to_string();
+        stream_map = "v:0,a:0,name:1080p v:1,a:0,name:720p v:2,a:0,name:480p".to_string();
         args.extend_from_slice(&[
             "-filter_complex", &filter,
             "-map", "[v1out]", "-c:v:0", "libx264", "-b:v:0", "5000k", "-maxrate:v:0", "5500k", "-bufsize:v:0", "10000k",
             "-map", "[v2out]", "-c:v:1", "libx264", "-b:v:1", "2800k", "-maxrate:v:1", "3100k", "-bufsize:v:1", "5600k",
             "-map", "[v3out]", "-c:v:2", "libx264", "-b:v:2", "1200k", "-maxrate:v:2", "1350k", "-bufsize:v:2", "2400k",
             "-map", "0:a?", "-c:a:0", "aac", "-b:a:0", "128k",
-            "-map", "0:a?", "-c:a:1", "aac", "-b:a:1", "128k",
-            "-map", "0:a?", "-c:a:2", "aac", "-b:a:2", "128k",
         ]);
     } else {
         filter = "[0:v]split=2[v1][v2]; [v1]scale=w=-2:h=720[v1out]; [v2]scale=w=-2:h=480[v2out]".to_string();
-        stream_map = "v:0,a:0 v:1,a:1".to_string();
+        stream_map = "v:0,a:0,name:720p v:1,a:0,name:480p".to_string();
         args.extend_from_slice(&[
             "-filter_complex", &filter,
             "-map", "[v1out]", "-c:v:0", "libx264", "-b:v:0", "2800k", "-maxrate:v:0", "3100k", "-bufsize:v:0", "5600k",
             "-map", "[v2out]", "-c:v:1", "libx264", "-b:v:1", "1200k", "-maxrate:v:1", "1350k", "-bufsize:v:1", "2400k",
             "-map", "0:a?", "-c:a:0", "aac", "-b:a:0", "128k",
-            "-map", "0:a?", "-c:a:1", "aac", "-b:a:1", "128k",
         ]);
     }
 
-    let segment_pattern = format!("{}/%v_%03d.ts", output_dir);
     args.extend_from_slice(&[
         "-f", "hls",
-        "-hls_time", "4",
+        "-hls_time", "6",
         "-hls_playlist_type", "vod",
         "-master_pl_name", "master.m3u8",
         "-hls_segment_filename", &segment_pattern,
@@ -186,13 +184,24 @@ async fn transcode_hls_multi(input: &str, output_dir: &str, source_height: i32) 
 
 async fn generate_master_playlist(output_dir: &str, format: &str) -> Result<()> {
     let master_path = format!("{}/master.m3u8", output_dir);
+    
+    // Determine which variants should exist based on the logic in transcode_hls_multi
+    // This is a fallback in case FFmpeg didn't create it, but it should match the naming.
     let content = if format == "flash" {
         "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=720x1280\n720p.m3u8".to_string()
     } else {
-        "#EXTM3U\n#EXT-X-VERSION:3\n\
-        #EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080\n1080p.m3u8\n\
-        #EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1280x720\n720p.m3u8\n\
-        #EXT-X-STREAM-INF:BANDWIDTH=1200000,RESOLUTION=854x480\n480p.m3u8".to_string()
+        // We check for the presence of 1080p.m3u8 to decide which template to use
+        let p1080 = format!("{}/1080p.m3u8", output_dir);
+        if Path::new(&p1080).exists() {
+            "#EXTM3U\n#EXT-X-VERSION:3\n\
+            #EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080\n1080p.m3u8\n\
+            #EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1280x720\n720p.m3u8\n\
+            #EXT-X-STREAM-INF:BANDWIDTH=1200000,RESOLUTION=854x480\n480p.m3u8".to_string()
+        } else {
+            "#EXTM3U\n#EXT-X-VERSION:3\n\
+            #EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1280x720\n720p.m3u8\n\
+            #EXT-X-STREAM-INF:BANDWIDTH=1200000,RESOLUTION=854x480\n480p.m3u8".to_string()
+        }
     };
     
     fs::write(master_path, content).await?;

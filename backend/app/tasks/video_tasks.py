@@ -89,10 +89,17 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
                     for file in files:
                         local_path = os.path.join(root, file)
                         rel_path = os.path.relpath(local_path, hls_dir)
-                        s3_key = f"videos/{base_filename}_hls/{rel_path}".replace("\\\\", "/")
+                        s3_key = f"videos/{base_filename}_hls/{rel_path}".replace("\\", "/")
                         url = storage.upload_file(local_path, s3_key)
+                        
                         if file == "master.m3u8":
                             video_url = url
+                        elif file == "480p.m3u8":
+                            url_480p = url
+                        elif file == "720p.m3u8":
+                            url_720p = url
+                        elif file == "1080p.m3u8":
+                            url_1080p = url
             else:
                 print(f"Warning: HLS directory {hls_dir} not found")
 
@@ -123,7 +130,7 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
                 video.url_2k = url_2k
                 video.url_4k = url_4k
                 video.duration = duration
-                # video.status = "approved" 
+                # video.status = "approved"  # Manual Approval Required per user request
                 video.failed_at = None 
                 
                 if thumbnail_url:
