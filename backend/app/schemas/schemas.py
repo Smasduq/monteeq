@@ -406,3 +406,11 @@ class PayoutRequestSchema(BaseModel):
     processed_at: Optional[datetime] = None
     user: Optional[UserBase] = None
     model_config = ConfigDict(from_attributes=True)
+
+class PaymentVerify(BaseModel):
+    reference: str
+
+class ProUpgradeResponse(BaseModel):
+    status: str
+    message: str
+    is_premium: bool

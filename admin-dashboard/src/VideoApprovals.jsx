@@ -47,11 +47,7 @@ const VideoApprovals = ({ token, setToken, theme, toggleTheme }) => {
         }
     };
 
-    if (loading) return (
-        <div style={{ background: 'var(--bg-app)', height: '100vh', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ShieldCheck size={48} className="animate-pulse" color="var(--accent)" />
-        </div>
-    );
+
 
     return (
         <div style={{ minHeight: '100vh', background: 'var(--bg-app)', color: 'var(--text-primary)', transition: 'background-color 0.3s ease' }}>
@@ -88,11 +84,15 @@ const VideoApprovals = ({ token, setToken, theme, toggleTheme }) => {
                         <ChevronLeft size={16} /> Back to Dashboard
                     </button>
                     <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                        PENDING: {videos.length}
+                        PENDING: {loading ? "..." : videos.length}
                     </div>
                 </div>
 
-                {videos.length === 0 ? (
+                {loading ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
+                        <ShieldCheck size={48} className="animate-pulse" color="var(--accent)" />
+                    </div>
+                ) : videos.length === 0 ? (
                     <div className="card" style={{ textAlign: 'center', borderStyle: 'dashed', padding: '80px 24px', background: 'transparent' }}>
                         <p style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '1.1rem' }}>The submission queue is empty</p>
                     </div>
@@ -145,7 +145,13 @@ const VideoApprovals = ({ token, setToken, theme, toggleTheme }) => {
                              <button onClick={() => setPreviewVideo(null)} className="btn btn-ghost" style={{ padding: '8px', color: 'white' }}><X size={24} /></button>
                         </div>
                         <div style={{ background: 'black', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                            <video src={previewVideo.video_url} controls autoPlay style={{ width: '100%', maxHeight: 'calc(100vh - 240px)', display: 'block' }} />
+                            {previewVideo.video_url ? (
+                                <video src={previewVideo.video_url} controls autoPlay style={{ width: '100%', maxHeight: 'calc(100vh - 240px)', display: 'block' }} />
+                            ) : (
+                                <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                                    <p>Video is still processing. Check back later.</p>
+                                </div>
+                            )}
                         </div>
                         <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end', alignItems: 'center' }}>
                             <div style={{ display: 'flex', gap: '8px', marginRight: 'auto', alignItems: 'center', color: '#666' }}>

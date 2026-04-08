@@ -113,7 +113,27 @@ export const shareVideo = async (videoId) => {
 };
 
 export const viewVideo = async (videoId) => {
+    // This is the old naive view endpoint. We still keep it as a fallback 
+    // or for cases where validation isn't required, but the new system 
+    // use initView and sendHeartbeat
     const response = await fetch(`${API_BASE_URL}/videos/${videoId}/view`, {
+        method: 'POST'
+    });
+    return response.json();
+};
+
+export const initView = async (videoId, token = null) => {
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}/views/${videoId}/init-view`, {
+        method: 'POST',
+        headers
+    });
+    return response.json();
+};
+
+export const sendHeartbeat = async (videoId, sessionId, ticket) => {
+    const response = await fetch(`${API_BASE_URL}/views/${videoId}/heartbeat?session_id=${sessionId}&ticket=${ticket}`, {
         method: 'POST'
     });
     return response.json();
@@ -391,6 +411,18 @@ export const requestPayout = async (amount, bankDetails, token) => {
 export const getMyPayoutRequests = async (token) => {
     const response = await fetch(`${API_BASE_URL}/monetization/payout/my-requests`, {
         headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return response.json();
+};
+
+export const verifyProSubscription = async (reference, token) => {
+    const response = await fetch(`${API_BASE_URL}/monetization/verify-pro`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ reference })
     });
     return response.json();
 };

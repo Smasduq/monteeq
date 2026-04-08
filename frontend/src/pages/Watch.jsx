@@ -104,6 +104,7 @@ const Watch = () => {
     const [showDownloadModal, setShowDownloadModal] = useState(false);
     const [replyingTo, setReplyingTo] = useState(null); // ID of comment being replied to
     const [replyComment, setReplyComment] = useState("");
+    const [isTheaterMode, setIsTheaterMode] = useState(false);
 
 
 
@@ -132,37 +133,8 @@ const Watch = () => {
         fetchVideoData();
     }, [id, location.search]);
 
-    const [viewCounted, setViewCounted] = useState(false);
-    const [dwellThresholdMet, setDwellThresholdMet] = useState(false);
-
     const handleTimeUpdate = (e) => {
-        if (!video) return;
-
-        const { currentTime, duration } = e.target;
-
-        // 1. View Count Logic
-        if (!viewCounted && duration > 0) {
-            let thresholdMet = false;
-            if (duration > 600) {
-                if (currentTime >= 60) thresholdMet = true;
-            } else {
-                if ((currentTime / duration) > 0.15) thresholdMet = true;
-            }
-
-            if (thresholdMet) {
-                setViewCounted(true);
-                viewVideo(id).catch(console.error);
-                setVideo(prev => ({ ...prev, views: (prev.views || 0) + 1 }));
-            }
-        }
-
-        // 2. Personalization Dwell Time Logic
-        if (!dwellThresholdMet && currentTime >= 20 && token) {
-            setDwellThresholdMet(true);
-            if (!viewCounted) {
-                viewVideo(id).catch(console.error);
-            }
-        }
+        // Validation logic moved to VideoPlayer heartbeat system
     };
 
     const handleCommentSubmit = async (e, parentId = null) => {
@@ -296,8 +268,16 @@ const Watch = () => {
     return (
         <div className="watch-container layout-monetized">
             <div className="watch-main">
-                <div className="watch-video-wrapper">
-                    <VideoPlayer video={video} autoPlay={true} onTimeUpdate={handleTimeUpdate} />
+                <div className={`${isTheaterMode ? 'watch-video-theater' : 'watch-video-wrapper'}`}>
+                    <VideoPlayer 
+                      src={video.video_url} 
+                      videoId={video.id}
+                      poster={video.thumbnail_url}
+                      autoPlay={true} 
+                      onTimeUpdate={handleTimeUpdate} 
+                      isTheaterMode={isTheaterMode}
+                      toggleTheaterMode={() => setIsTheaterMode(!isTheaterMode)}
+                    />
                 </div>
 
                 <div className="watch-meta" style={{ padding: '1.5rem 1rem' }}>
@@ -442,7 +422,7 @@ const Watch = () => {
             </div>
 
             <div className="watch-sidebar">
-                <MonetizationWidget video={video} isOwner={user?.id === video.owner_id || user?.id === video.owner?.id} />
+                <MonetizationWidget video={video} />
             </div>
 
             {showDownloadModal && (
@@ -456,16 +436,23 @@ const Watch = () => {
             <style>{`
                 .layout-monetized {
                     display: grid;
-                    grid-template-columns: 1fr 350px;
+                    grid-template-columns: ${isTheaterMode ? '1fr' : '1fr 350px'};
                     gap: 2rem;
                     align-items: start;
+                    transition: grid-template-columns 0.4s ease;
                 }
                 .watch-main {
                     min-width: 0;
                 }
+                .watch-video-theater {
+                    grid-column: 1 / -1;
+                    margin: 0 -2rem; /* Full span */
+                    background: #000;
+                }
                 .watch-sidebar {
                     position: sticky;
                     top: 100px;
+                    display: ${isTheaterMode ? 'none' : 'block'};
                 }
                 @media (max-width: 1024px) {
                     .layout-monetized {
@@ -475,6 +462,7 @@ const Watch = () => {
                         position: relative;
                         top: 0;
                         margin-top: 1rem;
+                        display: block;
                     }
                 }
             `}</style>

@@ -7,15 +7,18 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use tower_http::cors::CorsLayer;
+use dotenvy::dotenv;
+use std::env;
 
 mod processor;
 mod ax_status;
+mod worker;
 
 #[derive(Serialize, Deserialize)]
 struct ProcessRequest {
     video_id: String,
-    task_id: String, // Unique identifier for status tracking
-    target_format: String, // "home" or "flash"
+    task_id: String,
+    target_format: String,
     #[serde(default)]
     skip_thumbnail: bool,
 }
@@ -40,8 +43,20 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
     let status_map = Arc::new(dashmap::DashMap::new());
-    let state = Arc::new(AppState { status_map });
+    let state = Arc::new(AppState { status_map: status_map.clone() });
+
+    // Start Redis Worker
+    let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+    let worker_status_map = status_map.clone();
+    
+    tokio::spawn(async move {
+        println!("Starting background HLS worker...");
+        if let Err(e) = worker::start_worker(&redis_url, worker_status_map).await {
+            eprintln!("Redis worker failed: {}", e);
+        }
+    });
 
     let app = Router::new()
         .route("/health", get(|| async { "OK" }))
@@ -51,7 +66,7 @@ async fn main() {
         .with_state(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8081));
-    println!("Video Service listening on {}", addr);
+    println!("Monteeq Video Service listening on {}", addr);
     
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
@@ -64,15 +79,14 @@ async fn process_video(
     let task_id = payload.task_id.clone();
     let status_map = state.status_map.clone();
     
-    println!("Processing video {} (task: {}) for format {}", payload.video_id, task_id, payload.target_format);
+    println!("HTTP Trigger: Processing video {} (task: {})", payload.video_id, task_id);
     
     status_map.insert(task_id.clone(), TaskStatus {
         progress: 0,
         status: "starting".to_string(),
-        message: "Starting processing...".to_string(),
+        message: "Starting HLS processing...".to_string(),
     });
 
-    // Run in background
     let task_id_clone = task_id.clone();
     tokio::spawn(async move {
         match processor::process(&payload.video_id, &payload.target_format, payload.skip_thumbnail, Some(status_map.clone()), task_id_clone.clone()).await {
@@ -80,7 +94,7 @@ async fn process_video(
                 status_map.insert(task_id_clone, TaskStatus {
                     progress: 100,
                     status: "completed".to_string(),
-                    message: "Processing completed".to_string(),
+                    message: "HLS multi-bitrate processing completed".to_string(),
                 });
             },
             Err(e) => {
@@ -95,7 +109,7 @@ async fn process_video(
 
     Json(ProcessResponse {
         status: "accepted".to_string(),
-        message: "Processing started in background".to_string(),
+        message: "HLS processing started in background".to_string(),
         task_id,
     })
 }
@@ -106,4 +120,3 @@ async fn get_status(
 ) -> Json<Option<TaskStatus>> {
     Json(state.status_map.get(&task_id).map(|s| s.value().clone()))
 }
-

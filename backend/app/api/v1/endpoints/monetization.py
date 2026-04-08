@@ -2,12 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 import datetime
+import logging
 
 from app.db.session import get_db
 from app.schemas import schemas
 from app.core.dependencies import get_current_user
 from app.models.models import User, Wallet, Transaction, PayoutRequest
 from app.crud.monetization import get_or_create_wallet, process_tip
+from app.core.config import PAYSTACK_SECRET_KEY
+import httpx
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -144,3 +149,60 @@ def admin_update_payout(
     db.commit()
     db.refresh(payout)
     return payout
+
+@router.post("/verify-pro", response_model=schemas.ProUpgradeResponse)
+async def verify_pro_subscription(
+    payload: schemas.PaymentVerify,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Verify a Paystack transaction reference and upgrade user to Pro.
+    """
+    if current_user.is_premium:
+        return {"status": "success", "message": "You are already a Pro member!", "is_premium": True}
+
+    # 1. Verify with Paystack
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                f"https://api.paystack.co/transaction/verify/{payload.reference}",
+                headers={"Authorization": f"Bearer {PAYSTACK_SECRET_KEY}"},
+                timeout=10.0
+            )
+            data = response.json()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Paystack verification failed: {str(e)}")
+
+    if not data.get("status") or data["data"]["status"] != "success":
+        logger.error(f"Paystack verification failed: {data}")
+        raise HTTPException(status_code=400, detail="Payment verification failed or transaction not successful.")
+
+    logger.info(f"Paystack verification success for reference: {payload.reference}")
+
+    # 2. Extract transaction details (optional: verify amount here)
+    # amount_paid = data["data"]["amount"] / 100 # Paystack returns in kobo
+    
+    # 3. Upgrade User
+    current_user.is_premium = True
+    
+    # 4. Record Transaction
+    wallet = get_or_create_wallet(db, current_user.id)
+    transaction = Transaction(
+        wallet_id=wallet.id,
+        amount=data["data"]["amount"] / 100,
+        transaction_type='pro_subscription',
+        reference_id=payload.reference,
+        description="Monteeq Pro Subscription Upgrade"
+    )
+    db.add(transaction)
+    db.commit()
+    db.refresh(current_user)
+
+    logger.info(f"User {current_user.id} upgraded to premium. is_premium: {current_user.is_premium}")
+
+    return {
+        "status": "success",
+        "message": "Welcome to Monteeq Pro! Your account has been upgraded.",
+        "is_premium": True
+    }

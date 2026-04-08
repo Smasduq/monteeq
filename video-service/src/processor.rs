@@ -1,8 +1,9 @@
-use std::process::Command;
+use tokio::process::Command;
 use anyhow::{Result, anyhow};
 use crate::ax_status::StatusMap;
 use crate::TaskStatus;
-
+use std::path::Path;
+use tokio::fs;
 
 pub async fn process(video_path: &str, format: &str, skip_thumbnail: bool, status_map: Option<StatusMap>, task_id: String) -> Result<()> {
     // 1. Get Dimensions and Aspect Ratio
@@ -12,70 +13,53 @@ pub async fn process(video_path: &str, format: &str, skip_thumbnail: bool, statu
     
     validate_format(aspect_ratio, format)?;
 
-    // 2. Transcode and Generate Thumbnail
-    if format == "flash" {
-        // For flash videos, skip multi-resolution transcoding.
-        if let Some(ref map) = status_map {
-            map.insert(task_id.clone(), TaskStatus {
-                progress: 50,
-                status: "processing".to_string(),
-                message: "Optimizing flash video (copy)...".to_string(),
-            });
-        }
-        let output_path = format!("{}_720p.mp4", video_path);
-        println!("Flash video detected - copying to target path: {}", output_path);
-        std::fs::copy(video_path, &output_path)?;
-    } else {
-        // Resolutions: 480p, 720p, 1080p, 1440p (2K), 2160p (4K)
-        let all_resolutions = [480, 720, 1080, 1440, 2160];
-        
-        // Filter resolutions: strictly less than or equal to source height
-        let mut target_resolutions: Vec<i32> = all_resolutions.into_iter()
-            .filter(|&r| r as f32 <= height)
-            .collect();
-
-        // Edge case: if source height is small (e.g. 360), vector is empty.
-        // We ensure we have at least one playable format.
-        // If the source is smaller than 480p, we'll just use the source height for the "480p" labelled file
-        // to avoid upscaling while still satisfying the backend's expected suffix.
-        if target_resolutions.is_empty() {
-            println!("Source height {} is smaller than 480p. Using source height for baseline.", height);
-            target_resolutions.push(height as i32);
-        }
-
-        println!("Selected target resolutions: {:?}", target_resolutions);
-
-        let total_steps = target_resolutions.len() + (if skip_thumbnail { 0 } else { 1 });
-        
-        for (i, target_height) in target_resolutions.iter().enumerate() {
-            if let Some(ref map) = status_map {
-                map.insert(task_id.clone(), TaskStatus {
-                    progress: ((i as f32 / total_steps as f32) * 100.0) as u32,
-                    status: "processing".to_string(),
-                    message: format!("Transcoding to {}p...", target_height),
-                });
-            }
-
-            // Note: If we had a non-standard height like 360, it will still use the _[height]p.mp4 naming convention.
-            // The backend might need to be aware of this, or we just label the smallest one as 480p.
-            // For now, let's keep the actual height in the name if non-standard, but we might want to standardize.
-            let output_path = format!("{}_{}p.mp4", video_path, target_height);
-            transcode(video_path, &output_path, *target_height).await?;
-        }
+    // 2. Create HLS Directory
+    let output_dir = format!("{}_hls", video_path);
+    if !Path::new(&output_dir).exists() {
+        fs::create_dir_all(&output_dir).await?;
     }
 
-    // Generate thumbnail from the original source for best quality
+    // 3. Transcode
+    if format == "flash" {
+        // Flash videos: High quality single resolution HLS (Vertical)
+        if let Some(ref map) = status_map {
+            map.insert(task_id.clone(), TaskStatus {
+                progress: 30,
+                status: "processing".to_string(),
+                message: "Optimizing vertical flash video for HLS...".to_string(),
+            });
+        }
+        transcode_hls_single(video_path, &output_dir, height as i32).await?;
+    } else {
+        // Home videos: Multi-bitrate HLS (Horizontal)
+        if let Some(ref map) = status_map {
+            map.insert(task_id.clone(), TaskStatus {
+                progress: 20,
+                status: "processing".to_string(),
+                message: "Starting multi-bitrate HLS transcoding...".to_string(),
+            });
+        }
+        transcode_hls_multi(video_path, &output_dir, height as i32).await?;
+    }
+
+    // 4. Generate master playlist if not existing (FFmpeg might have created it)
+    let master_path = format!("{}/master.m3u8", output_dir);
+    if !Path::new(&master_path).exists() {
+        generate_master_playlist(&output_dir, format).await?;
+    }
+
+    // 5. Generate thumbnail
     if !skip_thumbnail {
         if let Some(ref map) = status_map {
-            let progress = if format == "flash" { 90 } else { 95 };
             map.insert(task_id.clone(), TaskStatus {
-                progress: progress,
+                progress: 95,
                 status: "processing".to_string(),
                 message: "Generating thumbnail...".to_string(),
             });
         }
         generate_thumbnail(video_path).await?;
     }
+
     Ok(())
 }
 
@@ -88,7 +72,7 @@ async fn get_video_dimensions(video_path: &str) -> Result<(f32, f32)> {
             "-of", "csv=s=x:p=0",
             video_path,
         ])
-        .output()?;
+        .output().await?;
 
     if !output.status.success() {
         return Err(anyhow!("ffprobe failed: {}", String::from_utf8_lossy(&output.stderr)));
@@ -119,27 +103,99 @@ fn validate_format(ratio: f32, target: &str) -> Result<()> {
     Ok(())
 }
 
-async fn transcode(input: &str, output: &str, height: i32) -> Result<()> {
-    println!("Transcoding {} to {}p -> {}", input, height, output);
+async fn transcode_hls_single(input: &str, output_dir: &str, height: i32) -> Result<()> {
+    println!("Transcoding single HLS variant: {}p", height);
     
-    // Scale filter: -2 ensures width is calculated to maintain aspect ratio, divisible by 2
-    let scale_filter = format!("scale=-2:{}", height);
-
     let status = Command::new("ffmpeg")
         .args(&[
             "-i", input,
-            "-vf", &scale_filter,
-            "-vcodec", "libx264",
-            "-crf", "28", // Lower quality for storage optimization
-            "-preset", "faster", // Faster processing
-            "-y", // Overwrite output
-            output,
+            "-c:v", "libx264",
+            "-crf", "23",
+            "-preset", "fast",
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-f", "hls",
+            "-hls_time", "4",
+            "-hls_playlist_type", "vod",
+            "-hls_segment_filename", &format!("{}/720p_%03d.ts", output_dir),
+            &format!("{}/720p.m3u8", output_dir),
         ])
-        .status()?;
+        .status().await?;
 
     if !status.success() {
-        return Err(anyhow!("ffmpeg transcoding to {}p failed", height));
+        return Err(anyhow!("ffmpeg single-bitrate HLS failed"));
     }
+    Ok(())
+}
+
+async fn transcode_hls_multi(input: &str, output_dir: &str, source_height: i32) -> Result<()> {
+    println!("Transcoding multi-bitrate HLS from {}p", source_height);
+    
+    let output_pattern = format!("{}/%v.m3u8", output_dir);
+    let mut args = vec![
+        "-i", input,
+    ];
+    
+    let filter;
+    let stream_map;
+    
+    if source_height >= 1080 {
+        filter = "[0:v]split=3[v1][v2][v3]; [v1]scale=w=-2:h=1080[v1out]; [v2]scale=w=-2:h=720[v2out]; [v3]scale=w=-2:h=480[v3out]".to_string();
+        stream_map = "v:0,a:0 v:1,a:1 v:2,a:2".to_string();
+        args.extend_from_slice(&[
+            "-filter_complex", &filter,
+            "-map", "[v1out]", "-c:v:0", "libx264", "-b:v:0", "5000k", "-maxrate:v:0", "5500k", "-bufsize:v:0", "10000k",
+            "-map", "[v2out]", "-c:v:1", "libx264", "-b:v:1", "2800k", "-maxrate:v:1", "3100k", "-bufsize:v:1", "5600k",
+            "-map", "[v3out]", "-c:v:2", "libx264", "-b:v:2", "1200k", "-maxrate:v:2", "1350k", "-bufsize:v:2", "2400k",
+            "-map", "0:a?", "-c:a:0", "aac", "-b:a:0", "128k",
+            "-map", "0:a?", "-c:a:1", "aac", "-b:a:1", "128k",
+            "-map", "0:a?", "-c:a:2", "aac", "-b:a:2", "128k",
+        ]);
+    } else {
+        filter = "[0:v]split=2[v1][v2]; [v1]scale=w=-2:h=720[v1out]; [v2]scale=w=-2:h=480[v2out]".to_string();
+        stream_map = "v:0,a:0 v:1,a:1".to_string();
+        args.extend_from_slice(&[
+            "-filter_complex", &filter,
+            "-map", "[v1out]", "-c:v:0", "libx264", "-b:v:0", "2800k", "-maxrate:v:0", "3100k", "-bufsize:v:0", "5600k",
+            "-map", "[v2out]", "-c:v:1", "libx264", "-b:v:1", "1200k", "-maxrate:v:1", "1350k", "-bufsize:v:1", "2400k",
+            "-map", "0:a?", "-c:a:0", "aac", "-b:a:0", "128k",
+            "-map", "0:a?", "-c:a:1", "aac", "-b:a:1", "128k",
+        ]);
+    }
+
+    let segment_pattern = format!("{}/%v_%03d.ts", output_dir);
+    args.extend_from_slice(&[
+        "-f", "hls",
+        "-hls_time", "4",
+        "-hls_playlist_type", "vod",
+        "-master_pl_name", "master.m3u8",
+        "-hls_segment_filename", &segment_pattern,
+        "-var_stream_map", &stream_map,
+        &output_pattern,
+    ]);
+
+    let status = Command::new("ffmpeg")
+        .args(&args)
+        .status().await?;
+
+    if !status.success() {
+        return Err(anyhow!("ffmpeg multi-bitrate HLS failed"));
+    }
+    Ok(())
+}
+
+async fn generate_master_playlist(output_dir: &str, format: &str) -> Result<()> {
+    let master_path = format!("{}/master.m3u8", output_dir);
+    let content = if format == "flash" {
+        "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=720x1280\n720p.m3u8".to_string()
+    } else {
+        "#EXTM3U\n#EXT-X-VERSION:3\n\
+        #EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080\n1080p.m3u8\n\
+        #EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1280x720\n720p.m3u8\n\
+        #EXT-X-STREAM-INF:BANDWIDTH=1200000,RESOLUTION=854x480\n480p.m3u8".to_string()
+    };
+    
+    fs::write(master_path, content).await?;
     Ok(())
 }
 
@@ -155,7 +211,7 @@ async fn generate_thumbnail(video_path: &str) -> Result<()> {
             "-y",
             &thumb_path,
         ])
-        .status()?;
+        .status().await?;
 
     if !status.success() {
         return Err(anyhow!("ffmpeg thumbnail generation failed"));

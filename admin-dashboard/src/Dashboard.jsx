@@ -81,11 +81,7 @@ const Dashboard = ({ token, setToken, theme, toggleTheme }) => {
         u.email?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    if (loading) return (
-      <div style={{ background: 'var(--bg-app)', height: '100vh', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <ShieldCheck size={48} className="animate-pulse" color="var(--accent)" />
-      </div>
-    );
+
 
     return (
         <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-app)', transition: 'background-color 0.3s ease' }}>
@@ -176,8 +172,14 @@ const Dashboard = ({ token, setToken, theme, toggleTheme }) => {
             </header>
 
             <main className="container" style={{ padding: '48px 0' }}>
-                {/* Stats Section */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '48px' }}>
+                {loading ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: '120px 0' }}>
+                        <ShieldCheck size={48} className="animate-pulse" color="var(--accent)" />
+                    </div>
+                ) : (
+                    <>
+                        {/* Stats Section */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '48px' }}>
                     <StatCard 
                       icon={<Users color="var(--accent)" />} 
                       label="Total Members" 
@@ -298,6 +300,8 @@ const Dashboard = ({ token, setToken, theme, toggleTheme }) => {
                         </table>
                     </div>
                 </div>
+                    </>
+                )}
             </main>
         </div>
     );
