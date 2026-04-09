@@ -51,8 +51,8 @@ const NotificationManager = () => {
             }
         };
 
-        // Poll every 3 seconds for achievement celebrations
-        const intervalId = setInterval(pollNotifications, 3000);
+        // Poll every 60 seconds for production constraints
+        const intervalId = setInterval(pollNotifications, 60000);
 
         // Initial check
         pollNotifications();

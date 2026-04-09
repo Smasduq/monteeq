@@ -5,7 +5,14 @@ import { useNavigate } from 'react-router-dom';
 import { useNotification } from './context/NotificationContext';
 
 const Dashboard = ({ token, setToken, theme, toggleTheme }) => {
-    const [stats, setStats] = useState({ users: 0, videos: 0, premium_users: 0, total_views: 0 });
+    const [stats, setStats] = useState({ 
+        users: 0, 
+        videos: 0, 
+        premium_users: 0, 
+        total_views: 0,
+        total_revenue: 0,
+        pending_payouts: 0 
+    });
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -179,32 +186,45 @@ const Dashboard = ({ token, setToken, theme, toggleTheme }) => {
                 ) : (
                     <>
                         {/* Stats Section */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '48px' }}>
-                    <StatCard 
-                      icon={<Users color="var(--accent)" />} 
-                      label="Total Members" 
-                      value={stats.users.toLocaleString()} 
-                      onClick={() => navigate('/stats/users')}
-                    />
-                    <StatCard 
-                      icon={<Video color="#a855f7" />} 
-                      label="Videos" 
-                      value={stats.videos.toLocaleString()} 
-                      onClick={() => navigate('/stats/videos')}
-                    />
-                    <StatCard 
-                      icon={<ShieldCheck color="#f59e0b" />} 
-                      label="Premium Members" 
-                      value={stats.premium_users.toLocaleString()} 
-                      onClick={() => navigate('/stats/premium')}
-                    />
-                    <StatCard 
-                      icon={<Video color="var(--accent)" />} 
-                      label="Platform Views" 
-                      value={stats.total_views.toLocaleString()} 
-                      onClick={() => navigate('/stats/views')}
-                    />
-                </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '48px' }}>
+                            <StatCard 
+                                icon={<Users color="var(--accent)" />} 
+                                label="Total Members" 
+                                value={stats.users.toLocaleString()} 
+                                onClick={() => navigate('/stats/users')}
+                            />
+                            <StatCard 
+                                icon={<Video color="#a855f7" />} 
+                                label="Videos" 
+                                value={stats.videos.toLocaleString()} 
+                                onClick={() => navigate('/stats/videos')}
+                            />
+                            <StatCard 
+                                icon={<ShieldCheck color="#f59e0b" />} 
+                                label="Premium Members" 
+                                value={stats.premium_users.toLocaleString()} 
+                                onClick={() => navigate('/stats/premium')}
+                            />
+                            <StatCard 
+                                icon={<TrendingUp size={20} color="#10b981" />} 
+                                label="Platform Revenue" 
+                                value={`₦${stats.total_revenue.toLocaleString()}`} 
+                                onClick={() => navigate('/stats/revenue')}
+                            />
+                            <StatCard 
+                                icon={<Video color="var(--accent)" />} 
+                                label="Platform Views" 
+                                value={stats.total_views.toLocaleString()} 
+                                onClick={() => navigate('/stats/views')}
+                            />
+                            <StatCard 
+                                icon={<CreditCard color="#ef4444" />} 
+                                label="Pending Payouts" 
+                                value={`₦${stats.pending_payouts.toLocaleString()}`} 
+                                color="#ef4444"
+                                onClick={() => navigate('/payouts')}
+                            />
+                        </div>
 
                 {/* Operations Section */}
                 <div className="card" style={{ overflow: 'hidden' }}>

@@ -5,36 +5,36 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { PageSkeleton } from './components/Skeleton';
-import Home from './pages/Home';
-import Flash from './pages/Flash';
-import Posts from './pages/Posts';
-import Upload from './pages/Upload';
-import Chat from './pages/Chat';
+const Home = React.lazy(() => import('./pages/Home'));
+const Flash = React.lazy(() => import('./pages/Flash'));
+const Posts = React.lazy(() => import('./pages/Posts'));
+const Upload = React.lazy(() => import('./pages/Upload'));
+const Chat = React.lazy(() => import('./pages/Chat'));
 
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import Watch from './pages/Watch';
+const Login = React.lazy(() => import('./pages/Login'));
+const Signup = React.lazy(() => import('./pages/Signup'));
+const Watch = React.lazy(() => import('./pages/Watch'));
 
-import Search from './pages/Search';
-import Settings from './pages/Settings';
-import Profile from './pages/Profile';
-import ManageVideos from './pages/ManageVideos';
-import ManageContent from './pages/ManageContent';
-import Achievements from './pages/Achievements';
-import Notifications from './pages/Notifications';
-import Insights from './pages/Insights';
-import Monetization from './pages/Monetization';
-import Performance from './pages/Performance';
-import Onboarding from './pages/Onboarding';
-import PartnerV2 from './pages/PartnerV2';
-import Challenges from './pages/Challenges';
-import About from './pages/About';
-import JoinPro from './pages/JoinPro';
+const Search = React.lazy(() => import('./pages/Search'));
+const Settings = React.lazy(() => import('./pages/Settings'));
+const Profile = React.lazy(() => import('./pages/Profile'));
+const ManageVideos = React.lazy(() => import('./pages/ManageVideos'));
+const ManageContent = React.lazy(() => import('./pages/ManageContent'));
+const Achievements = React.lazy(() => import('./pages/Achievements'));
+const Notifications = React.lazy(() => import('./pages/Notifications'));
+const Insights = React.lazy(() => import('./pages/Insights'));
+const Monetization = React.lazy(() => import('./pages/Monetization'));
+const Transactions = React.lazy(() => import('./pages/Transactions'));
+const Performance = React.lazy(() => import('./pages/Performance'));
+const Onboarding = React.lazy(() => import('./pages/Onboarding'));
+const PartnerV2 = React.lazy(() => import('./pages/PartnerV2'));
+const Challenges = React.lazy(() => import('./pages/Challenges'));
+const About = React.lazy(() => import('./pages/About'));
+const JoinPro = React.lazy(() => import('./pages/JoinPro'));
 import NotificationManager from './components/NotificationManager';
 
-import Header from './components/Header';
 import Sidebar from './components/Sidebar';
-import BottomNav from './components/BottomNav';
+import ModernHeader from './components/ModernHeader';
 import './index.css';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -73,7 +73,7 @@ function AppContent() {
 
   return (
     <div className="app-container">
-      <Header
+      <ModernHeader
         onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
         isMenuOpen={isMenuOpen}
       />
@@ -87,32 +87,34 @@ function AppContent() {
             flexWrap: 'wrap'
           }}>
             <div style={{ flex: showAdColumn ? 2 : 1, minWidth: '300px' }}>
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/flash" element={<Flash />} />
-                <Route path="/watch/:id" element={<Watch />} />
-                <Route path="/search" element={<Search />} />
-                <Route path="/profile/:username" element={<Profile />} />
-                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                <Route path="/posts" element={<Posts />} />
-                <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
-                <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-                <Route path="/manage" element={<ProtectedRoute><ManageContent /></ProtectedRoute>} />
-                <Route path="/manage-videos" element={<ProtectedRoute><ManageContent /></ProtectedRoute>} />
-                <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
-                <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-                <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
-                <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
-                <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-                <Route path="/partner" element={<PartnerV2 />} />
-                <Route path="/challenges" element={<Challenges />} />
-                <Route path="/monetization" element={<ProtectedRoute><Monetization /></ProtectedRoute>} />
-                <Route path="/about" element={<About />} />
-                <Route path="/pro" element={<JoinPro />} />
-
-              </Routes>
+              <React.Suspense fallback={<PageSkeleton />}>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/flash" element={<Flash />} />
+                  <Route path="/watch/:id" element={<Watch />} />
+                  <Route path="/search" element={<Search />} />
+                  <Route path="/profile/:username" element={<Profile />} />
+                  <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                  <Route path="/posts" element={<Posts />} />
+                  <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+                  <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+                  <Route path="/manage" element={<ProtectedRoute><ManageContent /></ProtectedRoute>} />
+                  <Route path="/manage-videos" element={<ProtectedRoute><ManageContent /></ProtectedRoute>} />
+                  <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
+                  <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+                  <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
+                  <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+                  <Route path="/partner" element={<PartnerV2 />} />
+                  <Route path="/challenges" element={<Challenges />} />
+                  <Route path="/monetization" element={<ProtectedRoute><Monetization /></ProtectedRoute>} />
+                  <Route path="/monetization/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/pro" element={<JoinPro />} />
+                </Routes>
+              </React.Suspense>
             </div>
             {showAdColumn && (
               <div style={{ flex: 1, minWidth: '300px' }}>
@@ -122,21 +124,6 @@ function AppContent() {
           </div>
         </main>
       </div>
-      <BottomNav />
-
-      {!token && (
-        <Link to="/login" className="floating-auth-pill glass">
-          <Zap size={20} fill="white" />
-          Join Monteeq
-        </Link>
-      )}
-
-      {token && !isPremiumOrAdmin && (
-        <Link to="/pro" className="floating-pro-pill glass">
-          <Crown size={20} fill="#ffd700" />
-          Upgrade to Pro
-        </Link>
-      )}
     </div>
   );
 }

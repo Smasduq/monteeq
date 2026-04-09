@@ -1,8 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Heart, MessageCircle, Share2, Music, Play, Pause, Volume2, VolumeX, AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Trophy, Music, Play, Pause, Volume2, VolumeX, AlertTriangle, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { viewVideo } from '../api';
+import s from './FlashCard.module.css';
 
 const FlashCard = ({ video, isActive, onLike, onComment, onShare, onFollow, muted, toggleMute, shouldRender = true }) => {
     const navigate = useNavigate();
@@ -11,15 +12,19 @@ const FlashCard = ({ video, isActive, onLike, onComment, onShare, onFollow, mute
     const [playing, setPlaying] = useState(false);
     const [showHeart, setShowHeart] = useState(false);
     const [viewCounted, setViewCounted] = useState(false);
-    // Double tap logic
+    
+    // Gesture Logic
     const lastTap = useRef(0);
+    const longPressTimeout = useRef(null);
+    const [isScrubbing, setIsScrubbing] = useState(false);
+    const [scrubTime, setScrubTime] = useState(0);
 
     useEffect(() => {
         if (!videoRef.current) return;
         if (isActive && video.status === 'approved') {
             videoRef.current.play().catch(() => { });
             setPlaying(true);
-            setViewCounted(false); // Reset for new active video
+            setViewCounted(false);
         } else {
             videoRef.current.pause();
             videoRef.current.currentTime = 0;
@@ -27,251 +32,193 @@ const FlashCard = ({ video, isActive, onLike, onComment, onShare, onFollow, mute
         }
     }, [isActive, video.status]);
 
-    useEffect(() => {
-        if (videoRef.current) videoRef.current.muted = muted;
-    }, [muted]);
-
     const handleTimeUpdate = (e) => {
         if (viewCounted || !video) return;
-
         const { currentTime, duration } = e.target;
-        if (duration > 0) {
-            // For short flash videos, count view after 15% or 3 seconds
-            if ((currentTime / duration) > 0.15 || currentTime > 3) {
-                setViewCounted(true);
-                viewVideo(video.id).catch(console.error);
-            }
+        if (duration > 0 && ((currentTime / duration) > 0.15 || currentTime > 3)) {
+            setViewCounted(true);
+            viewVideo(video.id).catch(console.error);
         }
     };
 
-    const handleTap = (e) => {
-        const now = Date.now();
+    const handleTouchStart = (e) => {
+        const tapTime = Date.now();
         const DOUBLE_TAP_DELAY = 300;
-        if (now - lastTap.current < DOUBLE_TAP_DELAY) {
-            // Double tap
-            handleLikeAnimation(e);
+        
+        if (tapTime - lastTap.current < DOUBLE_TAP_DELAY) {
+            // Double Tap Detected
+            handleDoubleTap(e);
+            clearTimeout(longPressTimeout.current);
+        } else {
+            // Potential Long Press
+            longPressTimeout.current = setTimeout(() => {
+                setIsScrubbing(true);
+                if (videoRef.current) {
+                    videoRef.current.pause();
+                    setScrubTime(videoRef.current.currentTime);
+                }
+            }, 500);
+        }
+        lastTap.current = tapTime;
+    };
+
+    const handleTouchEnd = () => {
+        clearTimeout(longPressTimeout.current);
+        if (isScrubbing) {
+            setIsScrubbing(false);
+            if (videoRef.current) videoRef.current.play();
+        }
+    };
+
+    const handleDoubleTap = (e) => {
+        const touchX = e.touches[0].clientX;
+        const width = window.innerWidth;
+        
+        if (touchX < width * 0.4) {
+            // Seek Back
+            if (videoRef.current) videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10);
+        } else if (touchX > width * 0.6) {
+            // Seek Forward
+            if (videoRef.current) videoRef.current.currentTime = Math.min(videoRef.current.duration, videoRef.current.currentTime + 10);
+        } else {
+            // Center - Heart Animation + Like
+            setShowHeart(true);
+            setTimeout(() => setShowHeart(false), 800);
             if (!video.liked) onLike(video.id);
-        } else {
-            // Single tap - toggle play
-            togglePlay();
-        }
-        lastTap.current = now;
-    };
-
-    const togglePlay = () => {
-        if (videoRef.current.paused) {
-            videoRef.current.play();
-            setPlaying(true);
-        } else {
-            videoRef.current.pause();
-            setPlaying(false);
         }
     };
 
-    const handleLikeAnimation = (e) => {
-        setShowHeart(true);
-        setTimeout(() => setShowHeart(false), 800);
+    const handleScrubMove = (e) => {
+        if (!isScrubbing || !videoRef.current) return;
+        const touchX = e.touches[0].clientX;
+        const width = window.innerWidth;
+        const percentage = touchX / width;
+        const newTime = percentage * videoRef.current.duration;
+        videoRef.current.currentTime = newTime;
+        setScrubTime(newTime);
+    };
+
+    const formatTime = (time) => {
+        const mins = Math.floor(time / 60);
+        const secs = Math.floor(time % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
     return (
-        <div className="flash-card">
-            <div className="video-wrapper" onClick={handleTap}>
+        <div className={s.card}>
+            <div 
+                className={s.videoWrapper} 
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                onTouchMove={handleScrubMove}
+                onClick={() => !isScrubbing && (playing ? videoRef.current.pause() : videoRef.current.play())}
+            >
                 <video
                     ref={videoRef}
                     src={shouldRender ? video.video_url : ""}
                     loop
                     playsInline
                     onTimeUpdate={handleTimeUpdate}
-                    className="flash-video-player"
+                    onPlay={() => setPlaying(true)}
+                    onPause={() => setPlaying(false)}
+                    className={s.video}
                 />
 
                 {/* Status Overlays */}
                 {video.status === 'pending' && (
                     <div className="status-overlay pending">
                         <Loader2 className="animate-spin" size={48} color="white" />
-                        <span>Processing...</span>
+                        <span>Rendering Montage...</span>
                     </div>
                 )}
 
-                {video.status === 'failed' && (
-                    <div className="status-overlay failed">
-                        <AlertTriangle size={48} color="#ff3e3e" />
-                        <h3 style={{ color: 'white', marginTop: '1rem' }}>Upload Failed</h3>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); navigate('/manage-content'); }}
-                            className="retry-btn"
-                        >
-                            <RefreshCw size={16} /> Manage & Retry
-                        </button>
+                {/* Thumb Gestures Feedback */}
+                <div className={`${s.scrubbingBar} ${isScrubbing ? s.visible : ''}`}>
+                    <div 
+                        className={s.progress} 
+                        style={{ width: `${(scrubTime / (videoRef.current?.duration || 1)) * 100}%` }} 
+                    />
+                </div>
+                {isScrubbing && (
+                    <div className={`${s.previewTimestamp} ${s.visible}`}>
+                        {formatTime(scrubTime)}
                     </div>
                 )}
 
-                {/* Heart Animation Overlay */}
                 {showHeart && (
                     <div className="heart-pop">
                         <Heart size={100} fill="var(--accent-primary)" color="var(--accent-primary)" />
                     </div>
                 )}
-
-                {/* Play/Pause Indicator (optional, transient) */}
-                {!playing && video.status === 'approved' && (
-                    <div className="play-indicator">
-                        <Play size={50} fill="rgba(255,255,255,0.5)" color="white" />
-                    </div>
-                )}
             </div>
 
-            {/* Sidebar Actions */}
-            <div className="flash-sidebar">
-                <div className="sidebar-action" onClick={() => onLike(video.id)} title="Like (l)">
-                    <div className={`icon-circle ${video.liked ? 'liked' : ''}`}>
-                        <Heart size={28} fill={video.liked ? 'var(--accent-primary)' : 'rgba(0,0,0,0.3)'} color={video.liked ? 'var(--accent-primary)' : 'white'} />
+            {/* Sidebar Actions - Thumb Optimized */}
+            <div className={s.sidebar}>
+                <div className={`${s.action} ${video.liked ? s.liked : ''}`} onClick={() => onLike(video.id)}>
+                    <div className={s.iconCircle}>
+                        <Heart size={28} fill={video.liked ? 'var(--accent-primary)' : 'none'} />
                     </div>
-                    <span>{video.likes_count}</span>
+                    <span className={s.label}>{video.likes_count}</span>
                 </div>
 
-                <div className="sidebar-action" onClick={() => onComment(video.id)} title="Comments (c)">
-                    <div className="icon-circle">
-                        <MessageCircle size={28} fill="rgba(0,0,0,0.3)" color="white" />
+                <div className={s.action} onClick={() => onComment(video.id)}>
+                    <div className={s.iconCircle}>
+                        <MessageCircle size={28} />
                     </div>
-                    <span>{video.comment_count}</span>
+                    <span className={s.label}>{video.comment_count}</span>
                 </div>
 
-                <div className="sidebar-action" onClick={() => onShare(video.id)} title="Share">
-                    <div className="icon-circle">
-                        <Share2 size={28} fill="rgba(0,0,0,0.3)" color="white" />
+                <div className={s.action} onClick={() => onShare(video.id)}>
+                    <div className={s.iconCircle}>
+                        <Share2 size={24} />
                     </div>
-                    <span>Share</span>
+                    <span className={s.label}>Share</span>
+                </div>
+
+                {/* Challenge Hook - If applicable */}
+                <div className={s.action} onClick={() => navigate('/challenges')}>
+                    <div className={s.iconCircle} style={{borderColor: '#ffd700', background: 'rgba(255, 215, 0, 0.1)'}}>
+                        <Trophy size={24} color="#ffd700" />
+                    </div>
+                    <span className={s.label} style={{color: '#ffd700'}}>Join</span>
                 </div>
             </div>
 
-            {/* Bottom Metadata */}
-            <div className="flash-info">
-                <div className="info-user">
-                    <div
-                        className="avatar-placeholder"
-                        style={{ width: '42px', height: '42px', cursor: 'pointer', border: '2px solid white' }}
+            {/* Bottom Metadata - Glassmorphism */}
+            <div className={s.overlay}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                    <div 
+                        className="avatar-placeholder" 
+                        style={{ width: '40px', height: '40px', border: '1.5px solid var(--accent-primary)' }}
                         onClick={() => navigate(`/profile/${video.owner?.username}`)}
                     >
                         {video.owner?.profile_pic ? (
                             <img src={video.owner.profile_pic} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
-                            <span style={{ fontSize: '1.2rem' }}>{video.owner?.username?.[0].toUpperCase()}</span>
+                            <span style={{ fontSize: '1rem' }}>{video.owner?.username?.[0].toUpperCase()}</span>
                         )}
                     </div>
-                    <div className="user-text-meta">
-                        <h3
-                            onClick={() => navigate(`/profile/${video.owner?.username}`)}
-                            style={{ cursor: 'pointer' }}
-                        >
-                            @{video.owner?.username || 'user'}
+                    <div>
+                        <h3 onClick={() => navigate(`/profile/${video.owner?.username}`)} style={{ fontSize: '1.1rem', fontWeight: 800 }}>
+                            @{video.owner?.username || 'creator'}
                         </h3>
-                        {video.owner?.id !== user?.id && (
-                            <button
-                                className={`follow-btn ${video.owner_followed ? 'followed' : ''}`}
-                                title={video.owner_followed ? 'Unfollow User' : 'Follow User'}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onFollow();
-                                }}
-                                style={{
-                                    background: video.owner_followed ? 'rgba(255,255,255,0.2)' : 'var(--accent-primary)',
-                                    border: video.owner_followed ? '1px solid rgba(255,255,255,0.3)' : 'none',
-                                    color: 'white',
-                                    padding: '4px 12px',
-                                    borderRadius: '4px',
-                                    fontSize: '0.8rem',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                {video.owner_followed ? 'Following' : 'Follow'}
-                            </button>
-                        )}
                     </div>
                 </div>
-                <p className="info-description">{video.title}</p>
-                {video.tags && (
-                    <div className="info-tags" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-                        {video.tags.split(',').map((tag, i) => (
-                            <span
-                                key={i}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/search?q=${encodeURIComponent('#' + tag.trim())}`);
-                                }}
-                                style={{ color: 'var(--accent-primary)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
-                            >
-                                #{tag.trim()}
-                            </span>
-                        ))}
-                    </div>
-                )}
-                <div className="info-music">
+                <p style={{ fontSize: '0.95rem', opacity: 0.9, marginBottom: '12px', lineHeight: 1.4 }}>{video.title}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.8 }}>
                     <Music size={14} />
-                    <div className="marquee">
-                        <span>{video.song || 'Original Sound'}</span>
-                    </div>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{video.song || 'Cinematic Audio'}</span>
                 </div>
-            </div>
-
-            {/* Spinner Disc */}
-            <div className={`disc-spinner ${playing ? 'spinning' : ''}`}>
-                <div className="disc-art" />
             </div>
 
             {/* Mute Toggle */}
-            {video.status === 'approved' && (
-                <button className="mute-toggle" onClick={(e) => { e.stopPropagation(); toggleMute(); }} title="Mute (m)">
-                    {muted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-                </button>
-            )}
-
-            <style>{`
-                .status-overlay {
-                    position: absolute;
-                    inset: 0;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    background: rgba(0,0,0,0.6);
-                    backdrop-filter: blur(5px);
-                    z-index: 10;
-                }
-                .status-overlay.pending span {
-                    color: white;
-                    margin-top: 1rem;
-                    font-weight: 600;
-                    letter-spacing: 1px;
-                }
-                .retry-btn {
-                    margin-top: 1.5rem;
-                    background: var(--accent-primary);
-                    color: white;
-                    border: none;
-                    padding: 0.8rem 1.5rem;
-                    border-radius: 99px;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    font-weight: 700;
-                    cursor: pointer;
-                    box-shadow: 0 8px 20px rgba(255, 62, 62, 0.3);
-                    transition: transform 0.2s;
-                }
-                .retry-btn:hover {
-                    transform: scale(1.05);
-                }
-                .animate-spin {
-                    animation: spin 1s linear infinite;
-                }
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-            `}</style>
+            <button 
+                className="mute-toggle" 
+                onClick={(e) => { e.stopPropagation(); toggleMute(); }}
+                style={{ top: '20px', right: '20px', bottom: 'auto' }}
+            >
+                {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+            </button>
         </div>
     );
 };

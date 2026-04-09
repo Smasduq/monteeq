@@ -5,15 +5,62 @@
 
 .container {
   min-height: 100vh;
-  padding: 4rem 2rem;
-  background: radial-gradient(circle at center, var(--bg-deep) 0%, #000 100%);
+  background-color: var(--bg-deep);
+  color: white;
+  padding: 0; /* Changed from 8rem 2rem 4rem to allow Hero to be full width */
+  position: relative;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Partner Variables for integrated components */
+.container {
+  --partner-primary: #ff3333; /* Monteeq Red */
+  --partner-primary-hover: #e62e2e;
+  --partner-bg: transparent;
+  --partner-bg-glass: rgba(20, 20, 20, 0.7);
+  --partner-border: rgba(255, 255, 255, 0.1);
+  --partner-text-gray: #b0b0b0;
+  --partner-text-muted: #666666;
+}
+
+.contentWrapper {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  z-index: 2;
+  position: relative;
+}
+
+.plansSection {
+  padding: 8rem 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  position: relative;
-  overflow: hidden;
-  color: #fff;
-  font-family: 'Outfit', sans-serif;
+  scroll-margin-top: 80px;
+}
+
+.videoBgWrapper {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.videoBg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.15;
+  filter: blur(8px) contrast(1.2);
+}
+
+.videoOverlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 0%, var(--bg-deep) 100%);
 }
 
 /* Faint Vignette Effect */
@@ -128,20 +175,27 @@
 
 /* Pro Card Specific Styling */
 .proCard {
-  background: rgba(20, 20, 20, 0.6);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 215, 0, 0.3);
-  animation: glow-pulse 4s infinite alternate;
+  background: rgba(10, 10, 10, 0.85) !important;
+  border: none !important;
+  position: relative;
+  z-index: 1;
 }
 
-@keyframes glow-pulse {
-  from {
-    box-shadow: 0 0 40px rgba(255, 215, 0, 0.1);
-  }
-  to {
-    box-shadow: 0 0 80px rgba(255, 215, 0, 0.25);
-  }
+.proCard::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(45deg, var(--accent-primary), var(--accent-active), #6A1B9A, var(--accent-primary));
+  background-size: 400% 400%;
+  z-index: -1;
+  border-radius: calc(var(--radius-xl) + 2px);
+  animation: borderAnim 8s ease infinite;
+}
+
+@keyframes borderAnim {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .badge {
@@ -226,20 +280,55 @@
 }
 
 .proCta {
-  background: linear-gradient(135deg, #ffd700, #ff8c00);
+  background: var(--accent-primary);
   color: #000;
-  box-shadow: 0 10px 30px rgba(255, 215, 0, 0.3);
+  border: none;
+  padding: 1.2rem 2.5rem;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: var(--transition-smooth);
+  box-shadow: 0 0 30px rgba(0, 229, 255, 0.4);
+}
+
+.proCta::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(
+    transparent, 
+    var(--accent-primary), 
+    transparent 30%
+  );
+  animation: rotate 3s linear infinite;
+  z-index: -1;
 }
 
 .proCta:hover {
-  transform: scale(1.02);
-  box-shadow: 0 15px 40px rgba(255, 215, 0, 0.5);
+  transform: scale(1.05) translateY(-5px);
+  box-shadow: 0 0 50px rgba(0, 229, 255, 0.6);
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* Responsiveness */
 @media (max-width: 768px) {
   .card {
     padding: 2rem;
+  }
+  .contentWrapper {
+    padding: 0 1.5rem;
   }
 }
 

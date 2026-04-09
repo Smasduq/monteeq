@@ -23,7 +23,8 @@ const StatsDetail = ({ token }) => {
         users: 'Total Members',
         videos: 'Total Videos',
         premium: 'Premium Members',
-        views: 'Platform Views'
+        views: 'Platform Views',
+        revenue: 'Platform Revenue'
     };
 
     useEffect(() => {
@@ -59,7 +60,7 @@ const StatsDetail = ({ token }) => {
                 }}>
                     <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>{label}</p>
                     <p style={{ fontSize: '16px', fontWeight: 700, color: 'var(--accent)' }}>
-                        {payload[0].value.toLocaleString()}
+                        {metric === 'revenue' ? `₦${payload[0].value.toLocaleString()}` : payload[0].value.toLocaleString()}
                     </p>
                 </div>
             );
@@ -130,7 +131,12 @@ const StatsDetail = ({ token }) => {
                                                 axisLine={false} 
                                                 tickLine={false} 
                                                 tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
-                                                tickFormatter={(value) => value > 1000 ? `${(value / 1000).toFixed(1)}k` : value}
+                                                tickFormatter={(value) => {
+                                                    if (metric === 'revenue') {
+                                                        return value >= 1000 ? `₦${(value / 1000).toFixed(1)}k` : `₦${value}`;
+                                                    }
+                                                    return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value;
+                                                }}
                                             />
                                             <Tooltip content={<CustomTooltip />} />
                                             <Area 
@@ -158,7 +164,7 @@ const StatsDetail = ({ token }) => {
                                     <TrendingUp size={20} color="var(--accent)" style={{ marginBottom: '16px' }} />
                                     <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Current Total</p>
                                     <p style={{ fontSize: '24px', fontWeight: 800, color: 'var(--accent)' }}>
-                                        {data.length > 0 ? data[data.length - 1].value.toLocaleString() : '0'}
+                                        {data.length > 0 ? (metric === 'revenue' ? `₦${data[data.length - 1].value.toLocaleString()}` : data[data.length - 1].value.toLocaleString()) : '0'}
                                     </p>
                                 </div>
                             </div>

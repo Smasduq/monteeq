@@ -14,4 +14,5 @@ api_router.include_router(achievements.router, prefix="/achievements", tags=["ac
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(ads.router, prefix="/ads", tags=["ads"])
 api_router.include_router(video_views.router, prefix="/views", tags=["views"])
+api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
 
