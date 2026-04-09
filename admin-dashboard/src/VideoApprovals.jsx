@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { getPendingVideos, updateVideoStatus } from './api';
+import Hls from 'hls.js';
 import { ShieldCheck, LogOut, CheckCircle, XCircle, ChevronLeft, Play, X, Info, Sun, Moon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from './context/NotificationContext';
@@ -8,6 +9,7 @@ const VideoApprovals = ({ token, setToken, theme, toggleTheme }) => {
     const [videos, setVideos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [previewVideo, setPreviewVideo] = useState(null);
+    const videoRef = useRef(null);
     const navigate = useNavigate();
     const { showNotification } = useNotification();
 
@@ -46,6 +48,35 @@ const VideoApprovals = ({ token, setToken, theme, toggleTheme }) => {
             showNotification('error', 'Failed to update video status');
         }
     };
+    useEffect(() => {
+        if (!previewVideo || !videoRef.current || !previewVideo.video_url) return;
+
+        const video = videoRef.current;
+        const src = previewVideo.video_url;
+
+        if (Hls.isSupported() && src.endsWith('.m3u8')) {
+            const hls = new Hls({
+                capLevelToPlayerSize: true,
+                autoStartLoad: true,
+            });
+            hls.loadSource(src);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                video.play().catch(e => console.log("Autoplay blocked:", e));
+            });
+
+            return () => {
+                hls.destroy();
+            };
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Native Safari support
+            video.src = src;
+            video.play().catch(e => console.log("Autoplay blocked:", e));
+        } else {
+            // Fallback for direct MP4
+            video.src = src;
+        }
+    }, [previewVideo]);
 
 
 
@@ -146,7 +177,11 @@ const VideoApprovals = ({ token, setToken, theme, toggleTheme }) => {
                         </div>
                         <div style={{ background: 'black', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)' }}>
                             {previewVideo.video_url ? (
-                                <video src={previewVideo.video_url} controls autoPlay style={{ width: '100%', maxHeight: 'calc(100vh - 240px)', display: 'block' }} />
+                                <video 
+                                    ref={videoRef}
+                                    controls 
+                                    style={{ width: '100%', maxHeight: 'calc(100vh - 240px)', display: 'block' }} 
+                                />
                             ) : (
                                 <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
                                     <p>Video is still processing. Check back later.</p>

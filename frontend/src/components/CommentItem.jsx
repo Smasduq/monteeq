@@ -11,6 +11,7 @@ const CommentItem = ({
     onSubmitReply,
     onEdit,
     onDelete,
+    isApproved = true,
     level = 0
 }) => {
     const { user } = useAuth();
@@ -129,18 +130,21 @@ const CommentItem = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <button
                             title={isReplying ? "Cancel Reply" : "Reply to Comment"}
-                            onClick={() => onReply(isReplying ? null : comment.id)}
+                            onClick={() => {
+                                if (isApproved) onReply(isReplying ? null : comment.id);
+                            }}
                             style={{
                                 background: 'none',
                                 border: 'none',
                                 color: 'var(--accent-primary)',
                                 fontSize: '0.8rem',
                                 fontWeight: 700,
-                                cursor: 'pointer',
+                                cursor: isApproved ? 'pointer' : 'not-allowed',
                                 padding: '4px 0',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '4px'
+                                gap: '4px',
+                                opacity: isApproved ? 1 : 0.5
                             }}
                         >
                             {isReplying ? 'Cancel' : 'Reply'}
@@ -246,6 +250,7 @@ const CommentItem = ({
                                     onSubmitReply={onSubmitReply}
                                     onEdit={onEdit}
                                     onDelete={onDelete}
+                                    isApproved={isApproved}
                                     level={level + 1}
                                 />
                             ))}

@@ -368,6 +368,11 @@ def view_video(
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
     
+    if video.status != "approved":
+        # Silently skip view increment for pending/failed videos
+        # but return success to avoid frontend errors
+        return {"status": "success", "views": video.views, "message": "View not counted for non-approved video"}
+
     user_id = current_user.id if current_user else None
     updated_video = crud_video.increment_view(db, user_id=user_id, video_id=video_id)
     return {"status": "success", "views": updated_video.views if updated_video else 0}
@@ -382,6 +387,9 @@ def create_comment(
     video = crud_video.get_video(db, video_id=video_id)
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
+    
+    if video.status != "approved":
+        raise HTTPException(status_code=403, detail="Comments are disabled for videos still in processing or failed state")
     
     return crud_video.create_comment(db, comment=comment, user_id=current_user.id, video_id=video_id)
 
@@ -398,6 +406,9 @@ def like_video(
     video = crud_video.get_video(db, video_id=video_id)
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
+
+    if video.status != "approved":
+        raise HTTPException(status_code=403, detail="Likes are disabled for videos still in processing or failed state")
     
     is_liked = crud_video.toggle_like(db, user_id=current_user.id, video_id=video_id)
     

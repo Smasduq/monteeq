@@ -181,6 +181,12 @@ def toggle_like(db: Session, user_id: int, video_id: Optional[int] = None, post_
     else:
         return False
 
+    # Status Check: Only approved videos can be liked
+    if video_id:
+        target_video = db.query(Video).filter(Video.id == video_id).first()
+        if not target_video or target_video.status != "approved":
+            return False
+
     existing = query.first()
     if existing:
         db.delete(existing)
@@ -273,6 +279,9 @@ def increment_view(db: Session, user_id: Optional[int] = None, video_id: Optiona
     if video_id:
         target = db.query(Video).filter(Video.id == video_id).first()
         if target:
+            if target.status != "approved":
+                return target # Still return video so player doesn't crash, but don't increment views
+
             target.views = (target.views or 0) + 1
             db.commit()
             db.refresh(target)
@@ -299,8 +308,12 @@ def increment_view(db: Session, user_id: Optional[int] = None, video_id: Optiona
     return None
 
 def update_discovery_score(db: Session, video_id: Optional[int] = None, post_id: Optional[int] = None):
-    from app.tasks.video_tasks import update_discovery_score_task
-    update_discovery_score_task.delay(video_id=video_id, post_id=post_id)
+    try:
+        from app.tasks.video_tasks import update_discovery_score_task
+        update_discovery_score_task.delay(video_id=video_id, post_id=post_id)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Celery task failed to enqueue (broker down?): {e}")
 
 def get_posts(db: Session):
     return db.query(Post).all()
@@ -309,6 +322,12 @@ def get_ads(db: Session):
     return db.query(SponsoredAd).filter(SponsoredAd.is_active == True).all()
 
 def create_comment(db: Session, comment: schemas.CommentBase, user_id: int, video_id: Optional[int] = None, post_id: Optional[int] = None):
+    # Status Check: Only approved videos can be commented on
+    if video_id:
+        v = db.query(Video).filter(Video.id == video_id).first()
+        if not v or v.status != "approved":
+            return None
+
     comment_data = comment.model_dump()
     db_comment = Comment(**comment_data, video_id=video_id, post_id=post_id, owner_id=user_id)
     # The parent_id is now handled automatically because it's in comment_data (schemas.CommentCreate)

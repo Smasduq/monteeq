@@ -1,0 +1,141 @@
+.card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  background: black;
+  box-shadow: var(--shadow-cinematic), var(--inner-glow);
+  border: 1px solid var(--border-glass);
+}
+
+.videoWrapper {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Metadata Overlay - Dark Glassmorphism */
+.overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 40px 20px 20px 20px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8) 40%, rgba(0, 0, 0, 0.95));
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  color: white;
+  pointer-events: none;
+  border-top: 1px solid var(--border-glass);
+}
+
+.overlay * {
+  pointer-events: auto;
+}
+
+/* Sidebar - Thumb Zone Optimization */
+.sidebar {
+  position: absolute;
+  right: 12px;
+  bottom: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  z-index: 10;
+}
+
+.action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.action:active {
+  transform: scale(0.9);
+}
+
+.iconCircle {
+  width: 50px;
+  height: 50px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: var(--transition-fast);
+}
+
+.action.liked .iconCircle {
+  background: rgba(255, 62, 62, 0.2);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  box-shadow: 0 0 15px rgba(255, 62, 62, 0.3);
+}
+
+.label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* Scrubbing Preview */
+.scrubbingBar {
+  position: absolute;
+  bottom: 80px;
+  left: 20px;
+  right: 20px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.scrubbingBar.visible {
+  opacity: 1;
+}
+
+.progress {
+  height: 100%;
+  background: var(--accent-primary);
+  box-shadow: 0 0 10px var(--accent-primary);
+}
+
+.previewTimestamp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-family: monospace;
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--accent-primary);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.previewTimestamp.visible {
+  opacity: 1;
+}

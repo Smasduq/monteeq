@@ -8,7 +8,8 @@ def get_or_create_wallet(db: Session, user_id: int) -> Wallet:
         wallet = Wallet(user_id=user_id, balance=Decimal('0.00'))
         db.add(wallet)
         db.commit()
-        db.refresh(wallet)
+    
+    db.refresh(wallet)
     return wallet
 
 def calculate_view_earnings(views: int) -> Decimal:
@@ -44,21 +45,66 @@ def credit_view_milestone(db: Session, video_id: int) -> Transaction:
     db.refresh(transaction)
     return transaction
 
-def process_tip(db: Session, from_user_id: int, to_user_id: int, amount: float, reference: str = None) -> Transaction:
+def process_tip(db: Session, from_user_id: int, to_user_id: int, amount: float) -> Transaction:
     dec_amount = Decimal(str(amount))
     
-    wallet = get_or_create_wallet(db, to_user_id)
+    sender_wallet = get_or_create_wallet(db, from_user_id)
+    receiver_wallet = get_or_create_wallet(db, to_user_id)
+
+    if sender_wallet.balance < dec_amount:
+        return None # Should be handled by API check, but good for safety
+
+    # 1. Debit Sender
+    sender_wallet.balance -= dec_amount
+    sender_tx = Transaction(
+        wallet_id=sender_wallet.id,
+        amount=-dec_amount,
+        transaction_type='tip_sent',
+        reference_id=f"user_{to_user_id}",
+        description=f"Tip sent to user {to_user_id}"
+    )
+    db.add(sender_tx)
+
+    # 2. Credit Recipient
+    receiver_wallet.balance += dec_amount
+    receiver_tx = Transaction(
+        wallet_id=receiver_wallet.id,
+        amount=dec_amount,
+        transaction_type='tip_received',
+        reference_id=f"user_{from_user_id}",
+        description=f"Tip received from user {from_user_id}"
+    )
+    db.add(receiver_tx)
+    db.add(sender_wallet)
+    db.add(receiver_wallet)
     
+    db.commit()
+    db.refresh(sender_wallet)
+    db.refresh(receiver_wallet)
+    db.refresh(receiver_tx)
+    return receiver_tx
+
+def verify_deposit(db: Session, user_id: int, amount: float, reference: str) -> Transaction:
+    dec_amount = Decimal(str(amount))
+    wallet = get_or_create_wallet(db, user_id)
+    
+    # Check for existing reference to prevent double funding
+    existing = db.query(Transaction).filter(Transaction.reference_id == reference).first()
+    if existing:
+        return existing
+
     transaction = Transaction(
         wallet_id=wallet.id,
         amount=dec_amount,
-        transaction_type='tip',
-        reference_id=reference or f"user_{from_user_id}",
-        description=f"Tip received"
+        transaction_type='deposit',
+        reference_id=reference,
+        description="Wallet Top-up via Paystack"
     )
     
     wallet.balance += dec_amount
     db.add(transaction)
+    db.add(wallet)
     db.commit()
+    db.refresh(wallet)
     db.refresh(transaction)
     return transaction

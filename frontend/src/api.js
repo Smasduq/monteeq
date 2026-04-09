@@ -378,9 +378,10 @@ export const getChallengeLeaderboard = async (challengeId) => {
 };
 
 export const getCreatorWallet = async (token) => {
-    const response = await fetch(`${API_BASE_URL}/monetization/wallet`, {
-        headers: {
-            'Authorization': `Bearer ${token}`
+    const response = await fetch(`${API_BASE_URL}/monetization/wallet?t=${Date.now()}`, {
+        headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Cache-Control': 'no-cache'
         }
     });
     return response.json();
@@ -417,6 +418,18 @@ export const getMyPayoutRequests = async (token) => {
 
 export const verifyProSubscription = async (reference, token) => {
     const response = await fetch(`${API_BASE_URL}/monetization/verify-pro`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ reference })
+    });
+    return response.json();
+};
+
+export const verifyDeposit = async (reference, token) => {
+    const response = await fetch(`${API_BASE_URL}/monetization/deposit/verify`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

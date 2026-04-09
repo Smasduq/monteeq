@@ -5,6 +5,12 @@ import { usePaystackPayment } from 'react-paystack';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { verifyProSubscription } from '../api';
+import Hero from '../components/partner/Hero';
+import Benefits from '../components/partner/Benefits';
+import Options from '../components/partner/Options';
+import HowItWorks from '../components/partner/HowItWorks';
+import CampaignExample from '../components/partner/CampaignExample';
+import ContactForm from '../components/partner/ContactForm';
 import s from './JoinPro.module.css';
 
 const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_placeholder';
@@ -94,7 +100,7 @@ const JoinPro = () => {
       showNotification('You are already a Pro member!', 'info');
       return;
     }
-    initializePayment(handlePaystackSuccess, handlePaystackClose);
+    initializePayment({ onSuccess: handlePaystackSuccess, onClose: handlePaystackClose });
   };
 
   if (view === 'SUCCESS') {
@@ -178,79 +184,96 @@ const JoinPro = () => {
 
   return (
     <div className={s.container}>
-      {/* Nostalgic Touch: CRT Scanlines & Vignette */}
       <div className={s.scanlines} />
       <div className={s.vignette} />
 
-      <div className={s.header}>
-        <h1 className={s.title}>Level Up Your Montage Game</h1>
-        <p className={s.subtitle}>
-          Join the elite league of creators with Monteeq Pro. Unlock 4K streaming, 
-          priority transcoding, and zero commission on your earnings.
-        </p>
-      </div>
-
-      {/* Billing Toggle */}
-      <div className={s.toggleContainer}>
-        <button 
-          className={`${s.toggleBtn} ${!isYearly ? s.activeToggle : ''}`}
-          onClick={() => setIsYearly(false)}
-        >
-          Monthly
-        </button>
-        <button 
-          className={`${s.toggleBtn} ${isYearly ? s.activeToggle : ''}`}
-          onClick={() => setIsYearly(true)}
-        >
-          Yearly <span className={s.discount}>Save 25%</span>
-        </button>
-      </div>
-
-      <div className={s.grid}>
-        {/* Free Plan */}
-        <div className={s.card}>
-          <div className={s.planName}>{plans.free.name}</div>
-          <div className={s.price}>{plans.free.price}<span>/mo</span></div>
-          <ul className={s.featureList}>
-            {plans.free.features.map((f, i) => (
-              <li key={i} className={s.featureItem}>
-                <Check size={18} className={s.checkIcon} />
-                {f}
-              </li>
-            ))}
-          </ul>
-          <button className={`${s.cta} ${s.freeCta}`}>
-            {plans.free.cta}
-          </button>
+      <Hero 
+         onCtaClick={() => document.getElementById('plans').scrollIntoView({ behavior: 'smooth' })} 
+         onWatchClick={() => document.getElementById('how-it-works').scrollIntoView({ behavior: 'smooth' })} 
+      />
+      
+      <div className={s.contentWrapper}>
+        <div id="how-it-works">
+          <HowItWorks />
         </div>
+        <Benefits />
+        <Options />
+        <CampaignExample />
 
-        {/* Pro Plan */}
-        <div className={`${s.card} ${s.proCard}`}>
-          <div className={s.badge}>Most Popular</div>
-          <div className={s.planName}>
-            <Crown size={24} style={{ marginRight: '0.8rem', verticalAlign: 'middle', color: '#ffd700' }} />
-            {plans.pro.name}
+        <div id="plans" className={s.plansSection}>
+          <div className={s.header}>
+            <h1 className={s.title}>Level Up Your Montage Game</h1>
+            <p className={s.subtitle}>
+              Join the elite league of creators with Monteeq Pro. Unlock 4K streaming, 
+              priority transcoding, and zero commission on your earnings.
+            </p>
           </div>
-          <div className={s.price}>{plans.pro.price}<span>/mo</span></div>
-          <ul className={s.featureList}>
-            {plans.pro.features.map((f, i) => (
-              <li key={i} className={s.featureItem}>
-                <Flame size={18} className={s.checkIcon} />
-                <strong>{f}</strong>
-              </li>
-            ))}
-          </ul>
-          <button 
-            className={`${s.cta} ${s.proCta}`}
-            onClick={handleJoinPro}
-            disabled={loading || user?.is_premium}
-          >
-            {loading ? 'Verifying...' : user?.is_premium ? 'Already Pro' : plans.pro.cta}
-          </button>
+
+          {/* Billing Toggle */}
+          <div className={s.toggleContainer}>
+            <button 
+              className={`${s.toggleBtn} ${!isYearly ? s.activeToggle : ''}`}
+              onClick={() => setIsYearly(false)}
+            >
+              Monthly
+            </button>
+            <button 
+              className={`${s.toggleBtn} ${isYearly ? s.activeToggle : ''}`}
+              onClick={() => setIsYearly(true)}
+            >
+              Yearly <span className={s.discount}>Save 25%</span>
+            </button>
+          </div>
+
+          <div className={s.grid}>
+            {/* Free Plan */}
+            <div className={s.card}>
+              <div className={s.planName}>{plans.free.name}</div>
+              <div className={s.price}>{plans.free.price}<span>/mo</span></div>
+              <ul className={s.featureList}>
+                {plans.free.features.map((f, i) => (
+                  <li key={i} className={s.featureItem}>
+                    <Check size={18} className={s.checkIcon} />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <button className={`${s.cta} ${s.freeCta}`}>
+                {plans.free.cta}
+              </button>
+            </div>
+
+            {/* Pro Plan */}
+            <div className={`${s.card} ${s.proCard}`}>
+              <div className={s.badge}>Most Popular</div>
+              <div className={s.planName}>
+                <Crown size={24} style={{ marginRight: '0.8rem', verticalAlign: 'middle', color: '#ffd700' }} />
+                {plans.pro.name}
+              </div>
+              <div className={s.price}>{plans.pro.price}<span>/mo</span></div>
+              <ul className={s.featureList}>
+                {plans.pro.features.map((f, i) => (
+                  <li key={i} className={s.featureItem}>
+                    <Flame size={18} className={s.checkIcon} />
+                    <strong>{f}</strong>
+                  </li>
+                ))}
+              </ul>
+              <button 
+                className={`${s.cta} ${s.proCta}`}
+                onClick={handleJoinPro}
+                disabled={loading || user?.is_premium}
+              >
+                {loading ? 'Verifying...' : user?.is_premium ? 'Already Pro' : plans.pro.cta}
+              </button>
+            </div>
+          </div>
         </div>
+
+        <ContactForm />
       </div>
 
-      <div style={{ marginTop: '4rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', textAlign: 'center' }}>
+      <div style={{ marginTop: '4rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem', textAlign: 'center', paddingBottom: '4rem' }}>
         <p>Cancel or pause your subscription at any time. Secure checkout via Monteeq Pay.</p>
         <p>© 2026 Monteeq Platform. All rights reserved.</p>
       </div>

@@ -2,13 +2,13 @@ import React from 'react';
 
 export const VideoSkeleton = () => (
     <div className="video-item" style={{ width: '100%', marginBottom: '1.5rem' }}>
-        <div className="skeleton skeleton-thumbnail" style={{ marginBottom: '1rem', borderRadius: '16px' }} />
-        <div style={{ display: 'flex', gap: '1rem', padding: '0 0.5rem' }}>
+        <div className="skeleton skeleton-thumbnail" style={{ marginBottom: '0.8rem', borderRadius: '12px' }} />
+        <div style={{ display: 'flex', gap: '0.8rem', padding: '0 4px' }}>
             <div className="skeleton" style={{ width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
-                <div className="skeleton skeleton-text" style={{ width: '90%', height: '1.1rem', marginBottom: '0.6rem', borderRadius: '4px' }} />
-                <div className="skeleton skeleton-text" style={{ width: '40%', height: '0.8rem', marginBottom: '0.4rem', borderRadius: '4px' }} />
-                <div className="skeleton skeleton-text" style={{ width: '60%', height: '0.7rem', borderRadius: '4px' }} />
+                <div className="skeleton skeleton-text" style={{ width: '90%', height: '1.2rem', marginBottom: '0.5rem', borderRadius: '4px' }} />
+                <div className="skeleton skeleton-text" style={{ width: '60%', height: '0.9rem', marginBottom: '0.3rem', borderRadius: '4px' }} />
+                <div className="skeleton skeleton-text" style={{ width: '40%', height: '0.8rem', borderRadius: '4px' }} />
             </div>
         </div>
     </div>
@@ -279,7 +279,7 @@ export const ChatSkeleton = () => (
 
 export const HomeSkeleton = () => (
     <div className="home-container page-container">
-        <div className="hero-section skeleton" style={{ height: '400px', borderRadius: '24px', marginBottom: '2rem', display: 'flex', alignItems: 'center', padding: '3rem' }}>
+        <div className="hero-section skeleton" style={{ height: '400px', borderRadius: '24px', marginBottom: '1rem', display: 'flex', alignItems: 'center', padding: '3rem' }}>
             <div style={{ maxWidth: '600px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div className="skeleton" style={{ width: '150px', height: '24px', borderRadius: '50px', background: 'rgba(255,255,255,0.1)' }} />
                 <div className="skeleton skeleton-text" style={{ width: '100%', height: '3.5rem', borderRadius: '8px', background: 'rgba(255,255,255,0.1)' }} />
@@ -287,9 +287,13 @@ export const HomeSkeleton = () => (
                 <div className="skeleton" style={{ width: '180px', height: '48px', borderRadius: '12px', marginTop: '1rem', background: 'rgba(255,255,255,0.1)' }} />
             </div>
         </div>
-        <div className="section-title">
-            <div className="skeleton" style={{ width: '250px', height: '2rem', borderRadius: '4px' }} />
+        
+        <div className="category-chips-container" style={{ marginBottom: '1rem' }}>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                <div key={i} className="skeleton" style={{ width: '80px', height: '32px', borderRadius: '8px', flexShrink: 0 }} />
+            ))}
         </div>
+
         <div className="video-grid">
             {[...Array(8)].map((_, i) => (
                 <VideoSkeleton key={`skel-${i}`} />
