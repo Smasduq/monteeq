@@ -194,86 +194,13 @@ const Home = () => {
                     )}
 
                     {videos.map((video, index) => (
-                        <div
+                        <VideoPreviewCard
                             key={video.id}
-                            className="video-item"
+                            video={video}
+                            variant="grid"
                             onClick={() => handleVideoClick(video.id)}
-                            ref={videos.length === index + 1 ? lastVideoElementRef : null}
-                        >
-                            <div className="video-preview-wrapper">
-                                <VideoPreviewCard
-                                    video={video}
-                                    onClick={() => handleVideoClick(video.id)}
-                                />
-
-                                <div
-                                    className={`like-button-overlay ${video.liked_by_user ? 'liked' : ''} ${video.status !== 'approved' ? 'disabled' : ''}`}
-                                    onClick={(e) => { 
-                                        e.stopPropagation(); 
-                                        if (video.status === 'approved') handleLike(e, video.id);
-                                        else showNotification('info', 'Interaction Restricted', { message: 'Likes will be enabled once the video is approved.' });
-                                    }}
-                                    style={{ 
-                                        zIndex: 15,
-                                        opacity: video.status === 'approved' ? 1 : 0.4,
-                                        cursor: video.status === 'approved' ? 'pointer' : 'not-allowed'
-                                    }}
-                                >
-                                    <Heart size={20} fill={video.liked_by_user ? "var(--accent-primary)" : "none"} />
-                                </div>
-                            </div>
-                            <div className="video-details" style={{ marginTop: '0.8rem', padding: '0 4px' }}>
-                                <div style={{ display: 'flex', gap: '0.8rem' }}>
-                                    <div
-                                        onClick={(e) => { e.stopPropagation(); navigate(`/profile/${video.owner?.username}`); }}
-                                        style={{
-                                            minWidth: '36px',
-                                            height: '36px',
-                                            cursor: 'pointer',
-                                            borderRadius: '50%',
-                                            background: 'var(--bg-surface)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            overflow: 'hidden'
-                                        }}
-                                    >
-                                        {video.owner?.profile_pic ? (
-                                            <img src={video.owner.profile_pic} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        ) : (
-                                            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{video.owner?.username?.[0].toUpperCase()}</span>
-                                        )}
-                                    </div>
-                                    <div style={{ flex: 1, minWidth: 0, paddingRight: '1rem' }}>
-                                        <div style={{
-                                            fontWeight: 600,
-                                            fontSize: '1.05rem',
-                                            lineHeight: '1.3',
-                                            marginBottom: '0.3rem',
-                                            display: '-webkit-box',
-                                            WebkitLineClamp: 2,
-                                            WebkitBoxOrient: 'vertical',
-                                            overflow: 'hidden',
-                                            color: 'var(--text-primary)'
-                                        }}>
-                                            {video.title}
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                            <span
-                                                onClick={(e) => { e.stopPropagation(); navigate(`/profile/${video.owner?.username}`); }}
-                                                className="hover-underline"
-                                                style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}
-                                            >
-                                                {video.owner?.username || 'Unknown'}
-                                            </span>
-                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                                {formatViews(video.views)} views • {formatTimeAgo(video.created_at)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                            ref={index === videos.length - 1 ? lastVideoElementRef : null}
+                        />
                     ))}
                 </div>
             </div>
