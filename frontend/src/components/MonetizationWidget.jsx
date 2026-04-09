@@ -1,16 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, DollarSign, Crown, TrendingUp, Send, CheckCircle, PieChart } from 'lucide-react';
+import { Sparkles, DollarSign, Crown, TrendingUp, Send, CheckCircle, PieChart, CreditCard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../context/NotificationContext';
 import { sendTip, getCreatorWallet } from '../api';
 
 const MonetizationWidget = ({ video }) => {
     const { token } = useAuth();
+    const navigate = useNavigate();
     const { showNotification } = useNotification();
     const [tipping, setTipping] = useState(false);
     const [tipAmount, setTipAmount] = useState(1000);
     const [tipSuccess, setTipSuccess] = useState(false);
+    const [wallet, setWallet] = useState(null);
+    const [balanceLoading, setBalanceLoading] = useState(false);
+
+    const fetchBalance = async () => {
+        if (!token) return;
+        setBalanceLoading(true);
+        try {
+            const data = await getCreatorWallet(token);
+            setWallet(data);
+        } catch (err) {
+            console.error("Failed to fetch balance", err);
+        } finally {
+            setBalanceLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchBalance();
+    }, [token]);
+
+    const balance = wallet ? Number(wallet.balance) : 0;
+    const canAfford = balance >= tipAmount;
     
     // Auto-calculate progress for viewers
     const views = video?.views || 0;
@@ -21,17 +45,24 @@ const MonetizationWidget = ({ video }) => {
             showNotification('info', "Please login to send tips.");
             return;
         }
+        if (video.status !== 'approved') {
+            showNotification('warning', "Monetization suspended", { message: "Tips will be enabled once the video is approved." });
+            return;
+        }
         setTipping(true);
         try {
-            await sendTip(video.owner_id || video.owner?.id, tipAmount, token);
+            const res = await sendTip(video.owner_id || video.owner?.id, tipAmount, token);
+            if (res.detail) throw new Error(res.detail);
+            
             setTipping(false);
             setTipSuccess(true);
-            showNotification('success', `Sent ₦${tipAmount} to @${video.owner?.username || 'the creator'}!`);
+            showNotification('success', `Sent ₦${tipAmount.toLocaleString()} to @${video.owner?.username || 'the creator'}!`);
+            fetchBalance(); // Refresh balance after tipping
             setTimeout(() => setTipSuccess(false), 3000);
         } catch (err) {
             console.error("Tip failed:", err);
             setTipping(false);
-            showNotification('error', "Failed to send tip.");
+            showNotification('error', err.message || "Failed to send tip.");
         }
     };
 
@@ -45,7 +76,14 @@ const MonetizationWidget = ({ video }) => {
             >
                 {/* Tip Container */}
                 <div className="tip-container glass-panel">
-                    <h4>Show some love!</h4>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
+                        <h4 style={{ margin: 0 }}>Show some love!</h4>
+                        {token && (
+                            <div className="sidebar-balance" style={{ fontSize: '0.8rem', fontWeight: 700, color: canAfford ? 'var(--text-secondary)' : '#ff4d4d' }}>
+                                Balance: ₦{balance.toLocaleString()}
+                            </div>
+                        )}
+                    </div>
                     <div className="tip-presets">
                         {[500, 1000, 2500].map(amt => (
                             <button 
@@ -59,18 +97,26 @@ const MonetizationWidget = ({ video }) => {
                     </div>
                     
                     <motion.button 
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className={`send-tip-btn ${tipSuccess ? 'success' : ''}`}
-                        onClick={handleTip}
+                        whileHover={canAfford ? { scale: 1.05 } : {}}
+                        whileTap={canAfford ? { scale: 0.95 } : {}}
+                        className={`send-tip-btn ${tipSuccess ? 'success' : ''} ${!canAfford ? 'disabled' : ''}`}
+                        onClick={canAfford ? handleTip : () => navigate('/monetization')}
                         disabled={tipping}
+                        style={{
+                            background: canAfford ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)',
+                            color: canAfford ? 'black' : 'var(--text-muted)',
+                            border: canAfford ? 'none' : '1px dashed var(--border-glass)',
+                            cursor: 'pointer'
+                        }}
                     >
                         {tipping ? (
                             <div className="loader"></div>
                         ) : tipSuccess ? (
                             <><CheckCircle size={20} /> Tipped!</>
+                        ) : canAfford ? (
+                            <><Send size={20} /> Send Tip ₦{tipAmount.toLocaleString()}</>
                         ) : (
-                            <><Send size={20} /> Send Tip ₦{tipAmount}</>
+                            <><CreditCard size={20} /> Top up to Tip</>
                         )}
                     </motion.button>
                     

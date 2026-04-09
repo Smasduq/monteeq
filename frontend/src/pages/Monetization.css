@@ -183,6 +183,33 @@
   transform: translateY(0) scale(0.98);
 }
 
+.mon-fund-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 2rem;
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 99px;
+  color: #ffd700;
+  font-family: 'Outfit', sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: float-up 0.6s 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.mon-fund-btn:hover {
+  background: rgba(255, 215, 0, 0.2);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 8px 36px rgba(255, 215, 0, 0.15);
+}
+.mon-fund-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
 /* ---- Hero Balance Card ---- */
 .mon-hero-card {
   position: relative;
@@ -493,6 +520,7 @@
 }
 .tx-dot-view { background: #ff3b30; box-shadow: 0 0 6px #ff3b30; }
 .tx-dot-tip  { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+.tx-dot-deposit { background: #ffd700; box-shadow: 0 0 6px #ffd700; }
 .tx-dot-sub  { background: #a855f7; box-shadow: 0 0 6px #a855f7; }
 
 .mon-tx-info { flex: 1; }

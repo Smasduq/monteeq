@@ -358,7 +358,7 @@ class Wallet(Base):
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
     user = relationship("User", backref=backref("wallet", uselist=False))
-    transactions = relationship("Transaction", back_populates="wallet", cascade="all, delete-orphan")
+    transactions = relationship("Transaction", back_populates="wallet", cascade="all, delete-orphan", order_by="desc(Transaction.created_at)")
 
 
 class Transaction(Base):

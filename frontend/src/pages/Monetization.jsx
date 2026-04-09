@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Wallet, TrendingUp, DollarSign, Sparkles, Crown,
   CreditCard, ChevronRight, Zap, BarChart2, Info,
@@ -5,9 +6,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { getCreatorWallet, requestPayout, getMyPayoutRequests } from '../api';
+import { getCreatorWallet, requestPayout, getMyPayoutRequests, verifyDeposit } from '../api';
 import { PageSkeleton } from '../components/Skeleton';
+import { usePaystackPayment } from 'react-paystack';
+import { useNotification } from '../context/NotificationContext';
 import './Monetization.css';
+
+const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_placeholder';
 
 /* ------ Animated counter hook ------ */
 function useCountUp(target, duration = 1200) {
@@ -29,8 +34,8 @@ function useCountUp(target, duration = 1200) {
   return value;
 }
 
-const TX_DOT   = { view_milestone: 'tx-dot-view', tip: 'tx-dot-tip' };
-const TX_LABEL = { view_milestone: 'Ad Revenue', tip: 'Direct Tip' };
+const TX_DOT   = { view_milestone: 'tx-dot-view', tip: 'tx-dot-tip', deposit: 'tx-dot-deposit', tip_sent: 'tx-dot-view', tip_received: 'tx-dot-tip' };
+const TX_LABEL = { view_milestone: 'Ad Revenue', tip: 'Direct Tip', deposit: 'Wallet Top-up', tip_sent: 'Tip Sent', tip_received: 'Tip Received' };
 
 const SPARKLINE = [
   { label: 'M', h: 35 }, { label: 'T', h: 55 }, { label: 'W', h: 45 },
@@ -155,6 +160,113 @@ const PayoutModal = ({ balance, token, onClose, onSuccess }) => {
   );
 };
 
+/* ======== Deposit Modal ======== */
+const DepositModal = ({ user, token, onClose, onSuccess }) => {
+  const [step, setStep] = useState('form');
+  const [amount, setAmount] = useState('1000');
+  const [loading, setLoading] = useState(false);
+  const [errMsg, setErrMsg] = useState('');
+  const { showNotification } = useNotification();
+
+  const config = {
+    reference: (new Date()).getTime().toString(),
+    email: user?.email || '',
+    amount: (parseFloat(amount) || 0) * 100, // kobo
+    publicKey: PAYSTACK_PUBLIC_KEY,
+  };
+
+  const initializePayment = usePaystackPayment(config);
+
+  const handleSuccess = async (reference) => {
+    setLoading(true);
+    try {
+      const resp = await verifyDeposit(reference.reference, token);
+      if (resp.id) {
+        showNotification('Wallet funded successfully!', 'success');
+        setStep('success');
+        setTimeout(() => {
+          onSuccess();
+        }, 1500); // 1.5s buffer before refetching
+      } else {
+        setErrMsg(resp.detail || 'Verification failed.');
+        setStep('error');
+      }
+    } catch (err) {
+      setErrMsg(err.message || 'Failed to verify payment.');
+      setStep('error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    showNotification('Payment cancelled', 'info');
+  };
+
+  return (
+    <div className="mon-modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="mon-modal">
+        <button className="mon-modal-close" onClick={onClose}><X size={20} /></button>
+        
+        {step === 'form' && (
+          <>
+            <div className="mon-modal-header">
+              <div className="mon-modal-icon" style={{ background: 'rgba(255, 215, 0, 0.12)', color: '#ffd700' }}><CreditCard size={24} /></div>
+              <h2>Fund Wallet</h2>
+              <p>Top up your balance instantly via Paystack.</p>
+            </div>
+            <div className="mon-modal-form">
+              <div className="mon-field">
+                <label>Amount to add (₦)</label>
+                <input
+                  type="number"
+                  min="500"
+                  step="100"
+                  placeholder="e.g. 1000"
+                  value={amount}
+                  onChange={e => setAmount(e.target.value)}
+                />
+              </div>
+              <button 
+                className="mon-modal-submit" 
+                style={{ background: 'linear-gradient(135deg, #ffd700, #ff8c00)', color: 'black' }}
+                disabled={loading || !amount || parseFloat(amount) < 500}
+                onClick={() => initializePayment({ onSuccess: handleSuccess, onClose: handleClose })}
+              >
+                {loading ? <span className="mon-spinner" /> : <><Sparkles size={16} /> Fund Now</>}
+              </button>
+              <p className="mon-modal-note">Min deposit: ₦500. Fast and secure.</p>
+            </div>
+          </>
+        )}
+
+        {step === 'success' && (
+          <div className="mon-modal-success">
+            <div className="mon-success-ring">
+              <CheckCircle size={48} />
+            </div>
+            <h2>Wallet Funded!</h2>
+            <p>Your wallet has been successfully credited with <strong>₦{amount}</strong>. You are good to go!</p>
+            <button className="mon-modal-submit" onClick={onClose} style={{ background: 'linear-gradient(135deg, #ffd700, #ff8c00)', color: 'black' }}>Great, thanks!</button>
+          </div>
+        )}
+
+        {step === 'error' && (
+          <div className="mon-modal-success">
+            <div className="mon-success-ring error">
+              <AlertCircle size={48} />
+            </div>
+            <h2>Verification Failed</h2>
+            <p>{errMsg}</p>
+            <button className="mon-modal-submit" onClick={() => setStep('form')}>Try Again</button>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+};
+
 /* ============== Main Page ============== */
 const Monetization = () => {
   const { token, user } = useAuth();
@@ -163,6 +275,7 @@ const Monetization = () => {
   const [payouts,     setPayouts]     = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [showModal,   setShowModal]   = useState(false);
+  const [showFund,    setShowFund]    = useState(false);
 
   const fetchData = async () => {
     if (!token) { setLoading(false); return; }
@@ -216,9 +329,14 @@ const Monetization = () => {
           </h1>
           <p className="mon-subtitle">Your creator earnings — real-time, precise, all in one place.</p>
         </div>
-        <button className="mon-payout-btn" onClick={() => setShowModal(true)}>
-          <CreditCard size={18} /> Request Payout
-        </button>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button className="mon-fund-btn" onClick={() => setShowFund(true)}>
+            <Sparkles size={18} /> Fund Wallet
+          </button>
+          <button className="mon-payout-btn" onClick={() => setShowModal(true)}>
+            <CreditCard size={18} /> Request Payout
+          </button>
+        </div>
       </div>
 
       {/* HERO BALANCE */}
@@ -290,7 +408,7 @@ const Monetization = () => {
               ))}
             </div>
           )}
-          <button className="mon-view-all">View All Transactions <ChevronRight size={16} /></button>
+          <button className="mon-view-all" onClick={() => navigate('/monetization/transactions')}>View All Transactions <ChevronRight size={16} /></button>
         </div>
 
         {/* How You Earn */}
@@ -395,6 +513,16 @@ const Monetization = () => {
           balance={balance}
           token={token}
           onClose={() => setShowModal(false)}
+          onSuccess={fetchData}
+        />
+      )}
+
+      {/* FUND MODAL */}
+      {showFund && (
+        <DepositModal
+          user={user}
+          token={token}
+          onClose={() => setShowFund(false)}
           onSuccess={fetchData}
         />
       )}

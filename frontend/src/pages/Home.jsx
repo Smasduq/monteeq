@@ -7,6 +7,8 @@ import { useNotification } from '../context/NotificationContext';
 import VideoPreviewCard from '../components/VideoPreviewCard';
 import { VideoSkeleton, FlashSkeleton, HomeSkeleton } from '../components/Skeleton';
 
+const CATEGORIES = ["All", "Gaming", "Music", "Live", "Comedy", "Vlogs", "Recently uploaded", "News", "Sports", "Learning"];
+
 const Home = () => {
     const navigate = useNavigate();
     const { token, user } = useAuth();
@@ -18,6 +20,7 @@ const Home = () => {
     const [error, setError] = useState(null);
     const [skip, setSkip] = useState(0);
     const [hasMore, setHasMore] = useState(true);
+    const [activeCategory, setActiveCategory] = useState("All");
     const observer = React.useRef();
 
     const lastVideoElementRef = React.useCallback(node => {
@@ -154,9 +157,22 @@ const Home = () => {
                 </div>
             </section>
 
+            {/* Category Chips Bar */}
+            <div className="category-chips-container">
+                {CATEGORIES.map((cat) => (
+                    <button 
+                        key={cat} 
+                        className={`category-chip ${activeCategory === cat ? 'active' : ''}`}
+                        onClick={() => setActiveCategory(cat)}
+                    >
+                        {cat}
+                    </button>
+                ))}
+            </div>
+
             {/* Trending Long Form */}
-            <div style={{ padding: '2rem 0' }}>
-                <div className="section-title">
+            <div style={{ padding: '0 0 2rem' }}>
+                <div className="section-title" style={{ display: 'none' }}>
                     <TrendingUp size={28} color="var(--accent-primary)" />
                     <h2 style={{ margin: 0 }}>Trending Now</h2>
                 </div>
@@ -181,51 +197,76 @@ const Home = () => {
                         <div
                             key={video.id}
                             className="video-item"
-                            style={{ cursor: 'pointer' }}
+                            onClick={() => handleVideoClick(video.id)}
                             ref={videos.length === index + 1 ? lastVideoElementRef : null}
                         >
-                            <div style={{ position: 'relative' }}>
+                            <div className="video-preview-wrapper">
                                 <VideoPreviewCard
                                     video={video}
                                     onClick={() => handleVideoClick(video.id)}
                                 />
 
                                 <div
-                                    className={`like-button-overlay ${video.liked_by_user ? 'liked' : ''}`}
-                                    onClick={(e) => handleLike(e, video.id)}
-                                    style={{ zIndex: 15 }}
+                                    className={`like-button-overlay ${video.liked_by_user ? 'liked' : ''} ${video.status !== 'approved' ? 'disabled' : ''}`}
+                                    onClick={(e) => { 
+                                        e.stopPropagation(); 
+                                        if (video.status === 'approved') handleLike(e, video.id);
+                                        else showNotification('info', 'Interaction Restricted', { message: 'Likes will be enabled once the video is approved.' });
+                                    }}
+                                    style={{ 
+                                        zIndex: 15,
+                                        opacity: video.status === 'approved' ? 1 : 0.4,
+                                        cursor: video.status === 'approved' ? 'pointer' : 'not-allowed'
+                                    }}
                                 >
                                     <Heart size={20} fill={video.liked_by_user ? "var(--accent-primary)" : "none"} />
                                 </div>
                             </div>
-                            <div className="video-details" style={{ marginTop: '0.8rem' }}>
-                                <div style={{ display: 'flex', gap: '1rem' }}>
+                            <div className="video-details" style={{ marginTop: '0.8rem', padding: '0 4px' }}>
+                                <div style={{ display: 'flex', gap: '0.8rem' }}>
                                     <div
                                         onClick={(e) => { e.stopPropagation(); navigate(`/profile/${video.owner?.username}`); }}
-                                        className="avatar-placeholder"
                                         style={{
                                             minWidth: '36px',
                                             height: '36px',
-                                            cursor: 'pointer'
+                                            cursor: 'pointer',
+                                            borderRadius: '50%',
+                                            background: 'var(--bg-surface)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            overflow: 'hidden'
                                         }}
                                     >
                                         {video.owner?.profile_pic ? (
                                             <img src={video.owner.profile_pic} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         ) : (
-                                            <span style={{ fontSize: '0.9rem' }}>{video.owner?.username?.[0].toUpperCase()}</span>
+                                            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{video.owner?.username?.[0].toUpperCase()}</span>
                                         )}
                                     </div>
-                                    <div>
-                                        <div style={{ fontWeight: 600, fontSize: '0.95rem', lineHeight: '1.2', marginBottom: '0.2rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{video.title}</div>
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                    <div style={{ flex: 1, minWidth: 0, paddingRight: '1rem' }}>
+                                        <div style={{
+                                            fontWeight: 600,
+                                            fontSize: '1.05rem',
+                                            lineHeight: '1.3',
+                                            marginBottom: '0.3rem',
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: 'vertical',
+                                            overflow: 'hidden',
+                                            color: 'var(--text-primary)'
+                                        }}>
+                                            {video.title}
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
                                             <span
                                                 onClick={(e) => { e.stopPropagation(); navigate(`/profile/${video.owner?.username}`); }}
-                                                style={{ cursor: 'pointer' }}
                                                 className="hover-underline"
+                                                style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}
                                             >
                                                 {video.owner?.username || 'Unknown'}
                                             </span>
-                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                                                 {formatViews(video.views)} views • {formatTimeAgo(video.created_at)}
                                             </div>
                                         </div>
@@ -255,9 +296,9 @@ const Home = () => {
 
                     <div className="flash-shelf-grid" style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
                         gap: '1rem',
-                        marginTop: '1.5rem'
+                        marginTop: '1.2rem'
                     }}>
                         {loading && (
                             <>

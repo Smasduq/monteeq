@@ -28,13 +28,16 @@ const VideoPreviewCard = ({ video, onClick, onLike }) => {
             onMouseLeave={() => setIsHovered(false)}
             onClick={onClick}
         >
-            <div className="preview-container">
-                {/* Static Thumbnail */}
-                <img
-                    src={video.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=60"}
-                    alt={video.title}
-                    className={`thumbnail ${isHovered && isLoaded ? 'hidden' : ''}`}
-                />
+            <div className="preview-container glass">
+                {/* Static Thumbnail with Cinematic Overlay */}
+                <div className="thumbnail-wrapper">
+                    <img
+                        src={video.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=60"}
+                        alt={video.title}
+                        className={`thumbnail ${isHovered && isLoaded ? 'hidden' : ''}`}
+                    />
+                    <div className="gradient-overlay"></div>
+                </div>
 
                 {/* Video Preview */}
                 {isHovered && (
@@ -89,19 +92,33 @@ const VideoPreviewCard = ({ video, onClick, onLike }) => {
                 .video-preview-card {
                     cursor: pointer;
                     width: 100%;
+                    height: 100%;
                 }
                 .preview-container {
                     position: relative;
-                    aspect-ratio: 16/9;
+                    width: 100%;
+                    height: 100%;
                     background: #000;
-                    border-radius: 12px;
+                    border-radius: 1.5rem;
                     overflow: hidden;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-                    transition: transform 0.3s ease;
+                    box-shadow: var(--shadow-cinematic), var(--inner-glow);
+                    transition: var(--transition-smooth);
+                    border: 1px solid var(--border-glass);
+                }
+                .thumbnail-wrapper {
+                    position: absolute;
+                    inset: 0;
+                }
+                .gradient-overlay {
+                    position: absolute;
+                    inset: 0;
+                    background: linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.8) 100%);
+                    pointer-events: none;
                 }
                 .video-preview-card:hover .preview-container {
-                    transform: scale(1.02);
-                    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+                    transform: scale(1.03);
+                    box-shadow: 0 25px 60px rgba(0,0,0,0.6), 0 0 20px rgba(255, 62, 62, 0.2);
+                    border-color: var(--accent-primary);
                 }
                 .thumbnail {
                     width: 100%;
@@ -126,54 +143,18 @@ const VideoPreviewCard = ({ video, onClick, onLike }) => {
                 }
                 .duration-badge {
                     position: absolute;
-                    bottom: 8px;
-                    right: 8px;
-                    background: rgba(0, 0, 0, 0.8);
+                    top: 12px;
+                    right: 12px;
+                    background: rgba(0, 0, 0, 0.85);
                     color: white;
-                    padding: 2px 6px;
-                    border-radius: 4px;
-                    font-size: 0.7rem;
+                    padding: 4px 8px;
+                    border-radius: 8px;
+                    font-size: 0.75rem;
                     font-weight: 700;
+                    font-family: 'JetBrains Mono', monospace;
                     z-index: 10;
-                }
-                .preview-indicator {
-                    position: absolute;
-                    top: 8px;
-                    left: 8px;
-                    background: rgba(245, 158, 11, 0.9);
-                    color: white;
-                    padding: 2px 6px;
-                    border-radius: 4px;
-                    font-size: 0.6rem;
-                    font-weight: 800;
-                    display: flex;
-                    align-items: center;
-                    gap: 4px;
-                    z-index: 10;
-                    animation: fadeIn 0.3s ease;
-                }
-                .preview-loading {
-                    position: absolute;
-                    inset: 0;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background: rgba(0,0,0,0.2);
-                }
-                .mini-loader {
-                    width: 20px;
-                    height: 20px;
-                    border: 2px solid rgba(255,255,255,0.1);
-                    border-top-color: var(--accent-primary);
-                    border-radius: 50%;
-                    animation: spin 1s linear infinite;
-                }
-                @keyframes spin {
-                    to { transform: rotate(360deg); }
-                }
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
+                    backdrop-filter: blur(4px);
+                    border: 1px solid var(--border-glass);
                 }
                 .status-overlay {
                     position: absolute;
@@ -182,16 +163,20 @@ const VideoPreviewCard = ({ video, onClick, onLike }) => {
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    background: rgba(0,0,0,0.5);
-                    backdrop-filter: blur(2px);
+                    background: rgba(0,0,0,0.6);
+                    backdrop-filter: blur(8px);
                     z-index: 5;
                 }
-                .status-overlay.failed {
-                    background: rgba(255, 62, 62, 0.1);
-                    border: 1px solid rgba(255, 62, 62, 0.3);
-                }
-                .animate-spin {
+                .mini-loader {
+                    width: 24px;
+                    height: 24px;
+                    border: 2px solid rgba(255,255,255,0.1);
+                    border-top-color: var(--accent-primary);
+                    border-radius: 50%;
                     animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
                 }
             `}</style>
         </div>

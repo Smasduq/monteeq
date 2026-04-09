@@ -1,0 +1,424 @@
+.header {
+    height: var(--header-h);
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-subtle);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    backdrop-filter: blur(20px);
+}
+
+/* --- Left Section --- */
+.sectionLeft {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.wordmark {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 1.4rem;
+    letter-spacing: -0.5px;
+    color: var(--text-primary);
+}
+
+/* --- Center Section (Search) --- */
+.sectionCenter {
+    flex: 1;
+    max-width: 720px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 40px;
+}
+
+.searchContainer {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    position: relative;
+}
+
+.searchBox {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    background: #000;
+    border: 1px solid var(--border-glass);
+    border-radius: 40px 0 0 40px;
+    padding: 0 4px 0 16px;
+    height: 40px;
+    transition: var(--transition-fast);
+}
+
+.searchBox:focus-within {
+    border-color: var(--accent-primary);
+    box-shadow: inset 0 1px 2px rgba(255, 62, 62, 0.1);
+}
+
+.searchIconWrapper {
+    margin-right: 12px;
+    color: var(--text-muted);
+}
+
+.searchBox input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    outline: none;
+}
+
+.clearBtn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+}
+
+.searchBtn {
+    width: 64px;
+    height: 40px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-glass);
+    border-left: none;
+    border-radius: 0 40px 40px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-primary);
+    transition: background 0.2s;
+}
+
+.searchBtn:hover {
+    background: #222;
+}
+
+/* --- Right Section --- */
+.sectionRight {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.iconBtn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.iconBtn:hover {
+    background: var(--bg-raised);
+}
+
+.createBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-glass);
+    border-radius: 30px;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    margin-right: 8px;
+    transition: var(--transition-fast);
+}
+
+.createBtn:hover {
+    background: #2a2a2a;
+    border-color: var(--border-glass);
+}
+
+.iconGroup {
+    display: flex;
+    align-items: center;
+    position: relative;
+    margin-right: 8px;
+}
+
+.badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: var(--accent-primary);
+    color: white;
+    font-size: 10px;
+    font-weight: 800;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--bg-surface);
+}
+
+/* --- Suggestions --- */
+.suggestions {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-glass);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    padding: 8px 0;
+}
+
+.suggestionItem {
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.suggestionItem:hover {
+    background: var(--bg-raised);
+}
+
+.suggestionGroupLabel {
+    padding: 12px 16px 4px 16px;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.suggestionIcon {
+    color: var(--text-muted);
+}
+
+.suggestionItem span {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* --- Profile Section --- */
+.profileContainer {
+    position: relative;
+}
+
+.profileBtn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.profileBtn img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatarPlaceholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, var(--accent-primary), #8B0000);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    border-radius: 50%;
+}
+
+/* --- Profile Menu Dropdown --- */
+.menuDropdown {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    width: 280px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-glass);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+    overflow: hidden;
+    animation: slideUp 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.menuHeader {
+    padding: 16px;
+}
+
+.menuUserMeta {
+    display: flex;
+    flex-direction: column;
+}
+
+.displayName {
+    font-weight: 700;
+    font-size: 1rem;
+    margin: 0;
+}
+
+.handle {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 2px 0 8px 0;
+}
+
+.proBadge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 900;
+    color: #ffd700;
+    background: rgba(255, 215, 0, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.menuDivider {
+    height: 1px;
+    background: var(--border-subtle);
+}
+
+.menuBody {
+    padding: 8px 0;
+}
+
+.menuItem {
+    width: 100%;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.menuItem:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* --- Mobile Overrides --- */
+@media (max-width: 900px) {
+    .header {
+        height: var(--header-h-mobile);
+        padding: 0 12px;
+    }
+
+    .wordmark {
+        display: none;
+    }
+
+    .sectionCenter {
+        display: none;
+        margin: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: var(--header-h-mobile);
+        background: var(--bg-surface);
+        padding: 0 12px;
+        z-index: 1001;
+        max-width: none;
+    }
+
+    .sectionCenter.mobileActive {
+        display: flex;
+    }
+
+    .backBtn {
+        background: transparent;
+        border: none;
+        color: var(--text-primary);
+        margin-right: 12px;
+        padding: 8px;
+        display: flex;
+        align-items: center;
+    }
+
+    .iconBtn,
+    .mobileSearchBtn,
+    .mobileFullIcon {
+        background: transparent !important;
+        border: none !important;
+        padding: 8px !important;
+        width: auto;
+        height: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .profileBtn.mobileFullIcon {
+        width: 44px;
+        /* Increased for better touch target */
+        height: 44px;
+        padding: 0 !important;
+        /* Reset padding for avatar containment */
+    }
+
+    .profileBtn.mobileFullIcon img,
+    .profileBtn.mobileFullIcon .avatarPlaceholder {
+        width: 32px;
+        /* Large glyph size matching notification bell icon visual area */
+        height: 32px;
+        border-radius: 50%;
+    }
+
+    .iconBtn:hover,
+    .mobileSearchBtn:hover,
+    .mobileFullIcon:hover {
+        background: rgba(255, 255, 255, 0.05) !important;
+    }
+}

@@ -37,7 +37,14 @@ def send_tip(
     creator = db.query(User).filter(User.id == user_id).first()
     if not creator:
         raise HTTPException(status_code=404, detail="Creator not found")
-    return process_tip(db, from_user_id=current_user.id, to_user_id=creator.id, amount=amount)
+    
+    if creator.id == current_user.id:
+        raise HTTPException(status_code=400, detail="You cannot tip yourself")
+
+    result = process_tip(db, from_user_id=current_user.id, to_user_id=creator.id, amount=amount)
+    if not result:
+        raise HTTPException(status_code=400, detail="Insufficient wallet balance. Please top up your wallet.")
+    return result
 
 # ------------------------------------------------------------------ #
 #  PAYOUT REQUEST ENDPOINTS
@@ -206,3 +213,58 @@ async def verify_pro_subscription(
         "message": "Welcome to Monteeq Pro! Your account has been upgraded.",
         "is_premium": True
     }
+
+@router.post("/deposit/verify", response_model=schemas.Transaction)
+async def verify_deposit_and_fund(
+    payload: schemas.PaymentVerify,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Verify a Paystack transaction reference and fund the user's wallet.
+    """
+    # 1. Verify with Paystack
+    with open("/tmp/paystack.log", "a") as f:
+        f.write(f"\\n--- New Verification Request ---\\nRef: {payload.reference}\\n")
+
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                f"https://api.paystack.co/transaction/verify/{payload.reference}",
+                headers={"Authorization": f"Bearer {PAYSTACK_SECRET_KEY}"},
+                timeout=10.0
+            )
+            data = response.json()
+            logger.info(f"Paystack verification response for ref {payload.reference}: {data}")
+            with open("/tmp/paystack.log", "a") as f:
+                f.write(f"Paystack Response: {data}\\n")
+        except Exception as e:
+            logger.error(f"Paystack API error for ref {payload.reference}: {str(e)}")
+            with open("/tmp/paystack.log", "a") as f:
+                f.write(f"Error fetching Paystack: {str(e)}\\n")
+            raise HTTPException(status_code=500, detail=f"Paystack verification failed: {str(e)}")
+
+    if not data.get("status") or data.get("data", {}).get("status") != "success":
+        logger.warning(f"Paystack verification failed or not success for ref {payload.reference}: {data}")
+        error_msg = data.get('data', {}).get('gateway_response') or data.get('message', 'Unknown error')
+        with open("/tmp/paystack.log", "a") as f:
+            f.write(f"Verification Check Failed: {error_msg}\\n")
+        raise HTTPException(status_code=400, detail=f"Payment verification failed: {error_msg}")
+
+    # 2. Extract amount (in NGN)
+    try:
+        amount = data["data"]["amount"] / 100 # Convert kobo to NGN
+        with open("/tmp/paystack.log", "a") as f:
+            f.write(f"Extracted Amount: {amount}\\n")
+    except (KeyError, TypeError) as e:
+        logger.error(f"Failed to extract amount from Paystack response for ref {payload.reference}: {data}")
+        raise HTTPException(status_code=500, detail="Invalid data received from Paystack")
+    
+    # 3. Process Deposit
+    from app.crud.monetization import verify_deposit
+    transaction = verify_deposit(db, user_id=current_user.id, amount=amount, reference=payload.reference)
+    with open("/tmp/paystack.log", "a") as f:
+        f.write(f"Deposit Verified OK! Transaction ID: {transaction.id}\\n")
+
+    
+    return transaction

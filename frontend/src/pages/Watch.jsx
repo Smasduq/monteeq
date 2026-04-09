@@ -142,6 +142,10 @@ const Watch = () => {
         const content = parentId ? replyComment : newComment;
         if (!content.trim()) return;
         if (!token) return showNotification('info', "Please login to comment");
+        
+        if (video.status !== 'approved') {
+            return showNotification('warning', "Comments are currently disabled", { message: "Wait for the video to be approved before sharing your thoughts!" });
+        }
 
         try {
             const addedComment = await postComment({ videoId: id, content, parent_id: parentId }, token);
@@ -203,6 +207,9 @@ const Watch = () => {
 
     const handleLike = async () => {
         if (!token) return showNotification('info', "Please login to like");
+        if (video.status !== 'approved') {
+            return showNotification('warning', "Likes are disabled", { message: "Interactions will be available once the video is approved." });
+        }
         try {
             await likeVideo(id, token);
             setVideo(prev => ({
@@ -281,7 +288,23 @@ const Watch = () => {
                 </div>
 
                 <div className="watch-meta" style={{ padding: '1.5rem 1rem' }}>
-                    <h1 style={{ marginBottom: '0.8rem', fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.3 }}>{video.title}</h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.5rem' }}>
+                        <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.3 }}>{video.title}</h1>
+                        {video.status !== 'approved' && (
+                            <div style={{
+                                background: video.status === 'pending' ? 'rgba(255, 171, 0, 0.1)' : 'rgba(255, 62, 62, 0.1)',
+                                color: video.status === 'pending' ? '#ffab00' : '#ff3e3e',
+                                padding: '0.3rem 0.8rem',
+                                borderRadius: '50px',
+                                fontSize: '0.7rem',
+                                fontWeight: 800,
+                                border: '1px solid currentColor',
+                                letterSpacing: '1px'
+                            }}>
+                                {video.status.toUpperCase()}
+                            </div>
+                        )}
+                    </div>
 
                     {/* Video Info Section */}
                     <div className="glass" style={{ padding: '1.2rem', borderRadius: '12px', marginBottom: '2rem', background: 'rgba(255,255,255,0.03)' }}>
@@ -345,7 +368,12 @@ const Watch = () => {
                             <button
                                 className={`watch-btn ${video.liked_by_user ? 'liked' : ''}`}
                                 onClick={handleLike}
-                                style={{ flexShrink: 0, padding: '0.6rem 1.2rem' }}
+                                style={{ 
+                                    flexShrink: 0, 
+                                    padding: '0.6rem 1.2rem',
+                                    opacity: video.status === 'approved' ? 1 : 0.5,
+                                    cursor: video.status === 'approved' ? 'pointer' : 'not-allowed'
+                                }}
                             >
                                 <Heart
                                     size={18}
@@ -362,6 +390,11 @@ const Watch = () => {
                             </button>
                         </div>
                     </div>
+                    {/* Monetization Widget - Integrated above comments */}
+                    <div style={{ marginBottom: '2.5rem' }}>
+                         <MonetizationWidget video={video} />
+                    </div>
+
                     {/* Comment Input */}
                     <form onSubmit={handleCommentSubmit} style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
                         <div className="avatar-placeholder" style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#333' }} />
@@ -370,7 +403,8 @@ const Watch = () => {
                                 type="text"
                                 value={newComment}
                                 onChange={(e) => setNewComment(e.target.value)}
-                                placeholder="Add a comment..."
+                                disabled={video.status !== 'approved'}
+                                placeholder={video.status === 'approved' ? "Add a comment..." : "Comments are disabled while processing..."}
                                 className="glass"
                                 style={{
                                     flex: 1,
@@ -384,7 +418,7 @@ const Watch = () => {
                             <button
                                 type="submit"
                                 className="btn-active"
-                                disabled={!newComment.trim()}
+                                disabled={!newComment.trim() || video.status !== 'approved'}
                                 style={{
                                     background: 'var(--accent-primary)',
                                     border: 'none',
@@ -409,6 +443,7 @@ const Watch = () => {
                                 replyingTo={replyingTo}
                                 replyComment={replyComment}
                                 setReplyComment={setReplyComment}
+                                isApproved={video.status === 'approved'}
                                 onSubmitReply={(parentId) => handleCommentSubmit({ preventDefault: () => { } }, parentId || comment.id)}
                                 onEdit={handleCommentEdit}
                                 onDelete={handleCommentDelete}
@@ -422,7 +457,7 @@ const Watch = () => {
             </div>
 
             <div className="watch-sidebar">
-                <MonetizationWidget video={video} />
+                {/* Related videos or ADs could go here eventually */}
             </div>
 
             {showDownloadModal && (

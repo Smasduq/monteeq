@@ -6,7 +6,7 @@ from app.schemas import schemas
 from app.core.dependencies import admin_only
 from app.core import security, config
 from app.crud import user as crud_user, setting as crud_setting
-from app.models.models import User, Video, View, Challenge, ChallengeEntry
+from app.models.models import User, Video, View, Challenge, ChallengeEntry, Transaction, PayoutRequest
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta, datetime
 from typing import List
@@ -62,11 +62,19 @@ def read_stats(
     # Sum views
     total_views_sum = db.query(func.sum(Video.views)).scalar() or 0
 
+    # Total Revenue (Subscriptions)
+    total_rev = db.query(func.sum(Transaction.amount)).filter(Transaction.transaction_type == 'pro_subscription').scalar() or 0
+    
+    # Pending Payouts (Liabilities)
+    pending_payouts_sum = db.query(func.sum(PayoutRequest.amount)).filter(PayoutRequest.status == 'pending').scalar() or 0
+
     return {
         "users": user_count,
         "videos": video_count,
         "premium_users": premium_count,
-        "total_views": total_views_sum
+        "total_views": total_views_sum,
+        "total_revenue": float(total_rev),
+        "pending_payouts": float(pending_payouts_sum)
     }
 
 @router.post("/promote/{user_id}")
@@ -136,12 +144,20 @@ def get_performance_stats(
             func.date(View.created_at).label("date"),
             func.count(View.id).label("value")
         ).filter(View.created_at >= start_date)
+    elif metric == "revenue":
+        query = db.query(
+            func.date(Transaction.created_at).label("date"),
+            func.sum(Transaction.amount).label("value")
+        ).filter(
+            Transaction.created_at >= start_date,
+            Transaction.transaction_type == 'pro_subscription'
+        )
     else:
         raise HTTPException(status_code=400, detail="Invalid metric")
 
     results = query.group_by("date").order_by("date").all()
     
-    return [{"date": str(r.date), "value": r.value} for r in results]
+    return [{"date": str(r.date), "value": float(r.value or 0)} for r in results]
 
 @router.get("/config")
 def get_admin_config(
