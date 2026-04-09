@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Search as SearchIcon, Users, Play, Zap, Sparkles, AlertCircle } from 'lucide-react';
 import { searchUnified } from '../api';
 import { SearchUserSkeleton, SearchVideoSkeleton } from '../components/Skeleton';
+import VideoPreviewCard from '../components/VideoPreviewCard';
 
 const Search = () => {
     const location = useLocation();
@@ -168,41 +169,14 @@ const Search = () => {
                                 <Play size={24} color="var(--accent-primary)" />
                                 <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Videos & Flash</h2>
                             </div>
-                            <div className="search-results-list" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            <div className="search-results-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 {results.videos.map(video => (
-                                    <div
+                                    <VideoPreviewCard
                                         key={video.id}
-                                        className="search-result-item glass hover-scale"
+                                        video={video}
+                                        variant="list"
                                         onClick={() => navigate(video.video_type === 'flash' ? '/flash' : `/watch/${video.id}`)}
-                                        style={{
-                                            display: 'flex',
-                                            gap: '1.5rem',
-                                            padding: '1rem',
-                                            borderRadius: '20px',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        <div className="result-thumb" style={{ position: 'relative', width: video.video_type === 'flash' ? '180px' : '300px', minWidth: video.video_type === 'flash' ? '180px' : '300px', aspectRatio: video.video_type === 'flash' ? '9/16' : '16/9', borderRadius: '15px', overflow: 'hidden' }}>
-                                            <img src={video.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            {video.video_type === 'flash' ? (
-                                                <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255, 62, 62, 0.9)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 800 }}>FLASH</div>
-                                            ) : (
-                                                <div style={{ position: 'absolute', bottom: '8px', right: '8px', background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>{formatDuration(video.duration)}</div>
-                                            )}
-                                        </div>
-                                        <div className="result-info" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                                            <h3 style={{ fontSize: '1.4rem', marginBottom: '0.5rem', color: 'white' }}>{video.title}</h3>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: '0.8rem' }}>
-                                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(var(--accent-primary), #a00000)', overflow: 'hidden' }}>
-                                                    {video.owner?.profile_pic && <img src={video.owner.profile_pic} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
-                                                </div>
-                                                <span>{video.owner?.username} • {formatViews(video.views)} views</span>
-                                            </div>
-                                            <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', margin: 0 }}>
-                                                Professional {video.video_type} content by {video.owner?.full_name || video.owner?.username}. Watch now on Monteeq.
-                                            </p>
-                                        </div>
-                                    </div>
+                                    />
                                 ))}
                             </div>
                         </div>

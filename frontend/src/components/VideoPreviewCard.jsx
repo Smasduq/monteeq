@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, AlertTriangle, Loader2, Clock } from 'lucide-react';
+import { Play, AlertTriangle, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-const VideoPreviewCard = ({ video, onClick, onLike }) => {
+const VideoPreviewCard = ({ video, onClick, variant = 'grid' }) => {
+    const navigate = useNavigate();
     const [isHovered, setIsHovered] = useState(false);
     const videoRef = useRef(null);
     const [isLoaded, setIsLoaded] = useState(false);
@@ -11,176 +13,139 @@ const VideoPreviewCard = ({ video, onClick, onLike }) => {
             videoRef.current.play().catch(err => {
                 console.warn("Preview autoplay failed:", err);
             });
+        } else if (!isHovered && videoRef.current) {
+            videoRef.current.pause();
+            videoRef.current.currentTime = 0;
         }
     }, [isHovered]);
 
     const formatDuration = (seconds) => {
-        if (!seconds) return "0:00";
-        const m = Math.floor(seconds / 60);
+        if (!seconds) return "";
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
         const s = Math.floor(seconds % 60);
+        if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
         return `${m}:${s.toString().padStart(2, '0')}`;
+    };
+
+    const formatViews = (num) => {
+        if (!num) return '0 views';
+        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M views';
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'K views';
+        return num + ' views';
+    };
+
+    const formatTimeAgo = (dateStr) => {
+        if (!dateStr) return "Just now";
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - date) / 1000);
+        if (diffInSeconds < 60) return "Just now";
+        const diffInMinutes = Math.floor(diffInSeconds / 60);
+        if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+        const diffInHours = Math.floor(diffInMinutes / 60);
+        if (diffInHours < 24) return `${diffInHours}h ago`;
+        const diffInDays = Math.floor(diffInHours / 24);
+        if (diffInDays < 30) return `${diffInDays}d ago`;
+        if (diffInDays < 365) return Math.floor(diffInDays / 30) + 'mo ago';
+        return Math.floor(diffInDays / 365) + 'y ago';
+    };
+
+    const handleAvatarClick = (e) => {
+        e.stopPropagation();
+        if (video.owner?.username) {
+            navigate(`/profile/${video.owner.username}`);
+        }
     };
 
     return (
         <div
-            className="video-preview-card"
+            className={`video-card-v2 ${variant === 'list' ? 'vc-list' : 'vc-grid'}`}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             onClick={onClick}
         >
-            <div className="preview-container glass">
-                {/* Static Thumbnail with Cinematic Overlay */}
-                <div className="thumbnail-wrapper">
+            {/* Thumbnail Section */}
+            <div className="vc-thumbnail-area">
+                <div className="vc-thumb-inner">
                     <img
                         src={video.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=60"}
                         alt={video.title}
-                        className={`thumbnail ${isHovered && isLoaded ? 'hidden' : ''}`}
+                        className={`vc-img ${isHovered && isLoaded ? 'vc-img-hide' : ''}`}
                     />
-                    <div className="gradient-overlay"></div>
+                    
+                    {/* Video Preview */}
+                    {isHovered && (
+                        <video
+                            ref={videoRef}
+                            src={video.video_url}
+                            muted
+                            loop
+                            playsInline
+                            onLoadedData={() => setIsLoaded(true)}
+                            className={`vc-video ${isLoaded ? 'vc-video-visible' : ''}`}
+                        />
+                    )}
+
+                    {/* Duration Badge */}
+                    {video.status === 'approved' && video.duration > 0 && (
+                        <div className="vc-duration">
+                            {formatDuration(video.duration)}
+                        </div>
+                    )}
+
+                    {/* Status Overlays */}
+                    {video.status === 'pending' && (
+                        <div className="vc-status pending">
+                            <Loader2 className="vc-spin" size={24} />
+                            <span>PROCESSING</span>
+                        </div>
+                    )}
+                    {video.status === 'failed' && (
+                        <div className="vc-status failed">
+                            <AlertTriangle size={24} />
+                            <span>FAILED</span>
+                        </div>
+                    )}
+
+                    {/* Hover indicator */}
+                    {isHovered && isLoaded && (
+                        <div className="vc-play-indicator">
+                            <Play size={12} fill="white" />
+                        </div>
+                    )}
                 </div>
-
-                {/* Video Preview */}
-                {isHovered && (
-                    <video
-                        ref={videoRef}
-                        src={video.video_url}
-                        muted
-                        loop
-                        playsInline
-                        onLoadedData={() => setIsLoaded(true)}
-                        className={`preview-video ${isLoaded ? 'visible' : ''}`}
-                    />
-                )}
-
-                {/* Duration Badge */}
-                {video.status === 'approved' && video.duration > 0 && (
-                    <div className="duration-badge">
-                        {formatDuration(video.duration)}
-                    </div>
-                )}
-
-                {/* Status Overlays */}
-                {video.status === 'pending' && (
-                    <div className="status-overlay pending">
-                        <Loader2 className="animate-spin" size={24} color="white" />
-                        <span style={{ fontSize: '0.7rem', color: 'white', marginTop: '4px', fontWeight: 700 }}>PROCESSING</span>
-                    </div>
-                )}
-
-                {video.status === 'failed' && (
-                    <div className="status-overlay failed">
-                        <AlertTriangle size={24} color="#ff3e3e" />
-                        <span style={{ fontSize: '0.7rem', color: 'white', marginTop: '4px', fontWeight: 700 }}>FAILED</span>
-                    </div>
-                )}
-
-                {/* Hover Play Icon */}
-                {isHovered && !isLoaded && video.status === 'approved' && (
-                    <div className="preview-loading">
-                        <div className="mini-loader"></div>
-                    </div>
-                )}
-
-                {isHovered && isLoaded && (
-                    <div className="preview-indicator">
-                        <Play size={12} fill="white" />
-                    </div>
-                )}
             </div>
 
-            <style>{`
-                .video-preview-card {
-                    cursor: pointer;
-                    width: 100%;
-                    height: 100%;
-                }
-                .preview-container {
-                    position: relative;
-                    width: 100%;
-                    height: 100%;
-                    background: #000;
-                    border-radius: 1.5rem;
-                    overflow: hidden;
-                    box-shadow: var(--shadow-cinematic), var(--inner-glow);
-                    transition: var(--transition-smooth);
-                    border: 1px solid var(--border-glass);
-                }
-                .thumbnail-wrapper {
-                    position: absolute;
-                    inset: 0;
-                }
-                .gradient-overlay {
-                    position: absolute;
-                    inset: 0;
-                    background: linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.8) 100%);
-                    pointer-events: none;
-                }
-                .video-preview-card:hover .preview-container {
-                    transform: scale(1.03);
-                    box-shadow: 0 25px 60px rgba(0,0,0,0.6), 0 0 20px rgba(255, 62, 62, 0.2);
-                    border-color: var(--accent-primary);
-                }
-                .thumbnail {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                    transition: opacity 0.3s ease;
-                }
-                .thumbnail.hidden {
-                    opacity: 0;
-                }
-                .preview-video {
-                    position: absolute;
-                    inset: 0;
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                    opacity: 0;
-                    transition: opacity 0.5s ease;
-                }
-                .preview-video.visible {
-                    opacity: 1;
-                }
-                .duration-badge {
-                    position: absolute;
-                    top: 12px;
-                    right: 12px;
-                    background: rgba(0, 0, 0, 0.85);
-                    color: white;
-                    padding: 4px 8px;
-                    border-radius: 8px;
-                    font-size: 0.75rem;
-                    font-weight: 700;
-                    font-family: 'JetBrains Mono', monospace;
-                    z-index: 10;
-                    backdrop-filter: blur(4px);
-                    border: 1px solid var(--border-glass);
-                }
-                .status-overlay {
-                    position: absolute;
-                    inset: 0;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    background: rgba(0,0,0,0.6);
-                    backdrop-filter: blur(8px);
-                    z-index: 5;
-                }
-                .mini-loader {
-                    width: 24px;
-                    height: 24px;
-                    border: 2px solid rgba(255,255,255,0.1);
-                    border-top-color: var(--accent-primary);
-                    border-radius: 50%;
-                    animation: spin 1s linear infinite;
-                }
-                @keyframes spin {
-                    to { transform: rotate(360deg); }
-                }
-            `}</style>
+            {/* Metadata Section */}
+            <div className="vc-info-area">
+                <div className="vc-info-flex">
+                    {variant === 'grid' && (
+                        <div className="vc-avatar" onClick={handleAvatarClick}>
+                            {video.owner?.profile_pic ? (
+                                <img src={video.owner.profile_pic} alt="" />
+                            ) : (
+                                <span>{video.owner?.username?.[0].toUpperCase()}</span>
+                            )}
+                        </div>
+                    )}
+                    
+                    <div className="vc-text">
+                        <h3 className="vc-title">{video.title}</h3>
+                        <div className="vc-meta-wrap">
+                            <div className="vc-channel" onClick={handleAvatarClick}>
+                                {video.owner?.username || 'Unknown'}
+                            </div>
+                            <div className="vc-stats">
+                                {formatViews(video.views)} • {formatTimeAgo(video.created_at)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };
 
 export default VideoPreviewCard;
+
