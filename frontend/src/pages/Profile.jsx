@@ -5,6 +5,7 @@ import { getUserProfile, toggleFollow, getFollowers, getFollowing } from '../api
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import { ProfileHeaderSkeleton, VideoSkeleton, TabsSkeleton } from '../components/Skeleton';
+import VideoPreviewCard from '../components/VideoPreviewCard';
 
 const Profile = () => {
     const { username } = useParams();
@@ -274,14 +275,12 @@ const Profile = () => {
                 {activeTab === 'videos' && (
                     <div className="video-grid">
                         {profile.videos.length > 0 ? profile.videos.map(v => (
-                            <div key={v.id} className="video-item" onClick={() => navigate(`/watch/${v.id}`)}>
-                                <div className="video-card">
-                                    <img src={v.thumbnail_url} alt="" className="video-thumb" />
-                                    <div style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem' }}>{formatDuration(v.duration)}</div>
-                                </div>
-                                <div style={{ marginTop: '0.8rem', fontWeight: 600 }}>{v.title}</div>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{v.views} views</div>
-                            </div>
+                            <VideoPreviewCard
+                                key={v.id}
+                                video={{...v, owner: profile}}
+                                variant="grid"
+                                onClick={() => navigate(`/watch/${v.id}`)}
+                            />
                         )) : (
                             <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>No videos posted yet.</div>
                         )}
