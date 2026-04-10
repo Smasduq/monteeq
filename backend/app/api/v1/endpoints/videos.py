@@ -28,7 +28,29 @@ def read_videos(
     current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     user_id = current_user.id if current_user else None
-    return crud_video.get_videos(db, video_type=video_type, filter_status=status, current_user_id=user_id, skip=skip, limit=limit)
+    import json
+    import os
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    cache_key = f"feed_{video_type}_{status}_{skip}_{limit}_{user_id}"
+    try:
+        import redis
+        r = redis.StrictRedis.from_url(redis_url, decode_responses=True)
+        cached = r.get(cache_key)
+        if cached:
+            return json.loads(cached)
+    except Exception:
+        r = None
+        
+    videos = crud_video.get_videos(db, video_type=video_type, filter_status=status, current_user_id=user_id, skip=skip, limit=limit)
+    
+    if r:
+        try:
+            serialized_videos = [schemas.Video.from_orm(v).dict() for v in videos]
+            r.setex(cache_key, 30, json.dumps(serialized_videos)) # Shorter TTL for homepage
+        except Exception:
+            pass
+            
+    return videos
 
 @router.get("/search", response_model=List[schemas.Video])
 async def search_videos(
