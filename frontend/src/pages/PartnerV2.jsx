@@ -5,7 +5,7 @@ import {
   Eye, Settings, Monitor,
   Target, Megaphone, MessageSquare, Check,
   FilePlus, Edit3, Award,
-  ArrowRight, Zap, ArrowUp
+  ArrowRight, Zap, ArrowUp, Loader2
 } from 'lucide-react';
 import './PartnerV2.css';
 
@@ -114,6 +114,16 @@ function useReveal() {
 const PartnerV2 = () => {
   useReveal();
   const [showTop, setShowTop] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [isSubmitted, setIsSubmitted] = React.useState(false);
+
+  const handleContactSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsLoading(false);
+    setIsSubmitted(true);
+  };
 
   useEffect(() => {
     const el = document.querySelector('.main-stage') || window;
@@ -323,35 +333,58 @@ const PartnerV2 = () => {
         </div>
         <TiltCard className="pt-form-card pt-reveal">
           <div className="pt-card-sheen" aria-hidden="true" />
-          <form className="pt-form" onSubmit={e => e.preventDefault()}>
-            <div className="pt-form-row">
-              <div className="pt-form-field">
-                <label>Brand / Company Name</label>
-                <input type="text" placeholder="e.g. Indomie Nigeria" />
+          {isSubmitted ? (
+            <div style={{ textAlign: 'center', padding: '2rem' }}>
+              <div style={{ width: '4rem', height: '4rem', borderRadius: '50%', background: 'rgba(34, 197, 94, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                <Check style={{ color: '#22c55e' }} size={32} />
+              </div>
+              <h3 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '1rem' }}>Brief Received!</h3>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>
+                Our team will review your brand's vision and reach out within 48 hours.
+              </p>
+              <button 
+                onClick={() => setIsSubmitted(false)}
+                className="pt-ghost-btn"
+                style={{ margin: '0 auto' }}
+              >
+                Send Another Brief
+              </button>
+            </div>
+          ) : (
+            <form className="pt-form" onSubmit={handleContactSubmit}>
+              <div className="pt-form-row">
+                <div className="pt-form-field">
+                  <label>Brand / Company Name</label>
+                  <input type="text" placeholder="e.g. Indomie Nigeria" required disabled={isLoading} />
+                </div>
+                <div className="pt-form-field">
+                  <label>Contact Email</label>
+                  <input type="email" placeholder="hello@yourbrand.com" required disabled={isLoading} />
+                </div>
               </div>
               <div className="pt-form-field">
-                <label>Contact Email</label>
-                <input type="email" placeholder="hello@yourbrand.com" />
+                <label>Campaign Type</label>
+                <select required disabled={isLoading}>
+                  <option value="">Select a partnership model…</option>
+                  <option>Sponsored Challenges</option>
+                  <option>Brand Promotion</option>
+                  <option>Content Collaboration</option>
+                  <option>Not sure yet</option>
+                </select>
               </div>
-            </div>
-            <div className="pt-form-field">
-              <label>Campaign Type</label>
-              <select>
-                <option value="">Select a partnership model…</option>
-                <option>Sponsored Challenges</option>
-                <option>Brand Promotion</option>
-                <option>Content Collaboration</option>
-                <option>Not sure yet</option>
-              </select>
-            </div>
-            <div className="pt-form-field">
-              <label>Tell us about your brand</label>
-              <textarea rows={4} placeholder="What are your goals? Budget range? Content style?" />
-            </div>
-            <MagBtn type="submit">
-              Send Campaign Brief <ArrowRight size={18} />
-            </MagBtn>
-          </form>
+              <div className="pt-form-field">
+                <label>Tell us about your brand</label>
+                <textarea rows={4} placeholder="What are your goals? Budget range? Content style?" required disabled={isLoading} />
+              </div>
+              <MagBtn type="submit" disabled={isLoading} className={isLoading ? 'loading' : ''}>
+                {isLoading ? (
+                  <>Analysing Brief... <Loader2 className="animate-spin" size={18} /></>
+                ) : (
+                  <>Send Campaign Brief <ArrowRight size={18} /></>
+                )}
+              </MagBtn>
+            </form>
+          )}
         </TiltCard>
       </div>
 

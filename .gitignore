@@ -62,3 +62,9 @@ video-service/target/
 # Static Assets
 backend/static/*
 !backend/static/defaults/
+
+# JavaScript
+frontend/node_modules/
+frontend/dist/
+admin-dashboard/dist/
+*.log

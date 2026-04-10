@@ -259,6 +259,27 @@ export const getUserPerformance = async (token, metric = "views", days = 30) => 
     return response.json();
 };
 
+export const getContentAnalytics = async (token, limit = 10) => {
+    const response = await fetch(`${API_BASE_URL}/users/me/content-analytics?limit=${limit}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return response.json();
+};
+
+export const getAudienceSplit = async (token, days = 30) => {
+    const response = await fetch(`${API_BASE_URL}/users/me/audience-split?days=${days}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return response.json();
+};
+
+export const getGrowthIntelligence = async (token) => {
+    const response = await fetch(`${API_BASE_URL}/users/me/growth-intelligence`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    return response.json();
+};
+
 export const uploadPublicKey = async (publicKey, token) => {
     const response = await fetch(`${API_BASE_URL}/chat/keys`, {
         method: 'POST',

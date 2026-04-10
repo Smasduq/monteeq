@@ -1,61 +1,66 @@
-use ax_status::StatusMap;
 use std::sync::Arc;
 use axum::{
     routing::{post, get},
     extract::{Json, Path, State}, Router,
 };
-use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use tower_http::cors::CorsLayer;
 use dotenvy::dotenv;
 use std::env;
+use fred::prelude::*;
 
-mod processor;
+mod processor; // Legacy logic if needed, but we use transcoder
+mod transcoder;
 mod ax_status;
 mod worker;
+mod models;
+mod queue;
+mod storage;
 
-#[derive(Serialize, Deserialize)]
+use models::{VideoTask, UserTier, TaskStatus};
+use queue::WeightedScheduler;
+use worker::WorkerPool;
+use ax_status::StatusMap;
+
+#[derive(serde::Serialize, serde::Deserialize)]
 struct ProcessRequest {
     video_id: String,
     task_id: String,
     target_format: String,
     #[serde(default)]
+    tier: UserTier,
+    #[serde(default)]
     skip_thumbnail: bool,
-}
-
-#[derive(Serialize)]
-struct ProcessResponse {
-    status: String,
-    message: String,
-    task_id: String,
-}
-
-#[derive(Serialize, Clone)]
-pub struct TaskStatus {
-    pub progress: u32,
-    pub status: String,
-    pub message: String,
 }
 
 struct AppState {
     status_map: StatusMap,
+    scheduler: WeightedScheduler,
 }
 
 #[tokio::main]
 async fn main() {
     dotenv().ok();
     let status_map = Arc::new(dashmap::DashMap::new());
-    let state = Arc::new(AppState { status_map: status_map.clone() });
 
-    // Start Redis Worker
+    // Redis Setup
     let redis_url = env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
-    let worker_status_map = status_map.clone();
-    
+    let config = RedisConfig::from_url(&redis_url).unwrap();
+    let client = RedisClient::new(config, None, None, None);
+    client.connect();
+    client.wait_for_connect().await.unwrap();
+
+    let scheduler = WeightedScheduler::new(client);
+    let worker_pool = WorkerPool::new(scheduler.clone(), status_map.clone());
+
+    // Start prioritized worker pool
     tokio::spawn(async move {
-        println!("Starting background HLS worker...");
-        if let Err(e) = worker::start_worker(&redis_url, worker_status_map).await {
-            eprintln!("Redis worker failed: {}", e);
-        }
+        worker_pool.start().await;
+    });
+
+    let state = Arc::new(AppState { 
+        status_map: status_map.clone(),
+        scheduler: scheduler.clone(),
     });
 
     let app = Router::new()
@@ -66,7 +71,7 @@ async fn main() {
         .with_state(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8081));
-    println!("Monteeq Video Service listening on {}", addr);
+    println!("Monteeq High-Performance Video Service listening on {}", addr);
     
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
@@ -75,43 +80,36 @@ async fn main() {
 async fn process_video(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<ProcessRequest>
-) -> Json<ProcessResponse> {
-    let task_id = payload.task_id.clone();
-    let status_map = state.status_map.clone();
-    
-    println!("HTTP Trigger: Processing video {} (task: {})", payload.video_id, task_id);
-    
-    status_map.insert(task_id.clone(), TaskStatus {
+) -> Json<serde_json::Value> {
+    let task = VideoTask {
+        video_id: payload.video_id,
+        task_id: payload.task_id.clone(),
+        target_format: payload.target_format,
+        tier: payload.tier,
+        skip_thumbnail: payload.skip_thumbnail,
+    };
+
+    state.status_map.insert(payload.task_id.clone(), TaskStatus {
         progress: 0,
-        status: "starting".to_string(),
-        message: "Starting HLS processing...".to_string(),
+        status: "queued".to_string(),
+        message: "Task added to priority queue".to_string(),
     });
 
-    let task_id_clone = task_id.clone();
-    tokio::spawn(async move {
-        match processor::process(&payload.video_id, &payload.target_format, payload.skip_thumbnail, Some(status_map.clone()), task_id_clone.clone()).await {
-            Ok(_) => {
-                status_map.insert(task_id_clone, TaskStatus {
-                    progress: 100,
-                    status: "completed".to_string(),
-                    message: "HLS multi-bitrate processing completed".to_string(),
-                });
-            },
-            Err(e) => {
-                status_map.insert(task_id_clone, TaskStatus {
-                    progress: 0,
-                    status: "error".to_string(),
-                    message: e.to_string(),
-                });
-            },
+    // Push to weighted queue
+    match state.scheduler.push_task(task).await {
+        Ok(_) => {
+            Json(serde_json::json!({
+                "status": "accepted",
+                "task_id": payload.task_id
+            }))
+        },
+        Err(e) => {
+            Json(serde_json::json!({
+                "status": "error",
+                "message": e.to_string()
+            }))
         }
-    });
-
-    Json(ProcessResponse {
-        status: "accepted".to_string(),
-        message: "HLS processing started in background".to_string(),
-        task_id,
-    })
+    }
 }
 
 async fn get_status(

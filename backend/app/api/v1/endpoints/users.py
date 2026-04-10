@@ -244,8 +244,8 @@ def get_user_performance(
         d_str = v.date
         if d_str in daily_stats:
             daily_stats[d_str]["views"] = v.count
-            # Simple earnings logic: $0.01 per view
-            daily_stats[d_str]["earnings"] = v.count * 0.01
+            # Earnings: ₦99 per 1,000 views
+            daily_stats[d_str]["earnings"] = v.count * (99 / 1000)
 
     # Aggregate Likes
     likes_query = db.query(
@@ -287,6 +287,264 @@ def get_user_performance(
         ))
     
     return {"data": performance_data, "metric": metric}
+
+@router.get("/me/content-analytics", response_model=list[schemas.ContentAnalyticsItem])
+def get_content_analytics(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """Returns top performing videos for the current creator, sorted by views desc."""
+    videos = (
+        db.query(Video)
+        .filter(Video.owner_id == current_user.id, Video.status == "approved")
+        .order_by(Video.views.desc())
+        .limit(limit)
+        .all()
+    )
+    result = []
+    for v in videos:
+        total_interactions = (v.likes_count or 0) + (v.shares or 0)
+        engagement_rate = round((total_interactions / v.views * 100), 1) if v.views > 0 else 0.0
+        result.append(schemas.ContentAnalyticsItem(
+            id=v.id,
+            title=v.title,
+            video_type=v.video_type,
+            views=v.views or 0,
+            likes_count=v.likes_count or 0,
+            shares=v.shares or 0,
+            engagement_rate=engagement_rate,
+        ))
+    return result
+
+@router.get("/me/audience-split", response_model=schemas.AudienceSplit)
+def get_audience_split(
+    days: int = 30,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """
+    Returning viewers: users who have watched the creator's videos more than once.
+    New viewers: users who have watched exactly once in the period.
+    """
+    from datetime import datetime, timedelta
+    from app.models.models import View
+    from sqlalchemy import distinct
+
+    cutoff = datetime.now() - timedelta(days=days)
+    user_id = current_user.id
+
+    # Count views per viewer on this creator's videos in the period
+    viewer_counts = (
+        db.query(View.user_id, func.count(View.id).label("view_count"))
+        .join(Video, Video.id == View.video_id)
+        .filter(Video.owner_id == user_id, View.created_at >= cutoff)
+        .group_by(View.user_id)
+        .all()
+    )
+
+    returning = sum(1 for vc in viewer_counts if vc.view_count > 1)
+    new = sum(1 for vc in viewer_counts if vc.view_count == 1)
+    total = sum(vc.view_count for vc in viewer_counts)
+
+    return {"returning_viewers": returning, "new_viewers": new, "total_views": total}
+
+@router.get("/me/growth-intelligence", response_model=schemas.GrowthIntelligence)
+def get_growth_intelligence(
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """
+    Computes the Monteeq Growth Score (0–100) and generates real AI growth insights
+    based on the creator's actual content, engagement, and audience data.
+    """
+    from datetime import datetime, timedelta
+    from app.models.models import View, Like, Follow
+    import math
+
+    user_id = current_user.id
+    now = datetime.now()
+    cutoff_30 = now - timedelta(days=30)
+    cutoff_7  = now - timedelta(days=7)
+
+    # ── Raw data ──────────────────────────────────────────────────────────────
+    videos = db.query(Video).filter(
+        Video.owner_id == user_id,
+        Video.status == "approved"
+    ).order_by(Video.created_at.desc()).all()
+
+    total_videos = len(videos)
+    total_views  = sum(v.views or 0 for v in videos)
+    total_likes  = sum(v.likes_count or 0 for v in videos)
+    total_shares = sum(v.shares or 0 for v in videos)
+
+    flash_videos = [v for v in videos if v.video_type == "flash"]
+    home_videos  = [v for v in videos if v.video_type == "home"]
+
+    # Videos posted in last 30 days
+    recent_uploads = [v for v in videos if v.created_at and v.created_at >= cutoff_30]
+
+    # Followers gained last 7 / 30 days
+    new_followers_7d = db.query(func.count(Follow.follower_id)).filter(
+        Follow.followed_id == user_id,
+        Follow.created_at >= cutoff_7
+    ).scalar() or 0
+
+    new_followers_30d = db.query(func.count(Follow.follower_id)).filter(
+        Follow.followed_id == user_id,
+        Follow.created_at >= cutoff_30
+    ).scalar() or 0
+
+    # Audience retention (returning vs new)
+    viewer_counts = (
+        db.query(View.user_id, func.count(View.id).label("vc"))
+        .join(Video, Video.id == View.video_id)
+        .filter(Video.owner_id == user_id, View.created_at >= cutoff_30)
+        .group_by(View.user_id)
+        .all()
+    )
+    returning_count = sum(1 for vc in viewer_counts if vc.vc > 1)
+    new_count       = sum(1 for vc in viewer_counts if vc.vc == 1)
+    total_unique    = returning_count + new_count
+
+    from sqlalchemy import extract
+
+    # Best day of week for views (0=Sun … 6=Sat for Postgres)
+    day_view_rows = (
+        db.query(
+            extract('dow', View.created_at).label("dow"),
+            func.count(View.id).label("cnt")
+        )
+        .join(Video, Video.id == View.video_id)
+        .filter(Video.owner_id == user_id, View.created_at >= cutoff_30)
+        .group_by(extract('dow', View.created_at))
+        .all()
+    )
+    day_names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    best_day  = max(day_view_rows, key=lambda r: r.cnt, default=None)
+    best_day_name = day_names[int(best_day.dow)] if best_day else None
+
+    # Avg engagement: flash vs home
+    def avg_views(lst): return sum(v.views or 0 for v in lst) / len(lst) if lst else 0
+    def avg_engagement(lst):
+        if not lst: return 0
+        return sum((v.likes_count or 0) + (v.shares or 0) for v in lst) / len(lst)
+
+    flash_avg_views  = avg_views(flash_videos)
+    home_avg_views   = avg_views(home_videos)
+    flash_avg_engage = avg_engagement(flash_videos)
+    home_avg_engage  = avg_engagement(home_videos)
+
+    # Days since last upload
+    days_since_upload = None
+    if videos and videos[0].created_at:
+        days_since_upload = (now - videos[0].created_at).days
+
+    # ── Score Breakdown (each dimension 0–100) ────────────────────────────────
+    # 1. Consistency: uploads per week in last 30 days (4 weeks)
+    uploads_per_week = len(recent_uploads) / 4
+    consistency = min(100, int(uploads_per_week / 2 * 100))   # 2 uploads/wk = 100
+
+    # 2. Engagement: (likes+shares) / views
+    raw_eng = ((total_likes + total_shares) / total_views) if total_views > 0 else 0
+    engagement = min(100, int(raw_eng * 1000))  # 10% ratio = 100 points
+
+    # 3. Retention: returning / total unique
+    retention = min(100, int((returning_count / total_unique * 100) if total_unique > 0 else 0))
+
+    # 4. Frequency: total approved videos (20 = 100)
+    frequency = min(100, int(total_videos / 20 * 100))
+
+    # Composite (weighted average)
+    score = int(0.25*consistency + 0.35*engagement + 0.25*retention + 0.15*frequency)
+    score = max(0, min(100, score))
+
+    # ── AI Insights (data-driven strings) ────────────────────────────────────
+    insights = []
+
+    # Insight 1: Flash vs Home performance
+    if flash_videos and home_videos:
+        if flash_avg_views > home_avg_views * 1.1:
+            pct = int((flash_avg_views - home_avg_views) / home_avg_views * 100)
+            insights.append(
+                f"Your <span class='insight-highlight'>Flash videos</span> average "
+                f"{pct}% more views than standard uploads — post more short clips!"
+            )
+        elif home_avg_views > flash_avg_views * 1.1:
+            pct = int((home_avg_views - flash_avg_views) / flash_avg_views * 100)
+            insights.append(
+                f"Your <span class='insight-highlight'>long-form videos</span> outperform "
+                f"Flash by {pct}% in views — your audience loves depth."
+            )
+    elif flash_videos and not home_videos:
+        insights.append(
+            "Try uploading a <span class='insight-highlight'>Home video</span> — "
+            "mixing formats can grow your audience faster."
+        )
+
+    # Insight 2: Best day to post
+    if best_day_name:
+        insights.append(
+            f"Your videos get the most views on "
+            f"<span class='insight-highlight'>{best_day_name}s</span> — "
+            f"schedule your next upload then for maximum reach."
+        )
+
+    # Insight 3: Follower growth
+    if new_followers_7d > 0:
+        insights.append(
+            f"You gained <span class='insight-highlight'>{new_followers_7d} new "
+            f"follower{'s' if new_followers_7d != 1 else ''}</span> this week. "
+            f"Keep posting to maintain momentum."
+        )
+    elif new_followers_30d == 0 and total_videos == 0:
+        insights.append(
+            "Upload your <span class='insight-highlight'>first video</span> to start "
+            "attracting followers and growing your audience."
+        )
+
+    # Insight 4: Upload consistency
+    if days_since_upload is not None and days_since_upload > 7:
+        insights.append(
+            f"You haven't posted in <span class='insight-highlight'>{days_since_upload} days</span>. "
+            f"Creators who post weekly grow followers 3× faster."
+        )
+    elif days_since_upload is not None and days_since_upload <= 3:
+        insights.append(
+            "Great upload cadence! <span class='insight-highlight'>Consistent posting</span> "
+            "is the #1 driver of channel growth on Monteeq."
+        )
+
+    # Insight 5: Engagement rate
+    eng_pct = round(raw_eng * 100, 1)
+    if eng_pct > 5:
+        insights.append(
+            f"Your engagement rate is <span class='insight-highlight'>{eng_pct}%</span> — "
+            f"well above average. High engagement signals quality content."
+        )
+    elif total_views > 0 and eng_pct < 2:
+        insights.append(
+            f"Your engagement rate is <span class='insight-highlight'>{eng_pct}%</span>. "
+            f"Try adding a call-to-action in your videos to boost likes and shares."
+        )
+
+    # Ensure at least one insight
+    if not insights:
+        insights.append(
+            "Upload more content and engage with your audience to unlock "
+            "<span class='insight-highlight'>personalised growth insights</span>."
+        )
+
+    return {
+        "score": score,
+        "breakdown": {
+            "consistency": consistency,
+            "engagement": engagement,
+            "retention": retention,
+            "frequency": frequency,
+        },
+        "insights": insights[:4],  # cap at 4
+    }
 
 @router.put("/me/onboarding", response_model=schemas.User)
 def update_onboarding(

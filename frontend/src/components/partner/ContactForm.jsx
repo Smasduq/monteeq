@@ -1,12 +1,17 @@
 import React from 'react';
 import Section from './Section';
-import { Mail, Briefcase, DollarSign, MessageSquare, Send, CheckCircle } from 'lucide-react';
+import { Mail, Briefcase, DollarSign, MessageSquare, Send, CheckCircle, Loader2 } from 'lucide-react';
 
 const ContactForm = () => {
   const [isSubmitted, setIsSubmitted] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
+    // Simulate premium processing delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsLoading(false);
     setIsSubmitted(true);
   };
 
@@ -110,10 +115,14 @@ const ContactForm = () => {
             <button 
               type="submit"
               className="partner-btn partner-btn-primary"
-              style={{ width: '100%', fontSize: '1.25rem', padding: '1.5rem' }}
+              style={{ width: '100%', fontSize: '1.25rem', padding: '1.5rem', opacity: isLoading ? 0.7 : 1 }}
+              disabled={isLoading}
             >
-              Partner Now
-              <Send size={20} />
+              {isLoading ? (
+                <>Processing Request... <Loader2 className="animate-spin" size={20} /></>
+              ) : (
+                <>Partner Now <Send size={20} /></>
+              )}
             </button>
           </form>
         </div>

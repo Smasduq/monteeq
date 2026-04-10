@@ -4,6 +4,7 @@ import { Search as SearchIcon, Users, Play, Zap, Sparkles, AlertCircle } from 'l
 import { searchUnified } from '../api';
 import { SearchUserSkeleton, SearchVideoSkeleton } from '../components/Skeleton';
 import VideoPreviewCard from '../components/VideoPreviewCard';
+import NativeFeedAd from '../components/ads/NativeFeedAd';
 
 const Search = () => {
     const location = useLocation();
@@ -170,6 +171,9 @@ const Search = () => {
                                 <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Videos & Flash</h2>
                             </div>
                             <div className="search-results-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                {/* Sponsored Search Result */}
+                                <NativeFeedAd variant="list" />
+                                
                                 {results.videos.map(video => (
                                     <VideoPreviewCard
                                         key={video.id}
