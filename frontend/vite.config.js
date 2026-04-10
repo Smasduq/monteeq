@@ -8,6 +8,19 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       include: ['react-paystack']
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'recharts-vendor': ['recharts'],
+            'framer-vendor': ['framer-motion'],
+            'ui-vendor': ['lucide-react', 'react-paystack']
+          }
+        }
+      },
+      chunkSizeWarningLimit: 800
+    },
     server: {
       proxy: {
         '/api/v1/': {

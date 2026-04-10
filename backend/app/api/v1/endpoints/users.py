@@ -150,6 +150,18 @@ def get_user_insights(
     current_user: schemas.User = Depends(get_current_user)
 ):
     user_id = current_user.id
+    import json
+    import os
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    cache_key = f"user_insights_{user_id}"
+    try:
+        import redis
+        r = redis.StrictRedis.from_url(redis_url, decode_responses=True)
+        cached = r.get(cache_key)
+        if cached:
+            return json.loads(cached)
+    except Exception:
+        r = None
     from app.models.models import Achievement
     
     # Total Views
@@ -196,7 +208,7 @@ def get_user_insights(
     # Reload achievements to include any newly created ones
     existing_achievements = db.query(Achievement).filter(Achievement.user_id == user_id).all()
     
-    return {
+    result = {
         "total_views": total_views,
         "total_likes": total_likes,
         "total_earnings": total_earnings,
@@ -210,6 +222,12 @@ def get_user_insights(
         "new_milestone_reached": new_milestone_reached,
         "achievements": [a.milestone_name for a in existing_achievements]
     }
+    if r:
+        try:
+            r.setex(cache_key, 60, json.dumps(result))
+        except Exception:
+            pass
+    return result
 
 @router.get("/me/performance", response_model=schemas.UserPerformance)
 def get_user_performance(
@@ -222,6 +240,18 @@ def get_user_performance(
     from app.models.models import View, Like, Follow, Video
     
     user_id = current_user.id
+    import json
+    import os
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    cache_key = f"user_perf_{user_id}_{metric}_{days}"
+    try:
+        import redis
+        r = redis.StrictRedis.from_url(redis_url, decode_responses=True)
+        cached = r.get(cache_key)
+        if cached:
+            return json.loads(cached)
+    except Exception:
+        r = None
     end_date = datetime.now().date()
     start_date = end_date - timedelta(days=days-1)
     
@@ -286,6 +316,14 @@ def get_user_performance(
             earnings=daily_stats[d_str]["earnings"]
         ))
     
+    # Serialize Pydantic objects manually for cache
+    serialized_data = [p.dict() if hasattr(p, "dict") else p for p in performance_data]
+    result_for_cache = {"data": serialized_data, "metric": metric}
+    if r:
+        try:
+            r.setex(cache_key, 60, json.dumps(result_for_cache))
+        except Exception:
+            pass
     return {"data": performance_data, "metric": metric}
 
 @router.get("/me/content-analytics", response_model=list[schemas.ContentAnalyticsItem])
@@ -358,11 +396,23 @@ def get_growth_intelligence(
     Computes the Monteeq Growth Score (0–100) and generates real AI growth insights
     based on the creator's actual content, engagement, and audience data.
     """
+    user_id = current_user.id
+    import json
+    import os
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    cache_key = f"growth_intel_{user_id}"
+    try:
+        import redis
+        r = redis.StrictRedis.from_url(redis_url, decode_responses=True)
+        cached = r.get(cache_key)
+        if cached:
+            return json.loads(cached)
+    except Exception:
+        r = None
+        
     from datetime import datetime, timedelta
     from app.models.models import View, Like, Follow
     import math
-
-    user_id = current_user.id
     now = datetime.now()
     cutoff_30 = now - timedelta(days=30)
     cutoff_7  = now - timedelta(days=7)
@@ -535,7 +585,7 @@ def get_growth_intelligence(
             "<span class='insight-highlight'>personalised growth insights</span>."
         )
 
-    return {
+    result = {
         "score": score,
         "breakdown": {
             "consistency": consistency,
@@ -545,6 +595,12 @@ def get_growth_intelligence(
         },
         "insights": insights[:4],  # cap at 4
     }
+    if r:
+        try:
+            r.setex(cache_key, 60, json.dumps(result))
+        except Exception:
+            pass
+    return result
 
 @router.put("/me/onboarding", response_model=schemas.User)
 def update_onboarding(
