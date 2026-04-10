@@ -1,24 +1,27 @@
 """
 Email service for Monteeq platform.
-Uses Python stdlib smtplib — no extra dependencies required.
+Uses Brevo (Sendinblue) HTTP API bypassing SMTP port blocks.
 """
-import smtplib
 import logging
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from app.core.config import (
-    SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM, SMTP_FROM_NAME
-)
+import os
+import requests
+from app.core.config import SMTP_FROM, SMTP_FROM_NAME
 
 logger = logging.getLogger(__name__)
 
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 
-def _build_verification_email(to_email: str, code: str) -> MIMEMultipart:
-    """Build a branded HTML verification email."""
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"{code} is your Monteeq verification code"
-    msg["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM}>"
-    msg["To"] = to_email
+def send_verification_email(to_email: str, code: str) -> bool:
+    """
+    Send a verification code email using Brevo HTTP API.
+    Returns True on success, False on failure.
+    """
+    if not BREVO_API_KEY:
+        logger.warning(
+            "BREVO_API_KEY not configured — skipping email send. "
+            f"VERIFICATION CODE FOR {to_email}: {code}"
+        )
+        return False
 
     plain_text = f"""
 Welcome to Monteeq!
@@ -133,37 +136,44 @@ If you did not create a Monteeq account, please ignore this email.
 </html>
 """
 
-    msg.attach(MIMEText(plain_text, "plain"))
-    msg.attach(MIMEText(html, "html"))
-    return msg
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "api-key": BREVO_API_KEY,
+        "accept": "application/json",
+        "content-type": "application/json",
+    }
 
+    # Use the official configured from email.
+    sender_email = SMTP_FROM or "smasduqacc@gmail.com"
+    sender_name = SMTP_FROM_NAME or "Monteeq"
 
-def send_verification_email(to_email: str, code: str) -> bool:
-    """
-    Send a verification code email.
-    Returns True on success, False on failure (so callers can fall back to logging).
-    """
-    if not SMTP_HOST or not SMTP_USER or not SMTP_PASS:
-        logger.warning(
-            "SMTP not configured — skipping email send. "
-            f"VERIFICATION CODE FOR {to_email}: {code}"
-        )
-        return False
+    payload = {
+        "sender": {
+            "name": sender_name,
+            "email": sender_email
+        },
+        "to": [
+            {
+                "email": to_email
+            }
+        ],
+        "subject": f"{code} is your Monteeq verification code",
+        "htmlContent": html,
+        "textContent": plain_text
+    }
 
     try:
-        msg = _build_verification_email(to_email, code)
-
-        with smtplib.SMTP(SMTP_HOST, int(SMTP_PORT)) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
-            server.sendmail(SMTP_FROM, to_email, msg.as_string())
-
-        logger.info(f"Verification email sent to {to_email}")
-        return True
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        
+        if response.status_code in (200, 201, 202):
+            logger.info(f"Verification email sent to {to_email}")
+            return True
+        else:
+            logger.error(f"Brevo API error: {response.text}")
+            print(f"[EMAIL FALLBACK] VERIFICATION CODE FOR {to_email}: {code}")
+            return False
 
     except Exception as exc:
-        logger.error(f"Failed to send verification email to {to_email}: {exc}")
-        # Fallback: print to console so dev mode still works
+        logger.error(f"Failed to send email to {to_email}: {exc}")
         print(f"[EMAIL FALLBACK] VERIFICATION CODE FOR {to_email}: {code}")
         return False

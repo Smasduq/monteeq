@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getStats, getUsers, promoteUser, getStorageMode, updateStorageMode, getAdminConfig } from './api';
-import { Users, Video, ShieldCheck, LogOut, Search, Cloud, Database, ExternalLink, Sun, Moon, MoreHorizontal, ArrowUpRight, Cpu, Trophy, CreditCard } from 'lucide-react';
+import { Users, Video, ShieldCheck, LogOut, Search, Cloud, Database, ExternalLink, Sun, Moon, MoreHorizontal, ArrowUpRight, Cpu, Trophy, CreditCard, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from './context/NotificationContext';
 
