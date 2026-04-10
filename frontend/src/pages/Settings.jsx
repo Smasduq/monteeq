@@ -16,11 +16,13 @@ import {
     ExternalLink,
     Copy,
     Key,
+    Loader2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import axios from 'axios';
 import { API_BASE_URL } from '../api';
+import DashboardBannerAd from '../components/ads/DashboardBannerAd';
 import { useLocation } from 'react-router-dom';
 
 const Settings = () => {
@@ -564,6 +566,15 @@ const Settings = () => {
                         </section>
                     </div>
                 )}
+
+                <div style={{ marginTop: '3rem' }}>
+                    <DashboardBannerAd 
+                        title="Secure Your Channel"
+                        subtitle="Enable 2FA and hardware keys for maximum legendary protection."
+                        cta="UPGRADE SECURITY"
+                        image="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=800&q=60"
+                    />
+                </div>
             </main>
 
             {/* Modals */}
@@ -584,7 +595,16 @@ const Settings = () => {
                                 <label>Confirm New Password</label>
                                 <input type="password" className="glass" value={passwordData.confirm_password} onChange={e => setPasswordData({...passwordData, confirm_password: e.target.value})} required />
                             </div>
-                            <button type="submit" className="save-btn" style={{ width: '100%', padding: '1.4rem' }}>Update Password</button>
+                            <button 
+                                type="submit" 
+                                className="save-btn" 
+                                style={{ width: '100%', padding: '1.4rem', opacity: passwordLoading ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                disabled={passwordLoading}
+                            >
+                                {passwordLoading ? (
+                                    <><Loader2 className="animate-spin" size={20} /> Updating Password...</>
+                                ) : 'Update Password'}
+                            </button>
                         </form>
                     </div>
                 </div>

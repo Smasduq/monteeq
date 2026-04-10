@@ -34,3 +34,11 @@ S3_SECRET_KEY = os.getenv("S3_SECRET_KEY", "")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "")
 S3_REGION = os.getenv("S3_REGION", "us-east-1")
 PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY", "sk_test_placeholder")
+
+# Email / SMTP Configuration
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASS = os.getenv("SMTP_PASS", "")
+SMTP_FROM = os.getenv("SMTP_FROM", "")
+SMTP_FROM_NAME = os.getenv("SMTP_FROM_NAME", "Monteeq")

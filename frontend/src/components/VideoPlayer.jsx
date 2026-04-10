@@ -4,6 +4,8 @@ import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Monitor, S
 import styles from './VideoPlayer.module.css';
 import { initView, sendHeartbeat } from '../api';
 import { useAuth } from '../context/AuthContext';
+import PreRollPlayer from './ads/PreRollPlayer';
+import PauseOverlayAd from './ads/PauseOverlayAd';
 
 const VideoPlayer = ({ 
   src, 
@@ -35,6 +37,7 @@ const VideoPlayer = ({
   const [hoverX, setHoverX] = useState(0);
   const [showControls, setShowControls] = useState(true);
   const [osd, setOsd] = useState({ icon: null, visible: false });
+  const [showPreRoll, setShowPreRoll] = useState(true); // Always show for demo, or logic based on views
   const controlsTimeout = useRef(null);
 
   // Initialize HLS
@@ -259,6 +262,17 @@ const VideoPlayer = ({
         onTimeUpdate={handleTimeUpdate}
         playsInline
       />
+
+      {/* Strategic Ads */}
+      {showPreRoll && (
+        <PreRollPlayer onComplete={() => {
+            setShowPreRoll(false);
+            videoRef.current.play();
+            setIsPlaying(true);
+        }} />
+      )}
+
+      {!isPlaying && !showPreRoll && currentTime > 0 && <PauseOverlayAd />}
 
       {/* OSD */}
       <div className={`${styles.osd} ${osd.visible ? styles.osdActive : ''}`}>

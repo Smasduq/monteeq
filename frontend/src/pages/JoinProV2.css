@@ -1,0 +1,297 @@
+.v2Container {
+  min-height: 100vh;
+  background-color: #000;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+  padding-bottom: 6rem;
+  position: relative;
+}
+
+/* Background Effects */
+.glowTop {
+  position: absolute;
+  top: -10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 40%;
+  background: radial-gradient(circle, rgba(255, 60, 60, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.contentWrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  position: relative;
+  z-index: 10;
+}
+
+/* Hero Section */
+.hero {
+  text-align: center;
+  padding: 6rem 0 4rem;
+}
+
+.heroTag {
+  display: inline-block;
+  padding: 0.5rem 1.2rem;
+  background: rgba(255, 60, 60, 0.1);
+  border: 1px solid rgba(255, 60, 60, 0.2);
+  border-radius: 50px;
+  color: #ff3b30;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  margin-bottom: 1.5rem;
+  text-transform: uppercase;
+}
+
+.heroTitle {
+  font-size: clamp(2.5rem, 8vw, 4.5rem);
+  font-weight: 900;
+  line-height: 0.95;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(to bottom, #fff 40%, rgba(255,255,255,0.4) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.heroSubtitle {
+  font-size: 1.2rem;
+  color: #a0a0a0;
+  max-width: 600px;
+  margin: 0 auto 3rem;
+  line-height: 1.6;
+}
+
+/* HD Comparison Section */
+.comparisonSection {
+  margin: 4rem 0 8rem;
+  text-align: center;
+}
+
+.comparisonSection h2 {
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 3rem;
+}
+
+.comparisonGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  background: #0a0a0a;
+  padding: 1rem;
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.comparisonItem {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  aspect-ratio: 16/9;
+}
+
+.comparisonItem img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.comparisonLabel {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(10px);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.proLabel {
+  color: #ffcc00;
+  border-color: rgba(255, 204, 0, 0.3) !important;
+}
+
+/* Plans Grid */
+.plansGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 2rem;
+  margin-bottom: 8rem;
+}
+
+.planCard {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 32px;
+  padding: 3rem;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+}
+
+.proCard {
+  background: linear-gradient(145deg, rgba(255, 60, 60, 0.08) 0%, rgba(10, 10, 10, 0) 100%);
+  border: 1px solid rgba(255, 60, 60, 0.3);
+  box-shadow: 0 20px 50px rgba(255, 60, 60, 0.05);
+}
+
+.proCard::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 32px;
+    padding: 2px;
+    background: linear-gradient(135deg, #ff3b30, transparent 40%, transparent 60%, #ff3b30);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+}
+
+.planName {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #a0a0a0;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.proCard .planName {
+  color: #ff3b30;
+}
+
+.planPrice {
+  font-size: 3.5rem;
+  font-weight: 900;
+  margin-bottom: 2rem;
+}
+
+.planPrice span {
+  font-size: 1.2rem;
+  color: #666;
+  font-weight: 400;
+}
+
+.featureList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 3rem;
+  flex: 1;
+}
+
+.featureItem {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+  color: #d0d0d0;
+  font-size: 1rem;
+}
+
+.checkIcon {
+  color: #ff3b30;
+  flex-shrink: 0;
+}
+
+.ctaBtn {
+  width: 100%;
+  padding: 1.2rem;
+  border-radius: 16px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.freeCta {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.proCta {
+  background: #ff3b30;
+  color: #fff;
+  box-shadow: 0 10px 20px rgba(255, 60, 60, 0.2);
+}
+
+.proCta:hover {
+  transform: translateY(-3px);
+  background: #ff5247;
+  box-shadow: 0 15px 30px rgba(255, 60, 60, 0.3);
+}
+
+/* Benefits Grid */
+.benefitsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  margin-bottom: 6rem;
+}
+
+.benefitItem {
+  background: rgba(255,255,255,0.02);
+  padding: 2.5rem;
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,0.03);
+}
+
+.benefitIcon {
+  width: 50px;
+  height: 50px;
+  background: rgba(255, 60, 60, 0.1);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ff3b30;
+  margin-bottom: 1.5rem;
+}
+
+.benefitTitle {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 0.8rem;
+}
+
+.benefitDesc {
+  color: #888;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Pro Dashboard Overrides */
+.proBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 1rem;
+    background: rgba(255, 204, 0, 0.1);
+    border: 1px solid rgba(255, 204, 0, 0.3);
+    border-radius: 50px;
+    color: #ffcc00;
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+  .comparisonGrid {
+    grid-template-columns: 1fr;
+  }
+  .heroTitle {
+    font-size: 3rem;
+  }
+}

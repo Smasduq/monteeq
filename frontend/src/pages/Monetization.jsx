@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { getCreatorWallet, requestPayout, getMyPayoutRequests, verifyDeposit } from '../api';
 import { PageSkeleton } from '../components/Skeleton';
+import DashboardBannerAd from '../components/ads/DashboardBannerAd';
 import { usePaystackPayment } from 'react-paystack';
 import { useNotification } from '../context/NotificationContext';
 import './Monetization.css';
@@ -338,7 +339,6 @@ const Monetization = () => {
           </button>
         </div>
       </div>
-
       {/* HERO BALANCE */}
       <div className="mon-hero-card">
         <div className="mon-hero-label"><Zap size={13} /> Total Wallet Balance</div>
@@ -354,6 +354,15 @@ const Monetization = () => {
             <div className="mon-split-amount">₦{fmt(animTips)}</div>
           </div>
         </div>
+      </div>
+
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <DashboardBannerAd 
+            title="Maximized Your Earnings?"
+            subtitle="Join the Elite Partner Program for higher ad rates and custom sponsorship deals."
+            cta="BECOME PARTNER"
+            image="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=60"
+        />
       </div>
 
       {/* SECONDARY GRID */}

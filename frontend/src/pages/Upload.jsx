@@ -5,6 +5,7 @@ import { API_BASE_URL, getUserInsights } from '../api';
 
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
+import DashboardBannerAd from '../components/ads/DashboardBannerAd';
 
 const Upload = () => {
     const { user, token, refreshUser } = useAuth();
@@ -357,6 +358,14 @@ const Upload = () => {
                         </button>
                     </div>
                 ))}
+            </div>
+
+            <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+                <DashboardBannerAd 
+                    title="Scale Your Brand with Monteeq"
+                    subtitle="Unlock advanced analytics and priority support for your content."
+                    cta="EXPLORE PRO"
+                />
             </div>
 
             <div className="manage-content-section" style={{ maxWidth: '1200px', margin: '4rem auto 0' }}>

@@ -14,6 +14,7 @@ const Chat = React.lazy(() => import('./pages/Chat'));
 const Login = React.lazy(() => import('./pages/Login'));
 const Signup = React.lazy(() => import('./pages/Signup'));
 const Watch = React.lazy(() => import('./pages/Watch'));
+const Verify = React.lazy(() => import('./pages/Verify'));
 
 const Search = React.lazy(() => import('./pages/Search'));
 const Settings = React.lazy(() => import('./pages/Settings'));
@@ -30,7 +31,7 @@ const Onboarding = React.lazy(() => import('./pages/Onboarding'));
 const PartnerV2 = React.lazy(() => import('./pages/PartnerV2'));
 const Challenges = React.lazy(() => import('./pages/Challenges'));
 const About = React.lazy(() => import('./pages/About'));
-const JoinPro = React.lazy(() => import('./pages/JoinPro'));
+const JoinPro = React.lazy(() => import('./pages/JoinProV2'));
 import NotificationManager from './components/NotificationManager';
 
 import Sidebar from './components/Sidebar';
@@ -50,7 +51,6 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   return children;
 };
 
-import AdSidebar from './components/AdSidebar';
 
 function AppContent() {
   const { user, logout, token } = useAuth();
@@ -58,16 +58,16 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const isFlashPage = location.pathname === '/flash';
-  const isHomePage = location.pathname === '/';
-  const isChatPage = location.pathname.startsWith('/chat');
-  const isPremiumOrAdmin = user?.is_premium || user?.role === 'admin';
   const isOnboardingPage = location.pathname === '/onboarding';
-  const showAdColumn = !isHomePage && !isFlashPage && !isChatPage && !isOnboardingPage && !location.pathname.startsWith('/watch/') && user && !isPremiumOrAdmin;
 
-  // Onboarding redirection
+  // Redirection guard (Onboarding & Verification)
   React.useEffect(() => {
-    if (token && user && !user.is_onboarded && location.pathname !== '/onboarding') {
-      navigate('/onboarding');
+    if (token && user) {
+      if (!user.is_verified && location.pathname !== '/verify') {
+        navigate('/verify');
+      } else if (user.is_verified && !user.is_onboarded && location.pathname !== '/onboarding' && location.pathname !== '/verify') {
+        navigate('/onboarding');
+      }
     }
   }, [token, user, location.pathname]);
 
@@ -86,7 +86,7 @@ function AppContent() {
             width: '100%',
             flexWrap: 'wrap'
           }}>
-            <div style={{ flex: showAdColumn ? 2 : 1, minWidth: '300px' }}>
+            <div style={{ flex: 1, minWidth: '300px' }}>
               <React.Suspense fallback={<PageSkeleton />}>
                 <Routes>
                   <Route path="/" element={<Home />} />
@@ -113,14 +113,10 @@ function AppContent() {
                   <Route path="/monetization/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
                   <Route path="/about" element={<About />} />
                   <Route path="/pro" element={<JoinPro />} />
+                  <Route path="/verify" element={<ProtectedRoute><Verify /></ProtectedRoute>} />
                 </Routes>
               </React.Suspense>
             </div>
-            {showAdColumn && (
-              <div style={{ flex: 1, minWidth: '300px' }}>
-                <AdSidebar />
-              </div>
-            )}
           </div>
         </main>
       </div>

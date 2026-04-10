@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../api';
-import { Mail, Lock, User, Zap } from 'lucide-react';
+import { Mail, Lock, User, Zap, Loader2, Eye, EyeOff } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 
@@ -15,6 +15,9 @@ const Signup = () => {
     const [error, setError] = useState('');
     const [isVerifying, setIsVerifying] = useState(false);
     const [verificationCode, setVerificationCode] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [isResending, setIsResending] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const { signup, login, googleLogin } = useAuth();
     const navigate = useNavigate();
 
@@ -53,6 +56,7 @@ const Signup = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isLoading) return;
         setError('');
 
         if (isAvailable === false) {
@@ -65,17 +69,23 @@ const Signup = () => {
             return;
         }
 
+        setIsLoading(true);
         try {
             await signup({ username, full_name: fullName, email, password });
-            setIsVerifying(true);
+            // Login immediately to trigger verification flow
+            await login({ username, password });
         } catch (err) {
             setError(err.response?.data?.detail || 'Failed to sign up');
+        } finally {
+            setIsLoading(false);
         }
     };
 
     const handleVerifyCode = async (e) => {
         e.preventDefault();
+        if (isLoading) return;
         setError('');
+        setIsLoading(true);
         try {
             const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
                 method: 'POST',
@@ -94,6 +104,28 @@ const Signup = () => {
             }
         } catch (err) {
             setError(err.message || 'Verification failed');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleResendCode = async () => {
+        if (isResending) return;
+        setError('');
+        setIsResending(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.detail || 'Failed to resend code');
+            setError(''); // clear any previous error
+        } catch (err) {
+            setError(err.message || 'Failed to resend code');
+        } finally {
+            setIsResending(false);
         }
     };
 
@@ -107,10 +139,23 @@ const Signup = () => {
                             <span>MONTEEQ</span>
                         </div>
                         <h1>Verify Email</h1>
-                        <p>We've sent a 6-digit code to {email}</p>
+                        <p>We've sent a 6-digit code to <strong>{email}</strong></p>
                     </div>
 
-                    {error && <div style={{ color: 'var(--accent-primary)', marginBottom: '1rem', fontSize: '0.9rem', textAlign: 'center' }}>{error}</div>}
+                    {error && (
+                        <div style={{
+                            color: 'var(--accent-primary)',
+                            background: 'rgba(255, 60, 60, 0.1)',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            marginBottom: '1rem',
+                            fontSize: '0.9rem',
+                            textAlign: 'center',
+                            border: '1px solid rgba(255, 60, 60, 0.2)'
+                        }}>
+                            {error}
+                        </div>
+                    )}
 
                     <form className="auth-form" onSubmit={handleVerifyCode}>
                         <div className="input-group">
@@ -123,15 +168,66 @@ const Signup = () => {
                                 onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
                                 style={{ textAlign: 'center', fontSize: '1.5rem', letterSpacing: '0.5rem', fontWeight: 'bold' }}
                                 required
+                                disabled={isLoading}
+                                autoFocus
                             />
                         </div>
-                        <button type="submit" className="auth-button">Verify & Continue</button>
+                        <button
+                            type="submit"
+                            className="auth-button"
+                            disabled={isLoading || verificationCode.length < 6}
+                            style={{
+                                opacity: (isLoading || verificationCode.length < 6) ? 0.7 : 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px'
+                            }}
+                        >
+                            {isLoading ? (
+                                <><Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} /> Verifying…</>
+                            ) : 'Verify & Continue'}
+                        </button>
                     </form>
 
-                    <div className="auth-footer">
-                        Didn't get a code? <button onClick={() => setIsVerifying(false)} className="auth-link" style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: 'pointer' }}>Go Back</button>
+                    <div className="auth-footer" style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+                        <button
+                            onClick={handleResendCode}
+                            className="auth-link"
+                            disabled={isResending}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                padding: 0,
+                                font: 'inherit',
+                                cursor: isResending ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                opacity: isResending ? 0.6 : 1
+                            }}
+                        >
+                            {isResending ? (
+                                <><Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> Sending…</>
+                            ) : 'Resend Code'}
+                        </button>
+                        <button
+                            onClick={() => setIsVerifying(false)}
+                            className="auth-link"
+                            disabled={isLoading}
+                            style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: 'pointer' }}
+                        >
+                            Go Back
+                        </button>
                     </div>
                 </div>
+
+                <style>{`
+                    @keyframes spin {
+                        from { transform: rotate(0deg); }
+                        to { transform: rotate(360deg); }
+                    }
+                `}</style>
             </div>
         );
     }
@@ -148,7 +244,19 @@ const Signup = () => {
                     <p>Start your journey with Monteeq</p>
                 </div>
 
-                {error && <div style={{ color: 'var(--accent-primary)', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</div>}
+                {error && (
+                    <div style={{
+                        color: 'var(--accent-primary)',
+                        background: 'rgba(255, 60, 60, 0.1)',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        marginBottom: '1rem',
+                        fontSize: '0.9rem',
+                        border: '1px solid rgba(255, 60, 60, 0.2)'
+                    }}>
+                        {error}
+                    </div>
+                )}
 
                 <form className="auth-form" onSubmit={handleSubmit}>
                     <div className="input-group">
@@ -159,6 +267,7 @@ const Signup = () => {
                             value={fullName}
                             onChange={(e) => setFullName(e.target.value)}
                             required
+                            disabled={isLoading}
                         />
                     </div>
                     <div className="input-group">
@@ -174,6 +283,7 @@ const Signup = () => {
                                     borderColor: isAvailable === false ? 'var(--accent-primary)' : isAvailable === true ? '#4ade80' : ''
                                 }}
                                 required
+                                disabled={isLoading}
                             />
                             {isAvailable !== null && (
                                 <div style={{
@@ -196,17 +306,42 @@ const Signup = () => {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
+                            disabled={isLoading}
                         />
                     </div>
                     <div className="input-group">
                         <label>Password</label>
-                        <input
-                            type="password"
-                            placeholder="••••••••"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                        />
+                        <div style={{ position: 'relative' }}>
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                placeholder="••••••••"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                disabled={isLoading}
+                                style={{ paddingRight: '2.5rem' }}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                style={{
+                                    position: 'absolute',
+                                    right: '10px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'var(--text-muted)',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '4px'
+                                }}
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                        </div>
                         <div className="password-requirements" style={{
                             display: 'grid',
                             gridTemplateColumns: 'repeat(2, 1fr)',
@@ -242,15 +377,21 @@ const Signup = () => {
                     <button
                         type="submit"
                         className="auth-button"
-                        disabled={!isPasswordValid || isAvailable === false}
+                        disabled={isLoading || !isPasswordValid || isAvailable === false}
                         style={{
                             marginTop: '1.5rem',
-                            opacity: (!isPasswordValid || isAvailable === false) ? 0.5 : 1,
+                            opacity: (isLoading || !isPasswordValid || isAvailable === false) ? 0.5 : 1,
                             transform: (!isPasswordValid || isAvailable === false) ? 'none' : 'scale(1)',
-                            boxShadow: isPasswordValid && isAvailable !== false ? '0 4px 15px rgba(255, 60, 60, 0.3)' : 'none'
+                            boxShadow: isPasswordValid && isAvailable !== false ? '0 4px 15px rgba(255, 60, 60, 0.3)' : 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px'
                         }}
                     >
-                        Create Account
+                        {isLoading ? (
+                            <><Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} /> Creating Account…</>
+                        ) : 'Create Account'}
                     </button>
                 </form>
 
@@ -262,7 +403,6 @@ const Signup = () => {
                             googleLogin(credentialResponse.credential)
                                 .then((res) => {
                                     if (res?.two_factor_required) {
-                                        // Social 2FA Bypass Fix: Redirect to login to handle the 2FA flow
                                         navigate('/login', { 
                                             state: { 
                                                 authStep: 'methods', 
@@ -294,6 +434,13 @@ const Signup = () => {
                     Already have an account? <Link to="/login" className="auth-link">Log In</Link>
                 </div>
             </div>
+
+            <style>{`
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 };
