@@ -96,8 +96,7 @@ def resend_verification(data: schemas.ResendVerification, db: Session = Depends(
     """Resend the email verification code. Rate-limited by code expiry."""
     user = crud_user.get_user_by_email(db, email=data.email)
     if not user:
-        # Don't reveal whether email exists — return success either way
-        return {"message": "If that email is registered, a new code has been sent.", "email": data.email}
+        raise HTTPException(status_code=404, detail="Email not registered")
     
     if user.is_verified:
         raise HTTPException(status_code=400, detail="Email is already verified.")
