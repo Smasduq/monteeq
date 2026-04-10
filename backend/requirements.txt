@@ -20,3 +20,4 @@ pyotp
 qrcode
 Pillow
 celery
+redis
