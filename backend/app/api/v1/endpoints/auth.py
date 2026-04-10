@@ -10,6 +10,7 @@ from app.core import security, config
 from app.crud import user as crud_user
 from app.schemas import schemas
 from app.models.models import User, UserSession
+from app.services.email_service import send_verification_email
 import hashlib
 
 router = APIRouter()
@@ -27,11 +28,6 @@ async def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    if not user.is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email not verified. Please verify your email first.",
-        )
 
     if getattr(user, 'two_factor_enabled', False) is True:
         methods = ["totp"]
@@ -69,9 +65,12 @@ def register_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     
     user = crud_user.create_user(db, user=user_in, is_onboarded=False)
     
-    # Generate verification code
+    # Generate verification code and send email
     code = crud_user.create_verification_code(db, email=user.email)
-    print(f"VERIFICATION CODE FOR {user.email}: {code}") # Log for testing
+    sent = send_verification_email(user.email, code)
+    if not sent:
+        # Already logged inside email service; keep going — dev fallback printed
+        pass
     
     return {
         "message": "Registration successful. Please check your email for the verification code.",
@@ -91,6 +90,26 @@ def verify_email(data: schemas.EmailVerification, db: Session = Depends(get_db))
             return {"message": "Email verified successfully", "username": user.username}
     
     raise HTTPException(status_code=400, detail="Invalid or expired verification code")
+
+@router.post("/resend-verification", response_model=schemas.VerificationResponse)
+def resend_verification(data: schemas.ResendVerification, db: Session = Depends(get_db)):
+    """Resend the email verification code. Rate-limited by code expiry."""
+    user = crud_user.get_user_by_email(db, email=data.email)
+    if not user:
+        # Don't reveal whether email exists — return success either way
+        return {"message": "If that email is registered, a new code has been sent.", "email": data.email}
+    
+    if user.is_verified:
+        raise HTTPException(status_code=400, detail="Email is already verified.")
+    
+    code = crud_user.create_verification_code(db, email=data.email)
+    send_verification_email(data.email, code)
+    
+    return {
+        "message": "A new verification code has been sent to your email.",
+        "email": data.email,
+        "username": user.username
+    }
 
 @router.post("/google", response_model=schemas.Token)
 async def google_auth(auth_data: schemas.UserGoogleAuth, db: Session = Depends(get_db)):

@@ -85,6 +85,9 @@ class EmailVerification(BaseModel):
     email: str
     code: str
 
+class ResendVerification(BaseModel):
+    email: str
+
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
@@ -414,3 +417,30 @@ class ProUpgradeResponse(BaseModel):
     status: str
     message: str
     is_premium: bool
+
+class ContentAnalyticsItem(BaseModel):
+    id: int
+    title: str
+    video_type: str
+    views: int
+    likes_count: int
+    shares: int
+    engagement_rate: float  # (likes + shares) / views * 100
+
+    model_config = ConfigDict(from_attributes=True)
+
+class AudienceSplit(BaseModel):
+    returning_viewers: int
+    new_viewers: int
+    total_views: int
+
+class ScoreBreakdown(BaseModel):
+    consistency: int   # 0-100: how regularly they post
+    engagement: int    # 0-100: (likes+shares) / views
+    retention: int     # 0-100: returning viewers %
+    frequency: int     # 0-100: total approved video count
+
+class GrowthIntelligence(BaseModel):
+    score: int  # 0-100 composite
+    breakdown: ScoreBreakdown
+    insights: List[str]  # plain text, HTML-safe

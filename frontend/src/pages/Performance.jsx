@@ -1,383 +1,487 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-    ArrowLeft, TrendingUp, Heart, Users, DollarSign,
-    Calendar, ChevronDown, Info, Sparkles
+    TrendingUp, Heart, Users, DollarSign,
+    ChevronRight, Sparkles, Brain, Target, 
+    ArrowUpRight, ArrowDownRight, Zap, Info, Play
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid,
-    Tooltip, ResponsiveContainer, ComposedChart, Line
+    Tooltip, ResponsiveContainer, BarChart, Bar,
+    Cell, PieChart, Pie
 } from 'recharts';
 import { useAuth } from '../context/AuthContext';
-import { getUserPerformance } from '../api';
-import { editorTips } from '../data/tips';
-import { PerformanceSkeleton } from '../components/Skeleton';
+import { getUserPerformance, getUserInsights, getContentAnalytics, getAudienceSplit, getGrowthIntelligence } from '../api';
+import './PerformanceV2.css';
+
+const StatCard = ({ label, value, growth, icon: Icon, color, sparkData }) => (
+    <motion.div 
+        className="kpi-card glass"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        whileHover={{ translateY: -5 }}
+    >
+        <div className="kpi-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span className="kpi-label">{label}</span>
+            <div style={{ 
+                padding: '8px', 
+                borderRadius: '10px', 
+                background: `${color}15`,
+                color: color
+            }}>
+                <Icon size={18} />
+            </div>
+        </div>
+        <div className="kpi-value-row">
+            <span className="kpi-value">{value}</span>
+            <div className={`kpi-growth ${growth >= 0 ? 'growth-up' : 'growth-down'}`}>
+                {growth >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                {Math.abs(growth).toFixed(1)}%
+            </div>
+        </div>
+        <div className="kpi-sparkline">
+            <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={sparkData}>
+                    <defs>
+                        <linearGradient id={`grad-${label}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={color} stopOpacity={0.4} />
+                            <stop offset="100%" stopColor={color} stopOpacity={0} />
+                        </linearGradient>
+                    </defs>
+                    <Area 
+                        type="monotone" 
+                        dataKey="value" 
+                        stroke={color} 
+                        strokeWidth={2} 
+                        fill={`url(#grad-${label})`} 
+                        dot={false}
+                    />
+                </AreaChart>
+            </ResponsiveContainer>
+        </div>
+    </motion.div>
+);
+
+const ScoreRing = ({ score }) => {
+    const radius = 72;
+    const circumference = 2 * Math.PI * radius;
+    const progress = circumference - (score / 100) * circumference;
+    return (
+        <svg width="180" height="180" viewBox="0 0 180 180">
+            {/* Track */}
+            <circle cx="90" cy="90" r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
+            {/* Glow */}
+            <circle cx="90" cy="90" r={radius} fill="none" stroke="rgba(255,59,48,0.15)" strokeWidth="16"
+                strokeDasharray={circumference} strokeDashoffset={progress}
+                strokeLinecap="round" transform="rotate(-90 90 90)" />
+            {/* Fill */}
+            <circle cx="90" cy="90" r={radius} fill="none" stroke="url(#scoreGrad)" strokeWidth="10"
+                strokeDasharray={circumference} strokeDashoffset={progress}
+                strokeLinecap="round" transform="rotate(-90 90 90)" />
+            <defs>
+                <linearGradient id="scoreGrad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#FF3B30" />
+                    <stop offset="100%" stopColor="#FFD60A" />
+                </linearGradient>
+            </defs>
+            {/* Centre text */}
+            <text x="90" y="82" textAnchor="middle" fill="white" fontSize="36" fontWeight="900" fontFamily="Outfit, sans-serif">{score}</text>
+            <text x="90" y="105" textAnchor="middle" fill="rgba(255,255,255,0.4)" fontSize="11" fontWeight="700" letterSpacing="2">SCORE</text>
+        </svg>
+    );
+};
+
+const GrowthScore = ({ intelligenceData }) => {
+    const score = intelligenceData?.score ?? 0;
+    const bd = intelligenceData?.breakdown ?? { consistency: 0, engagement: 0, retention: 0, frequency: 0 };
+    const status = score > 80 ? 'Elite' : score > 60 ? 'Strong' : 'Growing';
+    const pills = [
+        { label: 'Consistency', val: `${bd.consistency}%`, color: '#34C759' },
+        { label: 'Engagement', val: `${bd.engagement}%`, color: '#FFD60A' },
+        { label: 'Retention', val: `${bd.retention}%`, color: '#00E5FF' },
+        { label: 'Frequency', val: `${bd.frequency}%`, color: '#FF3B30' },
+    ];
+    return (
+        <div className="growth-score-card glass">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div className="score-label">Monteeq Growth Score</div>
+                <div style={{
+                    padding: '4px 10px',
+                    borderRadius: '50px',
+                    background: 'rgba(255,59,48,0.15)',
+                    color: 'var(--accent-primary)',
+                    fontSize: '0.7rem',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px'
+                }}>{status}</div>
+            </div>
+            <div className="score-ring-container">
+                <ScoreRing score={score} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.5rem' }}>
+                {pills.map(p => (
+                    <div key={p.label} style={{
+                        padding: '0.6rem',
+                        borderRadius: '10px',
+                        background: `${p.color}10`,
+                        border: `1px solid ${p.color}20`
+                    }}>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{p.label}</div>
+                        <div style={{ fontSize: '1rem', fontWeight: 800, color: p.color, marginTop: '2px' }}>{p.val}</div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const IntelligencePanel = ({ insights }) => (
+    <div className="ai-insights glass">
+        <h3 className="card-title">
+            <Brain size={18} color="var(--chart-secondary)" />
+            AI Growth Insights
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+            {insights.map((insight, i) => (
+                <motion.div 
+                    key={i} 
+                    className="insight-item"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                >
+                    <div className="insight-icon">
+                        <Zap size={16} />
+                    </div>
+                    <div className="insight-text" dangerouslySetInnerHTML={{ __html: insight }} />
+                </motion.div>
+            ))}
+        </div>
+    </div>
+);
 
 const Performance = () => {
     const { token } = useAuth();
-    const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
-    const [data, setData] = useState([]);
+    const [performanceData, setPerformanceData] = useState([]);
+    const [insightsData, setInsightsData] = useState(null);
+    const [contentData, setContentData] = useState([]);
+    const [audienceData, setAudienceData] = useState(null);
+    const [intelligenceData, setIntelligenceData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [activeMetric, setActiveMetric] = useState(searchParams.get('metric') || 'views');
-    const [activeRange, setActiveRange] = useState(7); // Default to 7 days as requested
-    const [activeTipIndex, setActiveTipIndex] = useState(Math.floor(Math.random() * editorTips.length));
-
-    const metrics = [
-        { id: 'views', label: 'Total Views', icon: TrendingUp, color: '#3b82f6', glow: 'rgba(59, 130, 246, 0.4)' },
-        { id: 'likes', label: 'Total Likes', icon: Heart, color: '#ec4899', glow: 'rgba(236, 72, 153, 0.4)' },
-        { id: 'followers', label: 'Followers', icon: Users, color: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.4)' },
-        { id: 'earnings', label: 'Earnings', icon: DollarSign, color: '#10b981', glow: 'rgba(16, 185, 129, 0.4)' },
-    ];
-
-    const currentMetricInfo = metrics.find(m => m.id === activeMetric) || metrics[0];
+    const [activeMetric, setActiveMetric] = useState('views');
+    const [activeRange, setActiveRange] = useState(30);
 
     useEffect(() => {
-        const fetchPerformance = async () => {
+        const loadAll = async () => {
             setLoading(true);
             try {
-                const result = await getUserPerformance(token, activeMetric, activeRange);
-                // Format dates for display
-                const formattedData = result.data.map(item => ({
-                    ...item,
-                    displayDate: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                }));
-                setData(formattedData);
+                const [perf, ins, content, audience, intelligence] = await Promise.all([
+                    getUserPerformance(token, activeMetric, activeRange),
+                    getUserInsights(token),
+                    getContentAnalytics(token, 8),
+                    getAudienceSplit(token, activeRange),
+                    getGrowthIntelligence(token),
+                ]);
+                setPerformanceData(perf.data.map(d => ({
+                    ...d,
+                    displayDate: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    value: d[activeMetric]
+                })));
+                setInsightsData(ins);
+                setContentData(Array.isArray(content) ? content : []);
+                setAudienceData(audience ?? null);
+                setIntelligenceData(intelligence ?? null);
             } catch (err) {
-                console.error("Error fetching performance data:", err);
+                console.error("Dashboard error:", err);
             } finally {
                 setLoading(false);
             }
         };
 
-        if (token) {
-            fetchPerformance();
-        }
+        if (token) loadAll();
     }, [token, activeMetric, activeRange]);
 
-    const handleMetricChange = (metricId) => {
-        setActiveMetric(metricId);
-        setSearchParams({ metric: metricId });
+    const metricsMap = {
+        views: { label: 'Total Views', icon: TrendingUp, color: '#FF3B30' },
+        likes: { label: 'Engagement', icon: Heart, color: '#FFD60A' },
+        followers: { label: 'Followers', icon: Users, color: '#00E5FF' },
+        earnings: { label: 'Earnings', icon: DollarSign, color: '#34C759' }
     };
 
-    const CustomTooltip = ({ active, payload, label }) => {
-        if (active && payload && payload.length) {
-            return (
-                <div className="glass" style={{
-                    padding: '1.2rem',
-                    borderRadius: '20px',
-                    border: `1px solid ${currentMetricInfo.color}30`,
-                    boxShadow: `0 10px 40px rgba(0,0,0,0.6), 0 0 20px ${currentMetricInfo.color}20`,
-                    backdropFilter: 'blur(24px)',
-                    position: 'relative',
-                    overflow: 'hidden'
-                }}>
-                    <div style={{
-                        position: 'absolute',
-                        top: 0, left: 0, bottom: 0,
-                        width: '4px',
-                        background: currentMetricInfo.color,
-                        boxShadow: `0 0 10px ${currentMetricInfo.color}`
-                    }} />
-                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{label}</p>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
-                        <p style={{
-                            margin: 0,
-                            fontSize: '1.5rem',
-                            fontWeight: 900,
-                            color: 'white',
-                            textShadow: `0 0 10px ${currentMetricInfo.color}40`
-                        }}>
-                            {activeMetric === 'earnings' ? `$${payload[0].value.toFixed(2)}` : payload[0].value.toLocaleString()}
-                        </p>
-                        <span style={{ fontSize: '0.75rem', color: currentMetricInfo.color, fontWeight: 700 }}>
-                            {currentMetricInfo.id.toUpperCase()}
-                        </span>
-                    </div>
-                </div>
-            );
-        }
-        return null;
+    // Vs last period: compare second half vs first half of the selected range
+    const computeGrowth = (metric) => {
+        if (performanceData.length < 2) return 0;
+        const mid = Math.floor(performanceData.length / 2);
+        const prev = performanceData.slice(0, mid).reduce((s, d) => s + (d[metric] || 0), 0);
+        const curr = performanceData.slice(mid).reduce((s, d) => s + (d[metric] || 0), 0);
+        if (prev === 0) return curr > 0 ? 100 : 0;
+        return parseFloat(((curr - prev) / prev * 100).toFixed(1));
     };
 
-    const statsSummary = useMemo(() => {
-        if (!data.length) return { total: 0, growth: 0, lastValue: 0 };
-        const total = data.reduce((sum, item) => sum + item[activeMetric], 0);
-        const lastValue = data[data.length - 1][activeMetric];
-        const firstValue = data[0][activeMetric];
-        const growth = firstValue === 0 ? 0 : ((lastValue - firstValue) / firstValue) * 100;
-        return { total, growth, lastValue };
-    }, [data, activeMetric]);
+    const contentBreakdownData = contentData.length > 0
+        ? contentData.map(v => ({
+            name: v.title.length > 22 ? v.title.slice(0, 22) + '…' : v.title,
+            views: v.views,
+            engage: v.engagement_rate,
+          }))
+        : [];
 
-    if (loading && !data.length) {
-        return <PerformanceSkeleton />;
-    }
+    const audienceSplitData = audienceData
+        ? [
+            { name: 'Returning', value: audienceData.returning_viewers },
+            { name: 'New', value: audienceData.new_viewers },
+          ]
+        : [
+            { name: 'Returning', value: 0 },
+            { name: 'New', value: 0 },
+          ];
+    const loyaltyPct = audienceData && audienceData.total_views > 0
+        ? Math.round((audienceData.returning_viewers / (audienceData.returning_viewers + audienceData.new_viewers || 1)) * 100)
+        : 0;
+
+    if (loading && !insightsData) return <div className="performance-container" style={{ textAlign: 'center', paddingTop: '10rem' }}>
+        <Zap className="vc-spin" size={32} color="var(--accent-primary)" />
+        <p style={{ marginTop: '1rem', fontWeight: 600 }}>Analyzing Growth Signals...</p>
+    </div>;
 
     return (
-        <div className="performance-page page-container" style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-            <div className="performance-header" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '3rem' }}>
-                <button
-                    onClick={() => navigate('/insights')}
-                    className="glass hover-scale"
-                    style={{
-                        width: '45px', height: '45px', borderRadius: '50%', color: 'white',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                        border: '1px solid rgba(255,255,255,0.1)'
-                    }}
-                >
-                    <ArrowLeft size={20} />
-                </button>
-                <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '4px' }}>
-                        <TrendingUp size={14} />
-                        Growth Analytics
+        <div className="performance-container page-container">
+            {/* Page Hero Header */}
+            <motion.div 
+                className="perf-page-hero"
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+            >
+                <div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <TrendingUp size={14} /> GROWTH INTELLIGENCE
                     </div>
-                    <h1 style={{ fontSize: '2.5rem', fontWeight: 800 }}>Performance</h1>
+                    <h1 className="perf-page-title">Analytics</h1>
+                    <p className="perf-page-subtitle">Track performance, grow smarter.</p>
                 </div>
-
-                <div className="range-selector glass" style={{
-                    padding: '4px',
-                    borderRadius: '12px',
-                    display: 'flex',
-                    gap: '4px',
-                    border: '1px solid rgba(255,255,255,0.05)'
-                }}>
-                    {[7, 30].map(range => (
+                <div className="range-tabs">
+                    {[7, 14, 30].map(d => (
                         <button
-                            key={range}
-                            onClick={() => setActiveRange(range)}
-                            style={{
-                                padding: '0.4rem 1rem',
-                                borderRadius: '8px',
-                                fontSize: '0.85rem',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease',
-                                background: activeRange === range ? 'rgba(255,255,255,0.1)' : 'transparent',
-                                color: activeRange === range ? 'white' : 'var(--text-secondary)',
-                                border: 'none'
-                            }}
-                        >
-                            {range}D
-                        </button>
+                            key={d}
+                            className={`range-tab ${activeRange === d ? 'active' : ''}`}
+                            onClick={() => setActiveRange(d)}
+                        >{d}D</button>
                     ))}
                 </div>
+            </motion.div>
+
+            {/* KPI Header Section */}
+            <div className="perf-header">
+                <StatCard 
+                    label="Views" 
+                    value={(insightsData?.total_views ?? 0).toLocaleString()} 
+                    growth={computeGrowth('views')}
+                    icon={TrendingUp}
+                    color="#FF3B30"
+                    sparkData={performanceData.slice(-7).map(d => ({ value: d.views }))}
+                />
+                <StatCard 
+                    label="Followers" 
+                    value={(insightsData?.followers ?? 0).toLocaleString()} 
+                    growth={computeGrowth('followers')}
+                    icon={Users}
+                    color="#00E5FF"
+                    sparkData={performanceData.slice(-7).map(d => ({ value: d.followers }))}
+                />
+                <StatCard 
+                    label="Engagement" 
+                    value={(insightsData?.total_likes ?? 0).toLocaleString()} 
+                    growth={computeGrowth('likes')}
+                    icon={Heart}
+                    color="#FFD60A"
+                    sparkData={performanceData.slice(-7).map(d => ({ value: d.likes }))}
+                />
+                <StatCard 
+                    label="Revenue (₦)" 
+                    value={`₦${Math.round(insightsData?.total_earnings ?? 0).toLocaleString('en-NG')}`}
+                    growth={computeGrowth('earnings')}
+                    icon={DollarSign}
+                    color="#34C759"
+                    sparkData={performanceData.slice(-7).map(d => ({ value: d.earnings }))}
+                />
             </div>
 
-            <div className="performance-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '2rem' }}>
-                <div className="main-chart-section">
-                    <div className="metric-tabs" style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-                        {metrics.map(m => (
-                            <button
-                                key={m.id}
-                                onClick={() => handleMetricChange(m.id)}
-                                className={activeMetric === m.id ? 'glass active-metric' : 'glass'}
-                                style={{
-                                    padding: '0.8rem 1.5rem',
-                                    borderRadius: '16px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.8rem',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s ease',
-                                    border: activeMetric === m.id ? `1px solid ${m.color}` : '1px solid rgba(255,255,255,0.05)',
-                                    background: activeMetric === m.id ? `rgba(${parseInt(m.color.slice(1, 3), 16)}, ${parseInt(m.color.slice(3, 5), 16)}, ${parseInt(m.color.slice(5, 7), 16)}, 0.1)` : 'rgba(255,255,255,0.02)',
-                                    color: activeMetric === m.id ? 'white' : 'var(--text-secondary)',
-                                }}
-                            >
-                                <m.icon size={18} color={activeMetric === m.id ? m.color : 'currentColor'} />
-                                <span style={{ fontWeight: 600 }}>{m.label}</span>
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="chart-container glass" style={{
-                        padding: '2rem',
-                        borderRadius: '32px',
-                        height: '500px',
-                        position: 'relative',
-                        background: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0) 100%)',
-                        border: '1px solid rgba(255,255,255,0.05)'
-                    }}>
-                        <div style={{ marginBottom: '2rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem' }}>
-                                <div style={{ fontSize: '3rem', fontWeight: 900, letterSpacing: '-1px' }}>
-                                    {activeMetric === 'earnings' ? `$${statsSummary.lastValue.toFixed(2)}` : statsSummary.lastValue.toLocaleString()}
-                                </div>
-                                <div style={{
-                                    color: statsSummary.growth >= 0 ? '#10b981' : '#ef4444',
-                                    fontWeight: 700,
-                                    fontSize: '1.1rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '4px'
-                                }}>
-                                    {statsSummary.growth >= 0 ? '+' : ''}{statsSummary.growth.toFixed(1)}%
-                                    <Sparkles size={14} />
-                                </div>
+            <div className="perf-main-grid">
+                <div className="perf-canvas">
+                    {/* Main Timeline Section */}
+                    <div className="timeline-section glass">
+                        <div className="timeline-header">
+                            <div>
+                                <h2 className="card-title">Performance Timeline</h2>
+                                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Analyze trends over the last {activeRange} days</p>
                             </div>
-                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Today's {currentMetricInfo.label}</div>
+                            <div className="timeline-controls">
+                                {Object.keys(metricsMap).map(m => (
+                                    <button 
+                                        key={m}
+                                        onClick={() => setActiveMetric(m)}
+                                        className={`metric-toggle ${activeMetric === m ? 'active' : ''}`}
+                                    >
+                                        {metricsMap[m].label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-
-                        <ResponsiveContainer width="100%" height="70%">
-                            <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={currentMetricInfo.color} stopOpacity={0.6} />
-                                        <stop offset="50%" stopColor={currentMetricInfo.color} stopOpacity={0.2} />
-                                        <stop offset="95%" stopColor={currentMetricInfo.color} stopOpacity={0} />
-                                    </linearGradient>
-                                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                                        <feGaussianBlur stdDeviation="6" result="blur" />
-                                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                                    </filter>
-                                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
-                                    </pattern>
-                                </defs>
-                                <rect width="100%" height="100%" fill="url(#grid)" />
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                                <XAxis
-                                    dataKey="displayDate"
-                                    axisLine={false}
-                                    tickLine={false}
-                                    tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 12 }}
-                                    minTickGap={30}
-                                />
-                                <YAxis
-                                    hide
-                                    domain={['auto', 'auto']}
-                                />
-                                <Tooltip content={<CustomTooltip />} />
-
-                                {/* Secondary metric ghost layer for uniqueness */}
-                                {activeMetric === 'views' && (
-                                    <Area
-                                        type="monotone"
-                                        dataKey="likes"
-                                        stroke="rgba(236, 72, 153, 0.2)"
-                                        strokeWidth={1}
-                                        fill="transparent"
-                                        animationDuration={2000}
+                        
+                        <div style={{ width: '100%', height: '350px' }}>
+                            <ResponsiveContainer>
+                                <AreaChart data={performanceData}>
+                                    <defs>
+                                        <linearGradient id="mainGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor={metricsMap[activeMetric].color} stopOpacity={0.5} />
+                                            <stop offset="100%" stopColor={metricsMap[activeMetric].color} stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                    <XAxis 
+                                        dataKey="displayDate" 
+                                        axisLine={false} 
+                                        tickLine={false} 
+                                        tick={{ fill: 'var(--text-muted)', fontSize: 12 }} 
                                     />
-                                )}
-
-                                <Area
-                                    type="monotone"
-                                    dataKey={activeMetric}
-                                    stroke="transparent"
-                                    fillOpacity={1}
-                                    fill="url(#colorMetric)"
-                                    animationDuration={1500}
-                                />
-
-                                <Line
-                                    type="monotone"
-                                    dataKey={activeMetric}
-                                    stroke={currentMetricInfo.color}
-                                    strokeWidth={4}
-                                    dot={false}
-                                    activeDot={{
-                                        r: 6,
-                                        fill: '#fff',
-                                        stroke: currentMetricInfo.color,
-                                        strokeWidth: 4,
-                                        className: 'pulsing-dot'
-                                    }}
-                                    filter="url(#glow)"
-                                    animationDuration={1500}
-                                />
-
-                                <Line
-                                    type="monotone"
-                                    dataKey={activeMetric}
-                                    stroke="#fff"
-                                    strokeWidth={1}
-                                    strokeOpacity={0.3}
-                                    dot={false}
-                                    activeDot={false}
-                                    animationDuration={1500}
-                                />
-                            </ComposedChart>
-                        </ResponsiveContainer>
-
-                        {/* Final aesthetic overlay */}
-                        <div style={{
-                            position: 'absolute',
-                            top: 0, left: 0, right: 0, bottom: 0,
-                            pointerEvents: 'none',
-                            background: 'radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.1) 100%)',
-                            borderRadius: 'inherit'
-                        }} />
+                                    <YAxis 
+                                        axisLine={false} 
+                                        tickLine={false} 
+                                        tick={{ fill: 'var(--text-muted)', fontSize: 12 }}
+                                        tickFormatter={(val) => val >= 1000 ? `${(val/1000).toFixed(1)}k` : val}
+                                    />
+                                    <Tooltip 
+                                        contentStyle={{ 
+                                            background: 'rgba(0,0,0,0.8)', 
+                                            border: '1px solid var(--card-border)',
+                                            borderRadius: '12px',
+                                            backdropFilter: 'blur(10px)'
+                                        }}
+                                        itemStyle={{ color: metricsMap[activeMetric].color }}
+                                    />
+                                    <Area 
+                                        type="monotone" 
+                                        dataKey="value" 
+                                        stroke={metricsMap[activeMetric].color} 
+                                        strokeWidth={4} 
+                                        fill="url(#mainGradient)" 
+                                        animationDuration={1500}
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
-                </div>
 
-                <div className="insights-sidebar" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    <div className="glass" style={{ padding: '1.5rem', borderRadius: '24px' }}>
-                        <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <Info size={18} color="var(--accent-primary)" />
-                            Quick Insights
-                        </h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <div style={{ padding: '1rem', borderRadius: '16px', background: 'rgba(255,255,255,0.02)' }}>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Highest Growth Day</div>
-                                <div style={{ fontWeight: 700 }}>Feb 12, 2026</div>
-                                <div style={{ fontSize: '0.75rem', color: '#10b981' }}>+24.5% vs average</div>
-                            </div>
-                            <div style={{ padding: '1rem', borderRadius: '16px', background: 'rgba(255,255,255,0.02)' }}>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Monthly Total</div>
-                                <div style={{ fontWeight: 700 }}>
-                                    {activeMetric === 'earnings' ? `$${statsSummary.total.toFixed(2)}` : statsSummary.total.toLocaleString()}
+                    {/* Content Breakdown Section */}
+                    <div className="breakdown-grid">
+                        <div className="breakdown-card glass">
+                            <h3 className="card-title">
+                                <Play size={18} color="var(--accent-primary)" />
+                                Top Performing Content
+                            </h3>
+                            {contentBreakdownData.length === 0 ? (
+                                <div style={{ height: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', gap: '0.5rem' }}>
+                                    <Play size={32} strokeWidth={1} />
+                                    <p style={{ fontSize: '0.9rem' }}>No approved videos yet</p>
+                                </div>
+                            ) : (
+                                <div style={{ height: '300px' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={contentBreakdownData} layout="vertical" margin={{ left: 0, right: 16 }}>
+                                            <XAxis type="number" hide />
+                                            <YAxis
+                                                dataKey="name"
+                                                type="category"
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: 'rgba(255,255,255,0.85)', fontWeight: 600, fontSize: 11 }}
+                                                width={130}
+                                            />
+                                            <Tooltip
+                                                cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                                                contentStyle={{ background: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', backdropFilter: 'blur(10px)' }}
+                                                formatter={(v, n) => [n === 'views' ? v.toLocaleString() : `${v}%`, n === 'views' ? 'Views' : 'Engagement']}
+                                            />
+                                            <Bar dataKey="views" name="views" fill="#FF3B30" radius={[0, 6, 6, 0]} barSize={18} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="breakdown-card glass">
+                            <h3 className="card-title">
+                                <Target size={18} color="var(--chart-success)" />
+                                Engagement Distribution
+                            </h3>
+                            {/* Donut with centred overlay */}
+                            <div style={{ height: '280px', position: 'relative' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={audienceSplitData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={64}
+                                            outerRadius={84}
+                                            paddingAngle={audienceData && (audienceData.returning_viewers + audienceData.new_viewers) > 0 ? 8 : 0}
+                                            dataKey="value"
+                                        >
+                                            <Cell fill="#FF3B30" />
+                                            <Cell fill="#00E5FF" />
+                                        </Pie>
+                                        <Tooltip
+                                            contentStyle={{ background: 'rgba(0,0,0,0.9)', border: 'none', borderRadius: '8px', backdropFilter: 'blur(10px)' }}
+                                            formatter={(v, n) => [v.toLocaleString(), n]}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                {/* Absolute centre overlay */}
+                                <div className="donut-overlay">
+                                    <p style={{ fontSize: '1.8rem', fontWeight: 900, lineHeight: 1 }}>{loyaltyPct}%</p>
+                                    <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1.5px' }}>LOYALTY</p>
+                                </div>
+                                {/* Legend */}
+                                <div style={{ position: 'absolute', bottom: '12px', left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: '1.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)' }}>
+                                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#FF3B30', display: 'inline-block' }} />
+                                        Returning
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)' }}>
+                                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#00E5FF', display: 'inline-block' }} />
+                                        New
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <div
-                        onClick={() => setActiveTipIndex((prev) => (prev + 1) % editorTips.length)}
-                        className="glass hover-scale"
-                        style={{
-                            padding: '1.5rem',
-                            borderRadius: '24px',
-                            background: `linear-gradient(135deg, ${editorTips[activeTipIndex].color}15 0%, rgba(0,0,0,0) 100%)`,
-                            border: '1px solid rgba(255,255,255,0.05)',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            overflow: 'hidden'
-                        }}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.8rem' }}>
-                            <div style={{
-                                width: '32px',
-                                height: '32px',
-                                borderRadius: '8px',
-                                background: `${editorTips[activeTipIndex].color}20`,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}>
-                                {React.createElement(editorTips[activeTipIndex].icon, {
-                                    size: 18,
-                                    color: editorTips[activeTipIndex].color
-                                })}
-                            </div>
-                            <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>{editorTips[activeTipIndex].title}</h3>
-                        </div>
-                        <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', lineHeight: 1.6, margin: 0 }}>
-                            {editorTips[activeTipIndex].content}
-                        </p>
-                        <div style={{
-                            position: 'absolute',
-                            bottom: '1rem',
-                            right: '1rem',
-                            fontSize: '0.7rem',
-                            color: 'rgba(255,255,255,0.2)',
-                            fontWeight: 600
-                        }}>
-                            TAP TO CYCLE
-                        </div>
-                    </div>
                 </div>
+
+                {/* Intelligence Sidebar */}
+                <aside className="intelligence-sidebar">
+                    <GrowthScore intelligenceData={intelligenceData} />
+                    
+                    <IntelligencePanel insights={intelligenceData?.insights || []} />
+
+                    <div className="action-panel">
+                        <h4 className="card-title" style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>Next Actions</h4>
+                        <button className="action-btn primary" onClick={() => navigate('/upload')}>
+                            Schedule Next Flash upload
+                            <ChevronRight size={18} />
+                        </button>
+                        <button className="action-btn" onClick={() => navigate('/creator-hub')}>
+                            Join Gold Challenge
+                            <Target size={18} />
+                        </button>
+                        <button className="action-btn">
+                            Improve Low-performing clips
+                            <Zap size={18} />
+                        </button>
+                    </div>
+                </aside>
             </div>
         </div>
     );

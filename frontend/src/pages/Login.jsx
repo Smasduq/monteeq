@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Mail, Lock, User, Zap, ChevronRight, ShieldCheck, Key } from 'lucide-react';
+import { Mail, Lock, User, Zap, ChevronRight, ShieldCheck, Key, Loader2, Eye, EyeOff } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 
@@ -13,6 +13,8 @@ const Login = () => {
     const [availableMethods, setAvailableMethods] = useState([]);
     const [tempUsername, setTempUsername] = useState('');
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const { login, googleLogin, verifyLogin2FA } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
@@ -40,7 +42,9 @@ const Login = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isLoading) return;
         setError('');
+        setIsLoading(true);
         try {
             const res = await login({ username, password });
             
@@ -64,14 +68,17 @@ const Login = () => {
             }
         } catch (err) {
             setError(err.response?.data?.detail || 'Failed to login');
+        } finally {
+            setIsLoading(false);
         }
     };
 
     const handle2FAVerify = async (codeOverride) => {
         const codeToVerify = codeOverride || (authStep === 'totp' ? totpCode : recoveryCode);
-        if (!codeToVerify) return;
+        if (!codeToVerify || isLoading) return;
         
         setError('');
+        setIsLoading(true);
         try {
             const user = await verifyLogin2FA(tempUsername, codeToVerify);
             if (user && !user.is_onboarded) {
@@ -81,6 +88,8 @@ const Login = () => {
             }
         } catch (err) {
             setError(err.response?.data?.detail || 'Invalid verification code');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -138,19 +147,53 @@ const Login = () => {
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
                                     required
+                                    disabled={isLoading}
                                 />
                             </div>
                             <div className="input-group">
                                 <label>Password</label>
-                                <input
-                                    type="password"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                />
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type={showPassword ? "text" : "password"}
+                                        placeholder="••••••••"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        required
+                                        disabled={isLoading}
+                                        style={{ paddingRight: '2.5rem' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        style={{
+                                            position: 'absolute',
+                                            right: '10px',
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            background: 'none',
+                                            border: 'none',
+                                            color: 'var(--text-muted)',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            padding: '4px'
+                                        }}
+                                    >
+                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
                             </div>
-                            <button type="submit" className="auth-button">Sign In</button>
+                            <button
+                                type="submit"
+                                className="auth-button"
+                                disabled={isLoading}
+                                style={{ opacity: isLoading ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                            >
+                                {isLoading ? (
+                                    <><Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} /> Signing In…</>
+                                ) : 'Sign In'}
+                            </button>
                         </form>
 
                         <div className="auth-divider">OR</div>
@@ -197,6 +240,7 @@ const Login = () => {
                             <button 
                                 className="method-card glass" 
                                 onClick={() => setAuthStep('totp')}
+                                disabled={isLoading}
                             >
                                 <div className="method-icon-container totp">
                                     <Mail size={20} />
@@ -213,6 +257,7 @@ const Login = () => {
                             <button 
                                 className="method-card glass" 
                                 onClick={() => setAuthStep('recovery')}
+                                disabled={isLoading}
                             >
                                 <div className="method-icon-container recovery">
                                     <Key size={20} />
@@ -229,6 +274,7 @@ const Login = () => {
                             className="auth-link" 
                             style={{ background: 'none', border: 'none', padding: '1rem', marginTop: '0.5rem' }}
                             onClick={() => setAuthStep('credentials')}
+                            disabled={isLoading}
                         >
                             Back to Credentials
                         </button>
@@ -249,19 +295,28 @@ const Login = () => {
                                 maxLength={6}
                                 required
                                 autoFocus
+                                disabled={isLoading}
                             />
                             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.8rem', textAlign: 'center' }}>
                                 Enter the code from your authenticator app
                             </p>
                         </div>
-                        <button type="submit" className="auth-button">
-                            Verify & Continue
+                        <button
+                            type="submit"
+                            className="auth-button"
+                            disabled={isLoading}
+                            style={{ opacity: isLoading ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        >
+                            {isLoading ? (
+                                <><Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} /> Verifying…</>
+                            ) : 'Verify & Continue'}
                         </button>
                         <button 
                             type="button" 
                             className="auth-link" 
                             style={{ background: 'none', border: 'none', marginTop: '1rem', width: '100%' }}
                             onClick={() => setAuthStep(availableMethods.length > 1 ? 'methods' : 'credentials')}
+                            disabled={isLoading}
                         >
                             {availableMethods.length > 1 ? 'Switch Method' : 'Back to Login'}
                         </button>
@@ -281,19 +336,28 @@ const Login = () => {
                                 style={{ letterSpacing: '2px', textAlign: 'center', fontSize: '1.2rem', fontWeight: 600 }}
                                 required
                                 autoFocus
+                                disabled={isLoading}
                             />
                             <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.8rem', textAlign: 'center' }}>
                                 Enter a one-time use recovery code
                             </p>
                         </div>
-                        <button type="submit" className="auth-button">
-                            Sign In with Recovery Code
+                        <button
+                            type="submit"
+                            className="auth-button"
+                            disabled={isLoading}
+                            style={{ opacity: isLoading ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                        >
+                            {isLoading ? (
+                                <><Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} /> Signing In…</>
+                            ) : 'Sign In with Recovery Code'}
                         </button>
                         <button 
                             type="button" 
                             className="auth-link" 
                             style={{ background: 'none', border: 'none', marginTop: '1rem', width: '100%' }}
                             onClick={() => setAuthStep(availableMethods.length > 1 ? 'methods' : 'credentials')}
+                            disabled={isLoading}
                         >
                             {availableMethods.length > 1 ? 'Switch Method' : 'Back to Login'}
                         </button>
@@ -304,6 +368,13 @@ const Login = () => {
                 Don't have an account? <Link to="/signup" className="auth-link">Sign Up</Link>
             </div>
             </div>
+
+            <style>{`
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 };

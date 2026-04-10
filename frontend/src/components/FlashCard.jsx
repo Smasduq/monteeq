@@ -128,7 +128,7 @@ const FlashCard = ({ video, isActive, onLike, onComment, onShare, onFollow, mute
                 {video.status === 'pending' && (
                     <div className="status-overlay pending">
                         <Loader2 className="animate-spin" size={48} color="white" />
-                        <span>Rendering Montage...</span>
+                        <span>Rendering Monteeq...</span>
                     </div>
                 )}
 

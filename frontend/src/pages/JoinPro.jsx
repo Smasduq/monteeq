@@ -202,7 +202,7 @@ const JoinPro = () => {
 
         <div id="plans" className={s.plansSection}>
           <div className={s.header}>
-            <h1 className={s.title}>Level Up Your Montage Game</h1>
+            <h1 className={s.title}>Level Up Your Monteeq Game</h1>
             <p className={s.subtitle}>
               Join the elite league of creators with Monteeq Pro. Unlock 4K streaming, 
               priority transcoding, and zero commission on your earnings.

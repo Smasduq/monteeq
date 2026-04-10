@@ -1,0 +1,233 @@
+.v2Wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  user-select: none;
+}
+
+.videoElement {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Top Overlay (Credits) */
+.topOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 2.5rem 2rem;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: 10;
+}
+
+.topOverlay.visible {
+  opacity: 1;
+}
+
+.videoTitle {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 0.3rem;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.creatorName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Controls Overlay */
+.controlsOverlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 3rem 1.5rem 1.5rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.4) 40%, transparent 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: translateY(10px);
+  z-index: 20;
+}
+
+.controlsOverlay.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Seek Bar */
+.seekBarContainer {
+  position: relative;
+  height: 4px;
+  width: 100%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: height 0.2s ease;
+}
+
+.seekBarContainer:hover {
+  height: 8px;
+}
+
+.seekBarBg {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.seekBarProgress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #ff3b30;
+  border-radius: 4px;
+}
+
+.seekBarHandle {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  background: #ff3b30;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.2s ease;
+  box-shadow: 0 0 10px rgba(255, 59, 48, 0.5);
+}
+
+.seekBarContainer:hover .seekBarHandle {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* Bottom Controls */
+.bottomControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.group {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+.controlBtn {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s ease, color 0.2s ease;
+}
+
+.controlBtn:hover {
+  color: #ff3b30;
+  transform: scale(1.1);
+}
+
+.controlBtn:active {
+  transform: scale(0.9);
+}
+
+.timeDisplay {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Volume control extension */
+.volumeWrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow: hidden;
+  max-width: 40px;
+  transition: max-width 0.3s ease;
+}
+
+.volumeWrapper:hover {
+  max-width: 140px;
+}
+
+.volumeSlider {
+  width: 80px;
+  height: 4px;
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.volumeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border-radius: 50%;
+}
+
+/* Big Central Play/Pause */
+.centralControl {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 0;
+  transition: all 0.3s ease;
+  pointer-events: none;
+  z-index: 15;
+}
+
+.centralControl.visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+/* Cinematic Mode Effect */
+.cinematicActive {
+  background: #000 !important;
+  transition: background 0.8s ease;
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+  .v2Wrapper {
+    border-radius: 0;
+  }
+  .controlsOverlay {
+    padding: 2rem 1rem 1rem;
+  }
+}

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import VideoPreviewCard from '../components/VideoPreviewCard';
+import NativeFeedAd from '../components/ads/NativeFeedAd';
 import { VideoSkeleton, FlashSkeleton, HomeSkeleton } from '../components/Skeleton';
 
 const CATEGORIES = ["All", "Gaming", "Music", "Live", "Comedy", "Vlogs", "Recently uploaded", "News", "Sports", "Learning"];
@@ -194,13 +195,18 @@ const Home = () => {
                     )}
 
                     {videos.map((video, index) => (
-                        <VideoPreviewCard
-                            key={video.id}
-                            video={video}
-                            variant="grid"
-                            onClick={() => handleVideoClick(video.id)}
-                            ref={index === videos.length - 1 ? lastVideoElementRef : null}
-                        />
+                        <React.Fragment key={video.id}>
+                            <VideoPreviewCard
+                                video={video}
+                                variant="grid"
+                                onClick={() => handleVideoClick(video.id)}
+                                ref={index === videos.length - 1 ? lastVideoElementRef : null}
+                            />
+                            {/* Inject ad every 6 videos */}
+                            {(index + 1) % 6 === 0 && (
+                                <NativeFeedAd />
+                            )}
+                        </React.Fragment>
                     ))}
                 </div>
             </div>

@@ -16,5 +16,9 @@ dashmap = "5.5"
 fred = { version = "7.0", features = ["subscriber-client"] }
 tokio-stream = "0.1"
 dotenvy = "0.15"
+sysinfo = "0.29"
+async-trait = "0.1"
+aws-config = "1.1"
+aws-sdk-s3 = "1.1"
 [profile.release]
 opt-level = 3
