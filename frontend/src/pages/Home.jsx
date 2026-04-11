@@ -31,7 +31,7 @@ const Home = () => {
             if (entries[0].isIntersecting && hasMore) {
                 setSkip(prevSkip => prevSkip + 12);
             }
-        });
+        }, { threshold: 0.1 }); // Add threshold for smoother trigger
         if (node) observer.current.observe(node);
     }, [loading, loadingMore, hasMore]);
 

@@ -140,7 +140,7 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
                 try:
                     import sys
                     backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-                    recognition_script = os.path.join(backend_dir, "..", "video-service", "scripts", "video_recognition.py")
+                    recognition_script = os.path.join(backend_dir, "video-service", "scripts", "video_recognition.py")
                     
                     if os.path.exists(recognition_script):
                         rec_result = subprocess.run(
