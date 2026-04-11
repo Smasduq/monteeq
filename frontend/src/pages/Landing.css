@@ -1,10 +1,7 @@
 /* ====================================================================
    MONTEEQ LANDING PAGE
-   Unique typography: Clash Display (headings) + Satoshi (body)
-   Differentiated from About page which uses Syne + Space Grotesk
+   Modern Typography: Outfit (headings) + Plus Jakarta Sans (body)
    ==================================================================== */
-
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;600;700;800;900&display=swap');
 
 /* ── Houdini Props ─────────────────────────────────────────────────── */
 @property --ld-angle {
@@ -227,7 +224,7 @@
 
 /* Hero Title */
 .ld-hero-title {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Outfit', sans-serif;
   font-size: clamp(4rem, 10vw, 9rem);
   font-weight: 900;
   line-height: 0.9;
@@ -433,7 +430,7 @@
   animation: ld-line-trace 0.8s ease both;
 }
 .ld-h2 {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Outfit', sans-serif;
   font-size: clamp(2.2rem, 5vw, 4rem);
   font-weight: 800;
   letter-spacing: -2px;
@@ -538,7 +535,7 @@
 .ld-stat:hover::after { left: 150%; }
 .ld-stat-num {
   display: block;
-  font-family: 'Playfair Display', serif;
+  font-family: 'Outfit', sans-serif;
   font-size: 3.2rem;
   font-weight: 800;
   letter-spacing: -2px;
@@ -604,7 +601,7 @@
   transform: translateZ(20px);
 }
 .ld-card-title {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Outfit', sans-serif;
   font-size: 1rem;
   font-weight: 700;
   color: white;
@@ -640,7 +637,7 @@
   background: rgba(255,59,48,0.02);
 }
 .ld-step-num {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Outfit', sans-serif;
   font-size: 3rem;
   font-weight: 800;
   color: rgba(255,59,48,0.15);
@@ -648,7 +645,7 @@
   margin-bottom: 1.2rem;
 }
 .ld-step-title {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Outfit', sans-serif;
   font-size: 1.1rem;
   font-weight: 700;
   color: white;
@@ -685,7 +682,7 @@
   transform-style: preserve-3d;
 }
 .ld-proof-quote {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Outfit', sans-serif;
   font-size: clamp(1.2rem, 2.5vw, 1.6rem);
   font-weight: 700;
   color: white;
@@ -719,7 +716,7 @@
   pointer-events: none;
 }
 .ld-cta-title {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Outfit', sans-serif;
   font-size: clamp(2.5rem, 6vw, 4.5rem);
   font-weight: 800;
   letter-spacing: -2px;
@@ -767,7 +764,7 @@
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  font-family: 'Playfair Display', serif;
+  font-family: 'Outfit', sans-serif;
   font-weight: 800;
   font-size: 1.1rem;
 }
@@ -776,7 +773,7 @@
   display: flex; align-items: center; justify-content: center;
   border-radius: 8px;
   background: linear-gradient(135deg, #ff3b30, #cc2d25);
-  font-family: 'Playfair Display', serif;
+  font-family: 'Outfit', sans-serif;
   font-weight: 800;
   font-size: 1rem;
   color: white;
