@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { PageSkeleton } from './components/Skeleton';
 const Home = React.lazy(() => import('./pages/Home'));
+const Landing = React.lazy(() => import('./pages/Landing'));
 const Flash = React.lazy(() => import('./pages/Flash'));
 const Posts = React.lazy(() => import('./pages/Posts'));
 const Upload = React.lazy(() => import('./pages/Upload'));
@@ -59,6 +60,7 @@ function AppContent() {
   const navigate = useNavigate();
   const isFlashPage = location.pathname === '/flash';
   const isOnboardingPage = location.pathname === '/onboarding';
+  const isLandingPage = location.pathname === '/' && !token;
 
   // Redirection guard (Onboarding & Verification)
   React.useEffect(() => {
@@ -73,12 +75,14 @@ function AppContent() {
 
   return (
     <div className="app-container">
-      <ModernHeader
-        onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
-        isMenuOpen={isMenuOpen}
-      />
+      {!isLandingPage && (
+        <ModernHeader
+          onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
+          isMenuOpen={isMenuOpen}
+        />
+      )}
       <div className="app-layout">
-        <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+        {!isLandingPage && <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />}
         <main className={`main-stage ${isFlashPage ? 'no-padding' : ''}`}>
           <div style={{
             display: 'flex',
@@ -89,7 +93,7 @@ function AppContent() {
             <div style={{ flex: 1, minWidth: '300px' }}>
               <React.Suspense fallback={<PageSkeleton />}>
                 <Routes>
-                  <Route path="/" element={<Home />} />
+                  <Route path="/" element={token ? <Home /> : <Landing />} />
                   <Route path="/flash" element={<Flash />} />
                   <Route path="/watch/:id" element={<Watch />} />
                   <Route path="/search" element={<Search />} />

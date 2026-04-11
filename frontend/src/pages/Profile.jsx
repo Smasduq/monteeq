@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Users, Eye, Play, Zap, Grid, Heart, MessageSquare, Share2, Plus, Bell, Trophy, Calendar } from 'lucide-react';
+import { Users, Eye, Play, Zap, Grid, Heart, MessageSquare, Share2, Plus, Trophy, Calendar, Link2, Check } from 'lucide-react';
 import { getUserProfile, toggleFollow, getFollowers, getFollowing } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -11,7 +11,7 @@ const Profile = () => {
     const { username } = useParams();
     const navigate = useNavigate();
     const { token, user: currentUser } = useAuth();
-    const { showNotification, requestPushPermission } = useNotification();
+    const { showNotification } = useNotification();
 
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -20,6 +20,35 @@ const Profile = () => {
     const [followers, setFollowers] = useState([]);
     const [following, setFollowing] = useState([]);
     const [loadingSocial, setLoadingSocial] = useState(false);
+    const [shareSuccess, setShareSuccess] = useState(false);
+
+    const handleShareProfile = async () => {
+        const profileUrl = `${window.location.origin}/profile/${username}`;
+        const shareData = {
+            title: `${profile?.full_name || username} on Monteeq`,
+            text: `Check out @${username}'s profile on Monteeq`,
+            url: profileUrl
+        };
+
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+            } else {
+                await navigator.clipboard.writeText(profileUrl);
+                setShareSuccess(true);
+                showNotification('success', 'Profile link copied to clipboard!');
+                setTimeout(() => setShareSuccess(false), 2000);
+            }
+        } catch (err) {
+            // User cancelled share or fallback
+            if (err.name !== 'AbortError') {
+                await navigator.clipboard.writeText(profileUrl);
+                setShareSuccess(true);
+                showNotification('success', 'Profile link copied!');
+                setTimeout(() => setShareSuccess(false), 2000);
+            }
+        }
+    };
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -162,27 +191,26 @@ const Profile = () => {
                         {isOwnProfile ? (
                             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
                                 <button className="btn-active" onClick={() => navigate('/settings')} style={{ padding: '0.6rem 2rem', borderRadius: '50px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-glass)', color: 'white', fontSize: '0.9rem', fontWeight: 600 }}>Edit Profile</button>
-                                {Notification.permission !== 'granted' && (
-                                    <button
-                                        className="btn-active glass"
-                                        onClick={requestPushPermission}
-                                        style={{
-                                            padding: '0.6rem 1.5rem',
-                                            borderRadius: '50px',
-                                            background: 'rgba(var(--accent-rgb), 0.1)',
-                                            border: '1px solid var(--accent-primary)',
-                                            color: 'white',
-                                            fontSize: '0.9rem',
-                                            fontWeight: 600,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.5rem'
-                                        }}
-                                    >
-                                        <Bell size={16} />
-                                        Enable Notifications
-                                    </button>
-                                )}
+                                <button
+                                    className="btn-active glass"
+                                    onClick={handleShareProfile}
+                                    style={{
+                                        padding: '0.6rem 1.5rem',
+                                        borderRadius: '50px',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid var(--border-glass)',
+                                        color: 'white',
+                                        fontSize: '0.9rem',
+                                        fontWeight: 600,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                >
+                                    {shareSuccess ? <Check size={16} color="#4ade80" /> : <Share2 size={16} />}
+                                    {shareSuccess ? 'Copied!' : 'Share Profile'}
+                                </button>
                             </div>
                         ) : (
                             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -219,6 +247,26 @@ const Profile = () => {
                                 >
                                     <MessageSquare size={16} />
                                     Message
+                                </button>
+                                <button
+                                    className="btn-active glass"
+                                    onClick={handleShareProfile}
+                                    style={{
+                                        padding: '0.6rem',
+                                        borderRadius: '50px',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid var(--border-glass)',
+                                        color: 'white',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: '40px',
+                                        height: '40px',
+                                        transition: 'all 0.3s ease'
+                                    }}
+                                    title="Share Profile"
+                                >
+                                    {shareSuccess ? <Check size={16} color="#4ade80" /> : <Share2 size={16} />}
                                 </button>
                             </div>
                         )}

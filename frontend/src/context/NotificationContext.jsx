@@ -17,7 +17,6 @@ export const useNotification = () => {
 export const NotificationProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
     const { token, user } = useAuth();
-    const [pushSubscription, setPushSubscription] = useState(null);
     const [activeAchievement, setActiveAchievement] = useState(null);
     const [unreadCount, setUnreadCount] = useState(0);
     const unreadPollRef = useRef(null);
@@ -41,101 +40,10 @@ export const NotificationProvider = ({ children }) => {
             return;
         }
         fetchUnreadCount();
-        // Poll every 120s instead of 30s — much lighter on the server
+        // Poll every 120s — much lighter on the server
         unreadPollRef.current = setInterval(fetchUnreadCount, 120000);
         return () => clearInterval(unreadPollRef.current);
     }, [token, user, fetchUnreadCount]);
-
-    // VAPID Key from .env (re-encoded or used directly)
-    const VAPID_PUBLIC_KEY = "BJ59BMNtsBgH7B9YA3MbN2m_ee13nNPLv89Do1xlnotcb3QRJNQEr0dEimx8wzaxLpDOggtx03FTU895cZvGZWY";
-
-    const urlBase64ToUint8Array = (base64String) => {
-        const padding = '='.repeat((4 - base64String.length % 4) % 4);
-        const base64 = (base64String + padding)
-            .replace(/\-/g, '+')
-            .replace(/_/g, '/');
-        const rawData = window.atob(base64);
-        const outputArray = new Uint8Array(rawData.length);
-        for (let i = 0; i < rawData.length; ++i) {
-            outputArray[i] = rawData.charCodeAt(i);
-        }
-        return outputArray;
-    };
-
-    const subscribeUserToPush = useCallback(async () => {
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-            console.warn('Push messaging is not supported');
-            return;
-        }
-
-        try {
-            const registration = await navigator.serviceWorker.ready;
-
-            const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            });
-
-
-            // Send subscription to backend
-            const subJSON = subscription.toJSON();
-            const subPayload = {
-                endpoint: subJSON.endpoint,
-                p256dh: subJSON.keys.p256dh,
-                auth: subJSON.keys.auth
-            };
-
-
-            // Ensure we use the correct backend port or relative path
-            const response = await fetch(`/api/v1/notifications/push-subscriptions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(subPayload)
-            });
-
-            if (!response.ok) {
-                throw new Error('Backend failed to save subscription');
-            }
-
-            setPushSubscription(subscription);
-            console.log('User is subscribed to Push');
-        } catch (err) {
-            console.error('Failed to subscribe user: ', err);
-        }
-    }, [token]);
-
-    useEffect(() => {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js')
-                .then(registration => {
-                    console.log('SW Registered with scope: ', registration.scope);
-                })
-                .catch(err => {
-                    console.error('SW Registration failed: ', err);
-                });
-        }
-    }, []);
-
-    useEffect(() => {
-        if (token && user) {
-            // Check if we have permission
-            if (Notification.permission === 'granted') {
-                subscribeUserToPush();
-            }
-        }
-    }, [token, user, subscribeUserToPush]);
-
-    const requestPushPermission = useCallback(async () => {
-        if (!('Notification' in window)) return;
-
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-            await subscribeUserToPush();
-        }
-    }, [subscribeUserToPush]);
 
     const showNotification = useCallback((type, message, options = {}) => {
         const id = Math.random().toString(36).substr(2, 9);
@@ -174,8 +82,6 @@ export const NotificationProvider = ({ children }) => {
             removeNotification,
             notifications,
             clearAll,
-            requestPushPermission,
-            pushSubscription,
             activeAchievement,
             showAchievementCelebration: setActiveAchievement,
             unreadCount,
