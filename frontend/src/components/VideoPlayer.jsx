@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import Hls from 'hls.js';
 import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Settings, Monitor, Square, ChevronRight, ChevronLeft } from 'lucide-react';
 import styles from './VideoPlayer.module.css';
-import { initView, sendHeartbeat } from '../api';
+import { initView, sendHeartbeat, API_BASE_URL } from '../api';
 import { useAuth } from '../context/AuthContext';
 import PreRollPlayer from './ads/PreRollPlayer';
 import PauseOverlayAd from './ads/PauseOverlayAd';
@@ -40,16 +40,26 @@ const VideoPlayer = ({
   const [showPreRoll, setShowPreRoll] = useState(true); // Always show for demo, or logic based on views
   const controlsTimeout = useRef(null);
 
+  // Use Proxy Stream to bypass CORS
+  const streamUrl = useMemo(() => {
+    if (videoId && src && src.startsWith('http')) {
+      return `${API_BASE_URL}/videos/${videoId}/stream`;
+    }
+    return src;
+  }, [src, videoId]);
+
   // Initialize HLS
   useEffect(() => {
     if (!videoRef.current) return;
 
-    if (Hls.isSupported() && src?.endsWith('.m3u8')) {
+    const sourceToUse = streamUrl;
+
+    if (Hls.isSupported() && sourceToUse?.includes('.m3u8')) {
       const hls = new Hls({
         capLevelToPlayerSize: true,
         autoStartLoad: true,
       });
-      hls.loadSource(src);
+      hls.loadSource(sourceToUse);
       hls.attachMedia(videoRef.current);
       hlsRef.current = hls;
 
@@ -62,13 +72,13 @@ const VideoPlayer = ({
       };
     } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
       // Native HLS support (Safari)
-      videoRef.current.src = src;
+      videoRef.current.src = sourceToUse;
       if (autoPlay) videoRef.current.play().catch(() => {});
     } else {
       // Fallback for standard MP4
-      videoRef.current.src = src;
+      videoRef.current.src = sourceToUse;
     }
-  }, [src, autoPlay]);
+  }, [streamUrl, autoPlay]);
 
   // Keyboard Listeners
   useEffect(() => {
@@ -261,6 +271,7 @@ const VideoPlayer = ({
         onClick={togglePlay}
         onTimeUpdate={handleTimeUpdate}
         playsInline
+        crossOrigin="anonymous"
       />
 
       {/* Strategic Ads */}

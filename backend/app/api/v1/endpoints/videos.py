@@ -3,7 +3,8 @@ import os
 import shutil
 import tempfile
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -57,6 +58,46 @@ def read_videos(
             pass
             
     return videos
+
+@router.get("/{video_id}/stream/{sub_path:path}")
+@router.get("/{video_id}/stream")
+async def stream_video(video_id: int, request: Request, db: Session = Depends(get_db), sub_path: str = None):
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+        
+    base_url = video.video_url
+    if not base_url:
+        raise HTTPException(status_code=400, detail="Video has no URL")
+
+    # Construct the proxy target URL
+    target_url = base_url
+    if sub_path:
+        import os
+        base_dir = os.path.dirname(base_url)
+        target_url = f"{base_dir}/{sub_path}"
+
+    async def get_stream():
+        client = httpx.AsyncClient(timeout=None) 
+        range_header = request.headers.get("Range")
+        headers = {"Range": range_header} if range_header else {}
+        
+        req = client.build_request("GET", target_url, headers=headers)
+        resp = await client.send(req, stream=True)
+        
+        return StreamingResponse(
+            resp.aiter_bytes(),
+            status_code=resp.status_code,
+            headers={
+                "Content-Type": resp.headers.get("Content-Type", "video/mp4"),
+                "Content-Length": resp.headers.get("Content-Length"),
+                "Content-Range": resp.headers.get("Content-Range"),
+                "Accept-Ranges": "bytes",
+            },
+            background=BackgroundTasks([resp.aclose, client.aclose])
+        )
+
+    return await get_stream()
 
 @router.get("/search", response_model=List[schemas.Video])
 async def search_videos(
