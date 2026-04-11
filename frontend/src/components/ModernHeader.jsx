@@ -227,7 +227,7 @@ const ModernHeader = ({ onMenuToggle, isMenuOpen }) => {
                                     <Settings size={18} /> Settings
                                 </button>
                                 {user?.role === 'admin' && (
-                                    <button className={s.menuItem} onClick={() => window.location.href = 'http://localhost:5174'}>
+                                    <button className={s.menuItem} onClick={() => { setShowProfileMenu(false); navigate('/admin'); }}>
                                         <Shield size={18} /> Admin Panel
                                     </button>
                                 )}

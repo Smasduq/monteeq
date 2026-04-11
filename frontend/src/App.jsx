@@ -33,6 +33,7 @@ const PartnerV2 = React.lazy(() => import('./pages/PartnerV2'));
 const Challenges = React.lazy(() => import('./pages/Challenges'));
 const About = React.lazy(() => import('./pages/About'));
 const JoinPro = React.lazy(() => import('./pages/JoinProV2'));
+const AdminPortal = React.lazy(() => import('./pages/AdminPortal'));
 import NotificationManager from './components/NotificationManager';
 
 import Sidebar from './components/Sidebar';
@@ -118,6 +119,7 @@ function AppContent() {
                   <Route path="/about" element={<About />} />
                   <Route path="/pro" element={<JoinPro />} />
                   <Route path="/verify" element={<ProtectedRoute><Verify /></ProtectedRoute>} />
+                  <Route path="/admin" element={<AdminPortal />} />
                 </Routes>
               </React.Suspense>
             </div>
