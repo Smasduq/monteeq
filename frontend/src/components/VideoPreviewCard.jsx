@@ -1,23 +1,42 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Play, AlertTriangle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const VideoPreviewCard = ({ video, onClick, variant = 'grid' }) => {
+const VideoPreviewCard = React.memo(React.forwardRef(({ video, onClick, variant = 'grid' }, ref) => {
     const navigate = useNavigate();
-    const [isHovered, setIsHovered] = useState(false);
+    const [showPreview, setShowPreview] = useState(false);
     const videoRef = useRef(null);
+    const hoverTimerRef = useRef(null);
     const [isLoaded, setIsLoaded] = useState(false);
 
+    const handleMouseEnter = useCallback(() => {
+        // Debounce: only load video preview after 300ms of sustained hover
+        hoverTimerRef.current = setTimeout(() => {
+            setShowPreview(true);
+        }, 300);
+    }, []);
+
+    const handleMouseLeave = useCallback(() => {
+        clearTimeout(hoverTimerRef.current);
+        setShowPreview(false);
+        setIsLoaded(false);
+    }, []);
+
+    // Cleanup timer on unmount
     useEffect(() => {
-        if (isHovered && videoRef.current) {
+        return () => clearTimeout(hoverTimerRef.current);
+    }, []);
+
+    useEffect(() => {
+        if (showPreview && videoRef.current) {
             videoRef.current.play().catch(err => {
                 console.warn("Preview autoplay failed:", err);
             });
-        } else if (!isHovered && videoRef.current) {
+        } else if (!showPreview && videoRef.current) {
             videoRef.current.pause();
             videoRef.current.currentTime = 0;
         }
-    }, [isHovered]);
+    }, [showPreview]);
 
     const formatDuration = (seconds) => {
         if (!seconds) return "";
@@ -60,9 +79,10 @@ const VideoPreviewCard = ({ video, onClick, variant = 'grid' }) => {
 
     return (
         <div
+            ref={ref}
             className={`video-card-v2 ${variant === 'list' ? 'vc-list' : 'vc-grid'}`}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
             onClick={onClick}
         >
             {/* Thumbnail Section */}
@@ -71,11 +91,13 @@ const VideoPreviewCard = ({ video, onClick, variant = 'grid' }) => {
                     <img
                         src={video.thumbnail_url || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=60"}
                         alt={video.title}
-                        className={`vc-img ${isHovered && isLoaded ? 'vc-img-hide' : ''}`}
+                        className={`vc-img ${showPreview && isLoaded ? 'vc-img-hide' : ''}`}
+                        loading="lazy"
+                        decoding="async"
                     />
                     
-                    {/* Video Preview */}
-                    {isHovered && (
+                    {/* Video Preview — only mounts after debounced hover */}
+                    {showPreview && (
                         <video
                             ref={videoRef}
                             src={video.video_url}
@@ -109,7 +131,7 @@ const VideoPreviewCard = ({ video, onClick, variant = 'grid' }) => {
                     )}
 
                     {/* Hover indicator */}
-                    {isHovered && isLoaded && (
+                    {showPreview && isLoaded && (
                         <div className="vc-play-indicator">
                             <Play size={12} fill="white" />
                         </div>
@@ -123,7 +145,7 @@ const VideoPreviewCard = ({ video, onClick, variant = 'grid' }) => {
                     {variant === 'grid' && (
                         <div className="vc-avatar" onClick={handleAvatarClick}>
                             {video.owner?.profile_pic ? (
-                                <img src={video.owner.profile_pic} alt="" />
+                                <img src={video.owner.profile_pic} alt="" loading="lazy" />
                             ) : (
                                 <span>{video.owner?.username?.[0].toUpperCase()}</span>
                             )}
@@ -145,7 +167,9 @@ const VideoPreviewCard = ({ video, onClick, variant = 'grid' }) => {
             </div>
         </div>
     );
-};
+}));
+
+VideoPreviewCard.displayName = 'VideoPreviewCard';
 
 export default VideoPreviewCard;
 

@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
-import { getUnreadNotifications, markNotificationRead } from '../api';
+import { markNotificationRead } from '../api';
 import AchievementPopup from './AchievementPopup';
 
 const NotificationManager = () => {
     const { token, user } = useAuth();
-    const { showNotification, activeAchievement, showAchievementCelebration } = useNotification();
+    const { showNotification, activeAchievement, showAchievementCelebration, fetchUnreadCount } = useNotification();
 
     const handleClosePopup = async () => {
         if (activeAchievement) {
@@ -24,7 +24,8 @@ const NotificationManager = () => {
 
         const pollNotifications = async () => {
             try {
-                const notifications = await getUnreadNotifications(token);
+                // Use the centralized fetch which also updates unreadCount
+                const notifications = await fetchUnreadCount();
                 if (notifications && notifications.length > 0) {
                     for (const note of notifications) {
                         // If it's an achievement and we aren't already showing one
@@ -51,8 +52,8 @@ const NotificationManager = () => {
             }
         };
 
-        // Poll every 60 seconds for production constraints
-        const intervalId = setInterval(pollNotifications, 60000);
+        // Poll every 120 seconds — centralized polling in context handles the count
+        const intervalId = setInterval(pollNotifications, 120000);
 
         // Initial check
         pollNotifications();
@@ -73,3 +74,4 @@ const NotificationManager = () => {
 };
 
 export default NotificationManager;
+

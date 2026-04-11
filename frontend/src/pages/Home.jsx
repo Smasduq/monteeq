@@ -142,7 +142,7 @@ const Home = () => {
         <div className="home-container page-container">
             {/* Hero Section */}
             <section className="hero-section">
-                <img src={featured.image} alt="Featured" className="hero-image" />
+                <img src={featured.image} alt="Featured" className="hero-image" fetchpriority="high" />
                 <div className="hero-content">
                     <div className="hero-badge">
                         <Flame size={14} /> <span>PREMIUM FEATURE</span>
@@ -250,7 +250,7 @@ const Home = () => {
                                     background: 'var(--bg-surface)',
                                     boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
                                 }}>
-                                    <img src={flash.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <img src={flash.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" decoding="async" />
                                     <div style={{
                                         position: 'absolute',
                                         bottom: 0,

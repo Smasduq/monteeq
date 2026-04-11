@@ -64,7 +64,9 @@ backend/static/*
 !backend/static/defaults/
 
 # JavaScript
+node_modules/
 frontend/node_modules/
+admin-dashboard/node_modules/
 frontend/dist/
 admin-dashboard/dist/
 *.log

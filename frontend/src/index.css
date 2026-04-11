@@ -79,7 +79,7 @@ video {
   --radius-xl: 1.5rem;
   --radius-lg: 20px;
   --radius-md: 14px;
-  --glass-blur: blur(10px);
+  --glass-blur: blur(8px);
   /* Deep Tech Shadows & Borders */
   --border-glass: rgba(255, 255, 255, 0.08);
   --inner-glow: 0 0 0 0.5px var(--border-glass);
@@ -175,9 +175,11 @@ h3,
   position: sticky;
   top: 0;
   backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   background: var(--bg-glass);
   border-bottom: 1px solid var(--border-subtle);
   transition: var(--transition-smooth);
+  will-change: backdrop-filter;
 }
 
 .main-header.scrolled {
@@ -822,8 +824,10 @@ h3,
   overflow-y: auto;
   overflow-x: hidden;
   background: var(--bg-glass);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-right: 1px solid var(--border-glass);
+  will-change: backdrop-filter;
 }
 
 .sidebar.open {
@@ -1143,8 +1147,7 @@ h3,
   justify-content: space-around;
   align-items: center;
   z-index: 1200;
-  background: var(--bg-glass);
-  backdrop-filter: blur(20px);
+  background: rgba(0, 0, 0, 0.92);
   border-top: 1px solid var(--border-glass);
   padding: 0 1rem;
 }
@@ -3541,4 +3544,20 @@ input:checked+.toggle-slider:before {
     opacity: 1;
     transform: translateX(0);
   }
+}
+
+/* Native Feed Ad Styles (moved from inline <style> tag) */
+.ad-native {
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ad-native:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 30px rgba(255, 60, 60, 0.1);
+}
+
+.ad-native:hover .vc-img {
+  transform: scale(1.05);
+  opacity: 1;
 }

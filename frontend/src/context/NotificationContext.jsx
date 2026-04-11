@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { CheckCircle, AlertCircle, Info, Loader2, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
+import { getUnreadNotifications } from '../api';
 
 const NotificationContext = createContext();
 
@@ -18,6 +19,32 @@ export const NotificationProvider = ({ children }) => {
     const { token, user } = useAuth();
     const [pushSubscription, setPushSubscription] = useState(null);
     const [activeAchievement, setActiveAchievement] = useState(null);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const unreadPollRef = useRef(null);
+
+    // Centralized unread notification polling (single source of truth)
+    const fetchUnreadCount = useCallback(async () => {
+        if (!token) return;
+        try {
+            const data = await getUnreadNotifications(token);
+            setUnreadCount(Array.isArray(data) ? data.length : 0);
+            return data;
+        } catch (e) {
+            console.error('Failed to fetch unread notifications', e);
+            return [];
+        }
+    }, [token]);
+
+    useEffect(() => {
+        if (!token || !user) {
+            setUnreadCount(0);
+            return;
+        }
+        fetchUnreadCount();
+        // Poll every 120s instead of 30s — much lighter on the server
+        unreadPollRef.current = setInterval(fetchUnreadCount, 120000);
+        return () => clearInterval(unreadPollRef.current);
+    }, [token, user, fetchUnreadCount]);
 
     // VAPID Key from .env (re-encoded or used directly)
     const VAPID_PUBLIC_KEY = "BJ59BMNtsBgH7B9YA3MbN2m_ee13nNPLv89Do1xlnotcb3QRJNQEr0dEimx8wzaxLpDOggtx03FTU895cZvGZWY";
@@ -150,7 +177,9 @@ export const NotificationProvider = ({ children }) => {
             requestPushPermission,
             pushSubscription,
             activeAchievement,
-            showAchievementCelebration: setActiveAchievement
+            showAchievementCelebration: setActiveAchievement,
+            unreadCount,
+            fetchUnreadCount
         }}>
             {children}
             <NotificationContainer notifications={notifications} removeNotification={removeNotification} />
