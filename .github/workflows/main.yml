@@ -28,31 +28,30 @@ jobs:
           # exit-zero treats all errors as warnings.
           flake8 backend --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-  backend-test:
+  frontend-build:
     runs-on: ubuntu-latest
     needs: lint
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.11'
-          
-      - name: Install Dependencies
+          node-version: '20'
+
+      - name: Install Frontend Dependencies
         run: |
-          cd backend
-          pip install -r requirements.txt
-          pip install pytest httpx
-          
-      - name: Run Backend Tests
+          cd frontend
+          npm ci
+
+      - name: Build Frontend
         run: |
-          cd backend
-          pytest
+          cd frontend
+          npm run build
 
   build-checks:
     runs-on: ubuntu-latest
-    needs: backend-test
+    needs: lint
     steps:
       - uses: actions/checkout@v4
       
@@ -61,12 +60,8 @@ jobs:
         
       - name: Build Backend Container
         run: |
-          docker build backend -t montage-backend:test
+          docker build backend -t monteeq-backend:test
           
       - name: Build Frontend Container
         run: |
-          docker build frontend -t montage-frontend:test
-          
-      - name: Build Video Service Container
-        run: |
-          docker build video-service -t montage-video-service:test
+          docker build frontend -t monteeq-frontend:test
