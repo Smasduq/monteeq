@@ -1,6 +1,7 @@
 export const BASE_URL = import.meta.env.VITE_API_URL || '';
 const API_URL = import.meta.env.VITE_API_URL || '';
-export const API_BASE_URL = `${API_URL}/api/v1`;
+// In development, we use the Vite proxy (relative paths). In production, we use the full URL if provided.
+export const API_BASE_URL = API_URL ? `${API_URL}/api/v1` : '/api/v1';
 
 export const login = async (username, password) => {
     const formData = new FormData();

@@ -5,6 +5,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { PageSkeleton } from './components/Skeleton';
+
 const Home = React.lazy(() => import('./pages/Home'));
 const Landing = React.lazy(() => import('./pages/Landing'));
 const Flash = React.lazy(() => import('./pages/Flash'));
@@ -20,7 +21,6 @@ const Verify = React.lazy(() => import('./pages/Verify'));
 const Search = React.lazy(() => import('./pages/Search'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const Profile = React.lazy(() => import('./pages/Profile'));
-const ManageVideos = React.lazy(() => import('./pages/ManageVideos'));
 const ManageContent = React.lazy(() => import('./pages/ManageContent'));
 const Achievements = React.lazy(() => import('./pages/Achievements'));
 const Notifications = React.lazy(() => import('./pages/Notifications'));
@@ -34,8 +34,8 @@ const Challenges = React.lazy(() => import('./pages/Challenges'));
 const About = React.lazy(() => import('./pages/About'));
 const JoinPro = React.lazy(() => import('./pages/JoinProV2'));
 const AdminPortal = React.lazy(() => import('./pages/AdminPortal'));
-import NotificationManager from './components/NotificationManager';
 
+import NotificationManager from './components/NotificationManager';
 import Sidebar from './components/Sidebar';
 import ModernHeader from './components/ModernHeader';
 import './index.css';
@@ -61,7 +61,7 @@ function AppContent() {
   const navigate = useNavigate();
   const isFlashPage = location.pathname === '/flash';
   const isOnboardingPage = location.pathname === '/onboarding';
-  const isLandingPage = location.pathname === '/' && !token;
+  const isLandingPage = !token && location.pathname === '/';
 
   // Redirection guard (Onboarding & Verification)
   React.useEffect(() => {
@@ -72,7 +72,7 @@ function AppContent() {
         navigate('/onboarding');
       }
     }
-  }, [token, user, location.pathname]);
+  }, [token, user, location.pathname, navigate]);
 
   return (
     <div className="app-container">
@@ -82,16 +82,16 @@ function AppContent() {
           isMenuOpen={isMenuOpen}
         />
       )}
-      <div className="app-layout">
+      <div className={isLandingPage ? "" : "app-layout"}>
         {!isLandingPage && <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />}
-        <main className={`main-stage ${isFlashPage ? 'no-padding' : ''}`}>
-          <div style={{
+        <main className={isLandingPage ? "landing-page-main" : `main-stage ${isFlashPage ? 'no-padding' : ''}`}>
+          <div className={isLandingPage ? "" : "content-wrapper"} style={isLandingPage ? {} : {
             display: 'flex',
             gap: '2rem',
             width: '100%',
             flexWrap: 'wrap'
           }}>
-            <div style={{ flex: 1, minWidth: '300px' }}>
+            <div style={isLandingPage ? { width: '100%' } : { flex: 1, minWidth: '300px' }}>
               <React.Suspense fallback={<PageSkeleton />}>
                 <Routes>
                   <Route path="/" element={token ? <Home /> : <Landing />} />
@@ -119,7 +119,7 @@ function AppContent() {
                   <Route path="/about" element={<About />} />
                   <Route path="/pro" element={<JoinPro />} />
                   <Route path="/verify" element={<ProtectedRoute><Verify /></ProtectedRoute>} />
-                  <Route path="/admin" element={<AdminPortal />} />
+                  <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminPortal /></ProtectedRoute>} />
                 </Routes>
               </React.Suspense>
             </div>

@@ -72,8 +72,8 @@ const Signup = () => {
         setIsLoading(true);
         try {
             await signup({ username, full_name: fullName, email, password });
-            // Login immediately to trigger verification flow
             await login({ username, password });
+            navigate('/');
         } catch (err) {
             setError(err.response?.data?.detail || 'Failed to sign up');
         } finally {
