@@ -10,7 +10,13 @@ if SQLALCHEMY_DATABASE_URL and SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
         SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
     )
 else:
-    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        pool_size=10,        # Standard starting pool size
+        max_overflow=20,     # Allow up to 20 extra connections under burst load
+        pool_timeout=30,     # 30 seconds wait for a connection
+        pool_recycle=1800,   # Recycle connections every 30 minutes
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

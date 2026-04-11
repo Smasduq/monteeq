@@ -1,0 +1,18 @@
+{
+  "name": "monteeq-monorepo",
+  "version": "1.0.0",
+  "description": "Monteeq Video Platform Monorepo",
+  "scripts": {
+    "install:all": "npm install --prefix frontend && npm install --prefix admin-dashboard",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "cd backend && uvicorn main:app --reload",
+    "dev:video": "cd video-service && cargo run",
+    "dev": "npx concurrently \"npm run dev:frontend\" \"npm run dev:backend\" \"npm run dev:video\"",
+    "build:frontend": "npm run build --prefix frontend",
+    "build": "npm run build:frontend",
+    "preview": "npm run preview --prefix frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
