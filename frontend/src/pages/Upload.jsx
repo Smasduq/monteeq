@@ -80,8 +80,9 @@ const Upload = () => {
     const { showNotification, updateNotification, removeNotification } = useNotification();
 
     const handleUpload = async () => {
-        if (!file || !title) {
-            showNotification('error', "Please select a file and provide a title.");
+        const isPost = currentType === 'posts';
+        if ((!isPost && !file) || !title) {
+            showNotification('error', isPost ? "Please provide post content." : "Please select a file and provide a title.");
             return;
         }
 
