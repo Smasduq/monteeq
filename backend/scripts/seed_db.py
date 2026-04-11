@@ -22,11 +22,17 @@ def seed():
                 full_name="Iced Mist",
                 hashed_password=get_password_hash("Monteeq2026!"),
                 role="admin",
+                is_verified=True,
                 is_onboarded=True
             )
             db.add(admin_user)
             db.commit()
             db.refresh(admin_user)
+        else:
+            # Ensure existing test user is verified and onboarded to avoid loops
+            admin_user.is_verified = True
+            admin_user.is_onboarded = True
+            db.commit()
         
         # Create a sample video
         video_count = db.query(Video).count()

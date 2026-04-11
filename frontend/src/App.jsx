@@ -31,9 +31,10 @@ const Onboarding = React.lazy(() => import('./pages/Onboarding'));
 const PartnerV2 = React.lazy(() => import('./pages/PartnerV2'));
 const Challenges = React.lazy(() => import('./pages/Challenges'));
 const About = React.lazy(() => import('./pages/About'));
+const Landing = React.lazy(() => import('./pages/Landing'));
 const JoinPro = React.lazy(() => import('./pages/JoinProV2'));
-import NotificationManager from './components/NotificationManager';
 
+import NotificationManager from './components/NotificationManager';
 import Sidebar from './components/Sidebar';
 import ModernHeader from './components/ModernHeader';
 import './index.css';
@@ -59,6 +60,7 @@ function AppContent() {
   const navigate = useNavigate();
   const isFlashPage = location.pathname === '/flash';
   const isOnboardingPage = location.pathname === '/onboarding';
+  const isLandingPage = !token && location.pathname === '/';
 
   // Redirection guard (Onboarding & Verification)
   React.useEffect(() => {
@@ -73,23 +75,25 @@ function AppContent() {
 
   return (
     <div className="app-container">
-      <ModernHeader
-        onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
-        isMenuOpen={isMenuOpen}
-      />
-      <div className="app-layout">
-        <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
-        <main className={`main-stage ${isFlashPage ? 'no-padding' : ''}`}>
-          <div style={{
+      {!isLandingPage && (
+        <ModernHeader
+          onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
+          isMenuOpen={isMenuOpen}
+        />
+      )}
+      <div className={isLandingPage ? "" : "app-layout"}>
+        {!isLandingPage && <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />}
+        <main className={isLandingPage ? "landing-page-main" : `main-stage ${isFlashPage ? 'no-padding' : ''}`}>
+          <div className={isLandingPage ? "" : "content-wrapper"} style={isLandingPage ? {} : {
             display: 'flex',
             gap: '2rem',
             width: '100%',
             flexWrap: 'wrap'
           }}>
-            <div style={{ flex: 1, minWidth: '300px' }}>
+            <div style={isLandingPage ? { width: '100%' } : { flex: 1, minWidth: '300px' }}>
               <React.Suspense fallback={<PageSkeleton />}>
                 <Routes>
-                  <Route path="/" element={<Home />} />
+                  <Route path="/" element={token ? <Home /> : <Landing />} />
                   <Route path="/flash" element={<Flash />} />
                   <Route path="/watch/:id" element={<Watch />} />
                   <Route path="/search" element={<Search />} />

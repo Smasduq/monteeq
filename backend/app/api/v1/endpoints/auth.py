@@ -63,17 +63,13 @@ def register_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="Username already taken")
     
-    user = crud_user.create_user(db, user=user_in, is_onboarded=False)
-    
-    # Generate verification code and send email
-    code = crud_user.create_verification_code(db, email=user.email)
-    sent = send_verification_email(user.email, code)
-    if not sent:
-        # Already logged inside email service; keep going — dev fallback printed
-        pass
+    user = crud_user.create_user(db, user=user_in, is_onboarded=True)
+    user.is_verified = True
+    db.commit()
+    db.refresh(user)
     
     return {
-        "message": "Registration successful. Please check your email for the verification code.",
+        "message": "Registration successful. Welcome to Monteeq!",
         "email": user.email,
         "username": user.username
     }
