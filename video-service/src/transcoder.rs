@@ -210,9 +210,9 @@ async fn transcode_tiered(
 
     if let Some(ref map) = status_map {
         map.insert(task_id, TaskStatus {
-            progress: 30,
+            progress: 15,
             status: "processing".to_string(),
-            message: format!("Transcoding started (Tier: {:?})", config.preset),
+            message: format!("Compressing and optimizing video (Tier: {:?})", tier),
         });
     }
 
