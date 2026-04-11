@@ -28,6 +28,14 @@ def mark_notification_read(
         raise HTTPException(status_code=404, detail="Notification not found")
     return notification
 
+@router.put("/read-all")
+def mark_all_notifications_read(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(dependencies.get_current_user)
+):
+    crud_notification.mark_all_notifications_read(db, user_id=current_user.id)
+    return {"message": "All notifications marked as read"}
+
 @router.get("/", response_model=List[schemas.Notification])
 def read_notifications(
     skip: int = 0,

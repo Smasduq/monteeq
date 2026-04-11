@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getAllNotifications, markNotificationRead } from '../api';
+import { getAllNotifications, markNotificationRead, markAllNotificationsRead } from '../api';
 import { useNotification } from '../context/NotificationContext';
 import { Bell, CheckCircle, Info, AlertCircle, Calendar, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -30,6 +30,8 @@ const Notifications = () => {
         }
     }, [user, token]);
 
+    };
+    
     const handleMarkAsRead = async (id, e) => {
         if (e) e.stopPropagation(); // Don't trigger navigation if clicking mark read
         try {
@@ -39,6 +41,15 @@ const Notifications = () => {
             ));
         } catch (error) {
             console.error("Failed to mark read:", error);
+        }
+    };
+    
+    const handleMarkAllRead = async () => {
+        try {
+            await markAllNotificationsRead(token);
+            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        } catch (error) {
+            console.error("Failed to mark all read:", error);
         }
     };
 
@@ -76,10 +87,15 @@ const Notifications = () => {
                 <div className="header-icon-container">
                     <Bell size={32} color="var(--accent-primary)" />
                 </div>
-                <div>
+                <div style={{ flex: 1 }}>
                     <h1>Notifications</h1>
                     <p>Stay updated with your latest activity</p>
                 </div>
+                {notifications.some(n => !n.is_read) && (
+                    <button className="mark-all-btn glass" onClick={handleMarkAllRead}>
+                        Mark all as read
+                    </button>
+                )}
             </div>
 
             <div className="notifications-list">
@@ -242,6 +258,24 @@ const Notifications = () => {
                 .empty-icon {
                     opacity: 0.2;
                     margin-bottom: 0.5rem;
+                }
+                
+                .mark-all-btn {
+                    padding: 0.8rem 1.5rem;
+                    border-radius: 50px;
+                    border: 1px solid var(--border-glass);
+                    background: rgba(255,255,255,0.05);
+                    color: var(--text-primary);
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                }
+                
+                .mark-all-btn:hover {
+                    background: var(--accent-primary);
+                    color: white;
+                    border-color: var(--accent-primary);
+                    box-shadow: 0 0 20px rgba(255, 62, 62, 0.4);
                 }
             `}</style>
         </div>

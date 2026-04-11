@@ -232,7 +232,7 @@ def toggle_like(db: Session, user_id: int, video_id: Optional[int] = None, post_
                     link = "/posts"
 
             if target and target.owner_id != user_id:
-                notify_user_push(db, target.owner_id, "New Like!", msg, link=link)
+                notify_user_push(db, target.owner_id, "New Like!", msg, link=link, n_type="like")
         except Exception:
             pass
 
@@ -376,7 +376,7 @@ def create_comment(db: Session, comment: schemas.CommentBase, user_id: int, vide
                 link = "/posts"
 
         if target and target.owner_id != user_id:
-            notify_user_push(db, target.owner_id, "New Comment!", msg, link=link)
+            notify_user_push(db, target.owner_id, "New Comment!", msg, link=link, n_type="comment")
     except Exception:
         pass
 

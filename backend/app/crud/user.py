@@ -217,7 +217,7 @@ def toggle_follow(db: Session, follower_id: int, followed_id: int):
         try:
             follower = get_user_by_id(db, follower_id)
             msg = f"{follower.username} started following you!"
-            notify_user_push(db, followed_id, "New Follower!", msg, link=f"/profile/{follower.username}")
+            notify_user_push(db, followed_id, "New Follower!", msg, link=f"/profile/{follower.username}", n_type="follower")
         except Exception:
             pass
 

@@ -351,23 +351,50 @@ const Profile = () => {
                                 }}>
                                     <img src={v.thumbnail_url} alt="" className="video-thumb" style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.3s ease' }} />
 
+                                    {/* Status Overlays */}
+                                    {v.status === 'pending' && (
+                                        <div className="vc-status pending">
+                                            <Loader2 className="vc-spin" size={24} />
+                                            <span>PROCESSING</span>
+                                        </div>
+                                    )}
+                                    {v.status === 'failed' && (
+                                        <div className="vc-status failed">
+                                            <AlertTriangle size={24} />
+                                            <span>FAILED</span>
+                                            {isOwnProfile && (
+                                                <button 
+                                                    className="vc-retry-btn" 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate('/upload', { state: { title: v.title, type: 'flash' } });
+                                                    }}
+                                                >
+                                                    RETRY
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* View Count Overlay */}
-                                    <div style={{
-                                        position: 'absolute',
-                                        bottom: '8px',
-                                        left: '8px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        color: 'white',
-                                        fontSize: '0.8rem',
-                                        fontWeight: 600,
-                                        textShadow: '0 1px 4px rgba(0,0,0,0.8)',
-                                        zIndex: 2
-                                    }}>
-                                        <Eye size={14} />
-                                        <span>{v.views || 0}</span>
-                                    </div>
+                                    {v.status === 'approved' && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: '8px',
+                                            left: '8px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            color: 'white',
+                                            fontSize: '0.8rem',
+                                            fontWeight: 600,
+                                            textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+                                            zIndex: 2
+                                        }}>
+                                            <Eye size={14} />
+                                            <span>{v.views || 0}</span>
+                                        </div>
+                                    )}
 
                                     {/* Gradient Overlay for visibility */}
                                     <div style={{

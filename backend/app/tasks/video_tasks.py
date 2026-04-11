@@ -11,6 +11,7 @@ from app.db.session import SessionLocal
 from app.models.models import Video, User
 from app.core import config
 from app.core.storage import storage
+from app.utils.push import notify_user_push
 
 @shared_task(bind=True, name="video_tasks.process_video", max_retries=3)
 def process_video_task(self, temp_file_path: str, video_type: str, title: str, video_id: int, thumbnail_provided: bool, task_id: str):
@@ -84,24 +85,32 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
             url_2k = None
             url_4k = None
             
+            # Secure HLS directory discovery
             if os.path.isdir(hls_dir):
+                print(f"HLS directory found: {hls_dir}. Starting upload.")
                 for root, _, files in os.walk(hls_dir):
                     for file in files:
                         local_path = os.path.join(root, file)
                         rel_path = os.path.relpath(local_path, hls_dir)
                         s3_key = f"videos/{base_filename}_hls/{rel_path}".replace("\\", "/")
-                        url = storage.upload_file(local_path, s3_key)
                         
-                        if file == "master.m3u8":
-                            video_url = url
-                        elif file == "480p.m3u8":
-                            url_480p = url
-                        elif file == "720p.m3u8":
-                            url_720p = url
-                        elif file == "1080p.m3u8":
-                            url_1080p = url
+                        try:
+                            url = storage.upload_file(local_path, s3_key)
+                            if file == "master.m3u8":
+                                video_url = url
+                            elif file == "480p.m3u8":
+                                url_480p = url
+                            elif file == "720p.m3u8":
+                                url_720p = url
+                            elif file == "1080p.m3u8":
+                                url_1080p = url
+                        except Exception as e:
+                            print(f"Error uploading HLS segment {file}: {e}")
             else:
-                print(f"Warning: HLS directory {hls_dir} not found")
+                print(f"Critical Error: HLS directory {hls_dir} not found after processing task {task_id}")
+                # If HLS failed but the original file is there, we might fallback or fail
+                if os.path.exists(temp_file_path):
+                     print(f"Fallback: Original file exists at {temp_file_path}")
 
             
             temp_thumb_path = f"{temp_file_path}.jpg"
@@ -159,6 +168,20 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
                 db.commit()
                 return {"status": "success", "video_id": video_id}
         except Exception as e:
+            # Notify user of failure
+            try:
+                 video = db.query(Video).filter(Video.id == video_id).first()
+                 if video:
+                     notify_user_push(
+                         db, 
+                         user_id=video.owner_id, 
+                         title="Video Processing Failed", 
+                         body=f"Something went wrong while processing '{title}'. Please try uploading again.", 
+                         link="/upload",
+                         n_type="status_change"
+                     )
+            except: pass
+            
             print(f"Error in post-processing: {e}")
             raise e
 

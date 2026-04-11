@@ -12,6 +12,7 @@ from app.crud import video as crud_video
 from app.schemas import schemas
 from app.core.dependencies import get_current_user, get_current_user_optional
 from app.core import config
+from app.utils.push import notify_user_push
 from app.core.storage import storage
 from app.core.config import FLASH_QUOTA_LIMIT, HOME_QUOTA_LIMIT
 from app.models.models import Video, User
@@ -234,7 +235,7 @@ def update_video_status(
     video.status = status
     db.commit()
     
-    # Check for FIRST_UPLOAD achievement upon approval
+    # Post-status update actions
     if status == "approved":
         from app.crud import achievement as crud_achievement
         # Check how many approved videos the owner has
@@ -245,6 +246,26 @@ def update_video_status(
         
         if approved_count == 1:
             crud_achievement.create_achievement(db, user_id=video.owner_id, milestone_name="FIRST_UPLOAD")
+
+        # Notify user of approval
+        notify_user_push(
+            db, 
+            video.owner_id, 
+            "Video Approved! 🚀", 
+            f"Great news! Your video '{video.title}' has been approved and is now live.", 
+            link=f"/watch/{video_id}",
+            n_type="status_change"
+        )
+    elif status == "rejected":
+        # Notify user of rejection
+        notify_user_push(
+            db, 
+            video.owner_id, 
+            "Video Status Update", 
+            f"Your video '{video.title}' did not pass our community guidelines at this time.", 
+            link="/manage-content",
+            n_type="status_change"
+        )
 
     return {"status": "success", "video_status": video.status}
 
