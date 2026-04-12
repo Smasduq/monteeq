@@ -12,14 +12,17 @@ from app.models.models import Video, User
 from app.core import config
 from app.core.storage import storage
 from app.utils.push import notify_user_push
+import logging
+
+logger = logging.getLogger(__name__)
 
 @shared_task(bind=True, name="video_tasks.process_video", max_retries=3)
 def process_video_task(self, temp_file_path: str, video_type: str, title: str, video_id: int, thumbnail_provided: bool, task_id: str):
+    logger.info(f"Starting Celery task: video_id={video_id}, task_id={task_id}")
     db = SessionLocal()
     try:
         # Phase 1: Communication with Rust Service
-        try:
-            # We use synchronous requests in celery workers
+            logger.info(f"Phase 1: POST to Rust service at {config.RUST_SERVICE_URL}/process")
             rust_response = requests.post(
                 f"{config.RUST_SERVICE_URL}/process",
                 json={
@@ -30,8 +33,7 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
                 },
                 timeout=600.0
             )
-            rust_response.raise_for_status()
-            
+            logger.info(f"Rust service accepted task. Starting polling for task_id={task_id}")
             max_retries = 300 # 10 minutes with 2s sleep
             retries = 0
             while retries < max_retries:
@@ -40,21 +42,35 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
                     if status_resp.status_code == 200:
                         status_data = status_resp.json()
                         if status_data:
-                            if status_data.get("status") == "completed":
+                            current_status = status_data.get("status")
+                            logger.debug(f"Task {task_id} status: {current_status} ({status_data.get('progress')}%)")
+                            
+                            # Update DB status if it changed
+                            if current_status == "completed":
+                                logger.info(f"Transcoding completed for task_id={task_id}")
                                 break
-                            if status_data.get("status") == "error":
+                            if current_status == "error":
+                                logger.error(f"Rust processing error for task {task_id}: {status_data.get('message')}")
                                 raise Exception(f"Rust processing error: {status_data.get('message')}")
+                            
+                            # Provide progress update to DB for frontend polling
+                            db_video = db.query(Video).filter(Video.id == video_id).first()
+                            if db_video:
+                                db_video.processing_message = f"Transcoding... {status_data.get('progress')}%"
+                                db.commit()
+                                
                     elif status_resp.status_code == 404:
-                         pass
+                        logger.warning(f"Task {task_id} not found in Rust status map yet.")
                 except Exception as e:
                     if "Rust processing error" in str(e):
                         raise e
-                    print(f"Polling error (try {retries}): {e}")
+                    logger.warning(f"Polling error (try {retries}): {e}")
                 
                 time.sleep(2)
                 retries += 1
             
             if retries >= max_retries:
+                logger.error(f"Background processing timed out for task {task_id}")
                 raise Exception(f"Background processing timed out for task {task_id}")
 
         except Exception as e:
@@ -72,8 +88,8 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
                 db.commit()
             raise self.retry(exc=e, countdown=60)
 
-        # Phase 2: Post-processing (Moving files and updating DB)
-        try:
+            # Phase 2: Post-processing (Moving files and updating DB)
+            logger.info(f"Phase 2: Starting post-processing for video_id={video_id}")
             clean_title = "".join([c if c.isalnum() else "_" for c in title])
             timestamp = int(os.path.getmtime(temp_file_path))
             base_filename = f"{clean_title}_{timestamp}"
@@ -87,7 +103,13 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
             
             # Secure HLS directory discovery
             if os.path.isdir(hls_dir):
-                print(f"HLS directory found: {hls_dir}. Starting upload.")
+                logger.info(f"HLS directory found: {hls_dir}. Starting cloud upload.")
+                # Update DB to show upload stage
+                db_video = db.query(Video).filter(Video.id == video_id).first()
+                if db_video:
+                    db_video.processing_message = "Optimizing for streaming..."
+                    db.commit()
+
                 for root, _, files in os.walk(hls_dir):
                     for file in files:
                         local_path = os.path.join(root, file)
@@ -105,12 +127,12 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
                             elif file == "1080p.m3u8":
                                 url_1080p = url
                         except Exception as e:
-                            print(f"Error uploading HLS segment {file}: {e}")
+                            logger.error(f"Error uploading HLS segment {file}: {e}")
             else:
-                print(f"Critical Error: HLS directory {hls_dir} not found after processing task {task_id}")
+                logger.error(f"Critical Error: HLS directory {hls_dir} not found after processing task {task_id}")
                 # If HLS failed but the original file is there, we might fallback or fail
                 if os.path.exists(temp_file_path):
-                     print(f"Fallback: Original file exists at {temp_file_path}")
+                     logger.info(f"Fallback: Original file exists at {temp_file_path}")
 
             
             temp_thumb_path = f"{temp_file_path}.jpg"

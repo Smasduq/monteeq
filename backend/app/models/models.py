@@ -140,6 +140,7 @@ class Video(Base):
     discovery_score = Column(Float, default=0.0, index=True)
     last_owner_interaction_at = Column(DateTime, nullable=True)
     failed_at = Column(DateTime, nullable=True)
+    processing_message = Column(String, nullable=True)
     created_at = Column(DateTime, default=func.now(), index=True)
     likes_count = Column(Integer, default=0)
     comments_count = Column(Integer, default=0)

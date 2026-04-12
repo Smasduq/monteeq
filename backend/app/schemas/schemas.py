@@ -155,6 +155,7 @@ class VideoCreate(VideoBase):
     thumbnail_url: str
     duration: Optional[int] = 0
     processing_key: Optional[str] = None
+    processing_message: Optional[str] = None
     description: Optional[str] = None
 
 class Video(VideoBase):
@@ -178,6 +179,7 @@ class Video(VideoBase):
     owner_followed: bool = False
     duration: int = 0
     processing_key: Optional[str] = None
+    processing_message: Optional[str] = None
     failed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
 

@@ -5,8 +5,11 @@ import tempfile
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
+import logging
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.db.session import get_db, SessionLocal
 from app.crud import video as crud_video
@@ -323,6 +326,8 @@ async def upload_video(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
+    logger.info(f"Upload initiated: title='{title}', type='{video_type}', user_id={current_user.id}")
+    
     # current_user is now a User model instance, not dict
     if not current_user.is_premium:
         if video_type == "flash" and current_user.flash_uploads >= FLASH_QUOTA_LIMIT:
@@ -334,8 +339,14 @@ async def upload_video(
     os.makedirs(uploads_dir, exist_ok=True)
     temp_dir = tempfile.mkdtemp(dir=uploads_dir)
     temp_file_path = os.path.join(temp_dir, file.filename)
-    with open(temp_file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    
+    logger.info(f"Saving uploaded file to temporary path: {temp_file_path}")
+    try:
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        logger.error(f"Failed to save uploaded file: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to save video file on server")
 
     # Initial DB record
     video_create_data = schemas.VideoCreate(
@@ -373,16 +384,25 @@ async def upload_video(
     db.commit() # Save user updates
     
     db_video = crud_video.create_video(db, video_create_data, user_id=current_user.id)
+    logger.info(f"Video record created in DB: id={db_video.id}")
 
-    from app.tasks.video_tasks import process_video_task
-    process_video_task.delay(
-        temp_file_path,
-        video_type,
-        title,
-        db_video.id,
-        thumbnail is not None,
-        db_video.processing_key
-    )
+    try:
+        from app.tasks.video_tasks import process_video_task
+        process_video_task.delay(
+            temp_file_path,
+            video_type,
+            title,
+            db_video.id,
+            thumbnail is not None,
+            db_video.processing_key
+        )
+        logger.info(f"Celery task enqueued for video_id={db_video.id}")
+    except Exception as e:
+        logger.error(f"Failed to enqueue Celery task: {str(e)}")
+        # We still return the video, but flag it as failed immediately or show a specific message
+        db_video.status = "failed"
+        db.commit()
+        raise HTTPException(status_code=500, detail="Video enqueued for processing but local queue is unreachable.")
 
     return db_video
 
@@ -442,13 +462,34 @@ async def reupload_video(
     return video
 
 @router.get("/status/{key}")
-async def get_processing_status(key: str):
+async def get_processing_status(key: str, db: Session = Depends(get_db)):
+    # 1. Try to get real-time status from Rust service
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.get(f"{config.RUST_SERVICE_URL}/status/{key}")
-            return resp.json()
-        except Exception:
-            return {"status": "unknown"}
+            resp = await client.get(f"{config.RUST_SERVICE_URL}/status/{key}", timeout=2.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data:
+                    return data
+        except Exception as e:
+            logger.warning(f"Failed to reach Rust service for status: {e}")
+
+    # 2. Fallback: Get persistent status from Database
+    video = db.query(Video).filter(Video.processing_key == key).first()
+    if video:
+        if video.status == "approved":
+            return {"status": "completed", "progress": 100, "message": "Success"}
+        if video.status == "failed":
+            return {"status": "error", "progress": 0, "message": "Processing failed. Please check logs or try again."}
+        
+        # If pending, but Rust didn't have it, it's either in Celery queue or Rust queue or worker died
+        return {
+            "status": "processing" if video.status == "pending" else video.status,
+            "progress": 50, # Rough estimate if we have no better data
+            "message": video.processing_message or "Task is in queue..."
+        }
+
+    return {"status": "unknown"}
 
 
 @router.post("/{video_id}/view")

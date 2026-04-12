@@ -8,6 +8,7 @@ import { useNotification } from '../context/NotificationContext';
 import CommentItem from '../components/CommentItem';
 import { WatchSkeleton } from '../components/Skeleton';
 import MonetizationWidget from '../components/MonetizationWidget';
+import SEO from '../components/SEO';
 import './WatchV2.css';
 
 const DownloadModal = ({ video, onClose, user }) => {
@@ -118,6 +119,12 @@ const Watch = () => {
 
     return (
         <div className={`watchContainer ${isCinematic ? 'cinematic' : ''}`}>
+            <SEO 
+                title={video.title}
+                description={video.description || `Watch ${video.title} on Monteeq. The best video edits and creative content.`}
+                video={video}
+                ogImage={video.thumbnail_url}
+            />
             <div className="dimOverlay" />
 
             <div className="mainColumn">
@@ -201,7 +208,7 @@ const Watch = () => {
                 <div className="creatorCard">
                     <div className="creatorHeader">
                         <div className="avatar">
-                            {video.owner?.profile_pic && <img src={video.owner.profile_pic} alt="" />}
+                            {video.owner?.profile_pic && <img src={video.owner.profile_pic} alt="" loading="lazy" />}
                         </div>
                         <div className="creatorMeta">
                             <h3>@{video.owner?.username}</h3>

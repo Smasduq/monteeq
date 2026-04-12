@@ -1,16 +1,23 @@
 .header {
-    height: var(--header-h);
+    height: var(--header-h-mobile);
     width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 16px;
+    padding: 0 12px;
     background: var(--bg-surface);
     border-bottom: 1px solid var(--border-subtle);
     position: sticky;
     top: 0;
     z-index: 1000;
-    backdrop-filter: blur(20px);
+    backdrop-filter: blur(10px);
+}
+
+@media (min-width: 900px) {
+    .header {
+        height: var(--header-h);
+        padding: 0 24px;
+    }
 }
 
 /* --- Left Section --- */
@@ -29,6 +36,7 @@
 }
 
 .wordmark {
+    display: none;
     font-family: 'Outfit', sans-serif;
     font-weight: 800;
     font-size: 1.4rem;
@@ -36,14 +44,45 @@
     color: var(--text-primary);
 }
 
+@media (min-width: 900px) {
+    .wordmark {
+        display: block;
+    }
+}
+
 /* --- Center Section (Search) --- */
 .sectionCenter {
+    display: none;
     flex: 1;
-    max-width: 720px;
-    display: flex;
+    max-width: none;
+    margin: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--header-h-mobile);
+    background: var(--bg-surface);
+    padding: 0 12px;
+    z-index: 1001;
     align-items: center;
     justify-content: center;
-    margin: 0 40px;
+}
+
+.sectionCenter.mobileActive {
+    display: flex;
+}
+
+@media (min-width: 900px) {
+    .sectionCenter {
+        display: flex;
+        position: static;
+        max-width: 720px;
+        margin: 0 40px;
+        background: transparent;
+        height: auto;
+        padding: 0;
+        z-index: auto;
+    }
 }
 
 .searchContainer {
@@ -61,7 +100,7 @@
     border: 1px solid var(--border-glass);
     border-radius: 40px 0 0 40px;
     padding: 0 4px 0 16px;
-    height: 40px;
+    height: 56px;
     transition: var(--transition-fast);
 }
 
@@ -95,8 +134,8 @@
 }
 
 .searchBtn {
-    width: 64px;
-    height: 40px;
+    width: 72px;
+    height: 56px;
     background: var(--bg-raised);
     border: 1px solid var(--border-glass);
     border-left: none;
@@ -113,6 +152,43 @@
     background: #222;
 }
 
+.mobileSearchBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-glass);
+    color: var(--text-primary);
+    cursor: pointer;
+    border-radius: 50%;
+    padding: 0;
+}
+
+.mobileSearchBtn:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.backBtn {
+    background: var(--bg-raised);
+    border: 1px solid var(--border-glass);
+    color: var(--text-primary);
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    cursor: pointer;
+    border-radius: 50%;
+    padding: 0;
+}
+
+.backBtn:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
 /* --- Right Section --- */
 .sectionRight {
     display: flex;
@@ -122,17 +198,19 @@
 }
 
 .iconBtn {
-    width: 40px;
-    height: 40px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
-    border: none;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-glass);
     color: var(--text-primary);
     cursor: pointer;
     transition: background 0.2s;
+    padding: 0;
+    overflow: hidden;
 }
 
 .iconBtn:hover {
@@ -142,8 +220,9 @@
 .createBtn {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
-    padding: 8px 16px;
+    padding: 10px;
     background: var(--bg-raised);
     border: 1px solid var(--border-glass);
     border-radius: 30px;
@@ -153,6 +232,16 @@
     cursor: pointer;
     margin-right: 8px;
     transition: var(--transition-fast);
+    min-width: 44px;
+    min-height: 44px;
+}
+
+@media (min-width: 900px) {
+    .createBtn {
+        padding: 8px 16px;
+        min-width: auto;
+        min-height: auto;
+    }
 }
 
 .createBtn:hover {
@@ -235,13 +324,22 @@
 }
 
 .profileBtn {
-    width: 36px;
-    height: 36px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
     overflow: hidden;
-    background: transparent;
-    border: none;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-glass);
     cursor: pointer;
+    padding: 0;
+    display: flex;
+}
+
+@media (min-width: 900px) {
+    .profileBtn {
+        width: 50px;
+        height: 50px;
+    }
 }
 
 .profileBtn img {
@@ -348,77 +446,4 @@
     background: rgba(255, 255, 255, 0.05);
 }
 
-/* --- Mobile Overrides --- */
-@media (max-width: 900px) {
-    .header {
-        height: var(--header-h-mobile);
-        padding: 0 12px;
-    }
-
-    .wordmark {
-        display: none;
-    }
-
-    .sectionCenter {
-        display: none;
-        margin: 0;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: var(--header-h-mobile);
-        background: var(--bg-surface);
-        padding: 0 12px;
-        z-index: 1001;
-        max-width: none;
-    }
-
-    .sectionCenter.mobileActive {
-        display: flex;
-    }
-
-    .backBtn {
-        background: transparent;
-        border: none;
-        color: var(--text-primary);
-        margin-right: 12px;
-        padding: 8px;
-        display: flex;
-        align-items: center;
-    }
-
-    .iconBtn,
-    .mobileSearchBtn,
-    .mobileFullIcon {
-        background: transparent !important;
-        border: none !important;
-        padding: 8px !important;
-        width: auto;
-        height: auto;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .profileBtn.mobileFullIcon {
-        width: 44px;
-        /* Increased for better touch target */
-        height: 44px;
-        padding: 0 !important;
-        /* Reset padding for avatar containment */
-    }
-
-    .profileBtn.mobileFullIcon img,
-    .profileBtn.mobileFullIcon .avatarPlaceholder {
-        width: 32px;
-        /* Large glyph size matching notification bell icon visual area */
-        height: 32px;
-        border-radius: 50%;
-    }
-
-    .iconBtn:hover,
-    .mobileSearchBtn:hover,
-    .mobileFullIcon:hover {
-        background: rgba(255, 255, 255, 0.05) !important;
-    }
-}
+/* Removed legacy max-width overrides */

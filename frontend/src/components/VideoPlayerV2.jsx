@@ -153,7 +153,13 @@ const VideoPlayerV2 = ({
       className="v2Wrapper"
       onMouseMove={handleMouseMove}
       onClick={(e) => e.target === e.currentTarget && togglePlay()}
+      itemScope 
+      itemType="https://schema.org/VideoObject"
     >
+      <meta itemProp="name" content={title} />
+      <meta itemProp="thumbnailUrl" content={poster} />
+      <meta itemProp="uploadDate" content={new Date().toISOString()} />
+      
       <video
         ref={videoRef}
         className="videoElement"
@@ -161,6 +167,7 @@ const VideoPlayerV2 = ({
         onTimeUpdate={handleTimeUpdate}
         onClick={togglePlay}
         playsInline
+        itemProp="contentUrl"
       />
 
       {/* Ads Integration */}

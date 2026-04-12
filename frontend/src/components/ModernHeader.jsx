@@ -108,10 +108,10 @@ const ModernHeader = ({ onMenuToggle, isMenuOpen }) => {
             {/* Left Section: Menu + Logo */}
             <div className={s.sectionLeft}>
                 <button className={s.iconBtn} onClick={onMenuToggle}>
-                    <Menu size={28} />
+                    <Menu size={36} />
                 </button>
                 <div className={s.logo} onClick={() => navigate('/')}>
-                    <Zap size={28} fill="var(--accent-primary)" color="var(--accent-primary)" />
+                    <Zap size={36} fill="var(--accent-primary)" color="var(--accent-primary)" />
                     <span className={s.wordmark}>MONTEEQ</span>
                 </div>
             </div>
@@ -120,7 +120,7 @@ const ModernHeader = ({ onMenuToggle, isMenuOpen }) => {
             <div className={`${s.sectionCenter} ${isMobileSearchActive ? s.mobileActive : ''}`}>
                 {isMobileSearchActive && (
                     <button className={s.backBtn} onClick={() => setIsMobileSearchActive(false)}>
-                        <ArrowLeft size={24} />
+                        <ArrowLeft size={36} />
                     </button>
                 )}
                 <div className={s.searchContainer} ref={dropdownRef}>
@@ -138,12 +138,12 @@ const ModernHeader = ({ onMenuToggle, isMenuOpen }) => {
                         />
                         {searchQuery && (
                             <button className={s.clearBtn} onClick={() => setSearchQuery('')}>
-                                <X size={20} />
+                                <X size={24} />
                             </button>
                         )}
                     </div>
                     <button className={s.searchBtn} onClick={() => handleSearch()}>
-                        <Search size={20} />
+                        <Search size={36} />
                     </button>
 
                     {showSuggestions && (
@@ -181,19 +181,19 @@ const ModernHeader = ({ onMenuToggle, isMenuOpen }) => {
             {/* Right Section: Actions + User */}
             <div className={s.sectionRight}>
                 <button className={`${s.mobileSearchBtn} mobile-only`} onClick={() => setIsMobileSearchActive(true)}>
-                    <Search size={28} />
+                    <Search size={36} />
                 </button>
                 
                 {token && (
                     <button className={s.createBtn} onClick={() => navigate('/upload')}>
-                        <Plus size={24} />
+                        <Plus size={32} />
                         <span className="desktop-only">Upload</span>
                     </button>
                 )}
 
                 <div className={s.iconGroup}>
                     <button className={s.iconBtn} onClick={() => navigate('/notifications')}>
-                        <Bell size={28} />
+                        <Bell size={36} />
                         {unreadCount > 0 && <span className={s.badge}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
                     </button>
                 </div>
@@ -204,7 +204,7 @@ const ModernHeader = ({ onMenuToggle, isMenuOpen }) => {
                             <img src={user.profile_pic} alt="Profile" />
                         ) : (
                             <div className={s.avatarPlaceholder}>
-                                {user?.username?.charAt(0).toUpperCase() || <User size={28} />}
+                                {user?.username?.charAt(0).toUpperCase() || <User size={36} />}
                             </div>
                         )}
                     </button>

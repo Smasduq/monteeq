@@ -38,11 +38,26 @@ pub async fn process(
     status_map: Option<StatusMap>, 
     task_id: String  // Processing Key
 ) -> Result<()> {
+    println!("Starting processing for task_id={} video_path={}", task_id, video_path);
+    
+    // Check if file exists
+    if !Path::new(video_path).exists() {
+        return Err(anyhow!("Video file not found at path: {}", video_path));
+    }
+
     let config = TranscodingConfig::for_tier(&tier);
     
     // 1. Metadata extraction
-    let (width, height, has_audio) = get_video_metadata(video_path).await?;
+    println!("Extracting metadata for {}", video_path);
+    let (width, height, has_audio) = match get_video_metadata(video_path).await {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("Metadata extraction failed for {}: {}", video_path, e);
+            return Err(e);
+        }
+    };
     let aspect_ratio = width / height;
+    println!("Metadata: width={} height={} has_audio={} aspect_ratio={}", width, height, has_audio, aspect_ratio);
     
     // 2. Prep Output
     let output_dir = format!("{}_hls", video_path);
@@ -100,6 +115,11 @@ async fn get_video_metadata(video_path: &str) -> Result<(f32, f32, bool)> {
         ])
         .output().await?;
 
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow!("ffprobe failed for {}: {}", video_path, err));
+    }
+
     let s = String::from_utf8(output.stdout)?;
     let parts: Vec<&str> = s.trim().split('x').collect();
     if parts.len() != 2 {
@@ -148,7 +168,9 @@ async fn transcode_tiered(
         "-hls_time", "6",
         "-hls_playlist_type", "vod",
         "-master_pl_name", "master.m3u8",
-    ]);
+    ];
+
+    println!("Transcoding tiered levels for {} -> {}", input, output_dir);
 
     let source_height = get_video_height(input).await?;
     let target_height = source_height.min(config.max_height);
