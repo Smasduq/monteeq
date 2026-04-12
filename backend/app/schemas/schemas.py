@@ -68,18 +68,18 @@ class User(UserBase):
     bio: Optional[str] = None
     role: str
     public_key: Optional[str] = None
-    show_wins: bool = True
-    show_trophies: bool = True
-    notif_new_follower: bool = True
-    notif_challenge_win: bool = True
-    notif_comments: bool = True
-    notif_likes: bool = False
-    email_weekly: bool = True
-    email_challenges: bool = True
-    email_payouts: bool = True
-    email_marketing: bool = False
-    payout_method: str = "stripe"
-    two_factor_enabled: bool = False
+    show_wins: Optional[bool] = True
+    show_trophies: Optional[bool] = True
+    notif_new_follower: Optional[bool] = True
+    notif_challenge_win: Optional[bool] = True
+    notif_comments: Optional[bool] = True
+    notif_likes: Optional[bool] = False
+    email_weekly: Optional[bool] = True
+    email_challenges: Optional[bool] = True
+    email_payouts: Optional[bool] = True
+    email_marketing: Optional[bool] = False
+    payout_method: Optional[str] = "stripe"
+    two_factor_enabled: Optional[bool] = False
 
 class EmailVerification(BaseModel):
     email: str

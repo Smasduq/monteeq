@@ -291,8 +291,8 @@ const Settings = () => {
             const res = await axios.post(`${API_BASE_URL}/users/me/2fa/recovery-codes`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setRecoveryCodes(res.data.codes);
-            setRecoveryCodeCount(res.data.codes.length);
+            setRecoveryCodes(res.data);
+            setRecoveryCodeCount(res.data.length);
             setShowRecoveryModal(true);
             showNotification('Recovery codes generated', 'success');
         } catch (err) {

@@ -44,11 +44,11 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { token, loading, user } = useAuth();
-  if (loading) return null;
-  if (!token) return <Navigate to="/login" />;
+  if (loading) return null; // Can replace with a spinner if needed
+  if (!token) return <Navigate to="/login" replace />;
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" />;
+    return <Navigate to="/" replace />;
   }
   return children;
 };
@@ -62,6 +62,11 @@ function AppContent() {
   const isFlashPage = location.pathname === '/flash';
   const isOnboardingPage = location.pathname === '/onboarding';
   const isLandingPage = !token && location.pathname === '/';
+  
+  // Hide sidebar/header on auth pages, landing page, and marketing pages
+  const isAuthPage = ['/login', '/signup', '/verify'].includes(location.pathname);
+  const isMarketingPage = ['/about', '/partner', '/pro'].includes(location.pathname);
+  const hideNavigation = isLandingPage || isAuthPage || isMarketingPage;
 
   // Redirection guard (Onboarding & Verification)
   React.useEffect(() => {
@@ -76,31 +81,37 @@ function AppContent() {
 
   return (
     <div className="app-container">
-      {!isLandingPage && (
+      {!hideNavigation && (
         <ModernHeader
           onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
           isMenuOpen={isMenuOpen}
         />
       )}
-      <div className={isLandingPage ? "" : "app-layout"}>
-        {!isLandingPage && <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />}
-        <main className={isLandingPage ? "landing-page-main" : `main-stage ${isFlashPage ? 'no-padding' : ''}`}>
-          <div className={isLandingPage ? "" : "content-wrapper"} style={isLandingPage ? {} : {
+      <div className={hideNavigation ? "" : "app-layout"}>
+        {!hideNavigation && <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />}
+        <main className={hideNavigation ? "landing-page-main" : `main-stage ${isFlashPage ? 'no-padding' : ''}`}>
+          <div className={hideNavigation ? "" : "content-wrapper"} style={hideNavigation ? {} : {
             display: 'flex',
             gap: '2rem',
             width: '100%',
             flexWrap: 'wrap'
           }}>
-            <div style={isLandingPage ? { width: '100%' } : { flex: 1, minWidth: '300px' }}>
+            <div style={hideNavigation ? { width: '100%' } : { flex: 1, minWidth: '300px' }}>
               <React.Suspense fallback={<PageSkeleton />}>
                 <Routes>
+                  {/* Public Routes */}
                   <Route path="/" element={token ? <Home /> : <Landing />} />
-                  <Route path="/flash" element={<Flash />} />
-                  <Route path="/watch/:id" element={<Watch />} />
-                  <Route path="/search" element={<Search />} />
-                  <Route path="/profile/:username" element={<Profile />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/about" element={<About />} />
+                  
+                  {/* Protected App Routes */}
+                  <Route path="/flash" element={<ProtectedRoute><Flash /></ProtectedRoute>} />
+                  <Route path="/watch/:id" element={<ProtectedRoute><Watch /></ProtectedRoute>} />
+                  <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
+                  <Route path="/profile/:username" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
                   <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-                  <Route path="/posts" element={<Posts />} />
+                  <Route path="/posts" element={<ProtectedRoute><Posts /></ProtectedRoute>} />
                   <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
                   <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
                   <Route path="/manage" element={<ProtectedRoute><ManageContent /></ProtectedRoute>} />
@@ -109,16 +120,17 @@ function AppContent() {
                   <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
                   <Route path="/insights" element={<ProtectedRoute><Insights /></ProtectedRoute>} />
                   <Route path="/performance" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/signup" element={<Signup />} />
+                  
+                  {/* Protected Context Routings */}
                   <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-                  <Route path="/partner" element={<PartnerV2 />} />
-                  <Route path="/challenges" element={<Challenges />} />
+                  <Route path="/verify" element={<ProtectedRoute><Verify /></ProtectedRoute>} />
+                  <Route path="/partner" element={<ProtectedRoute><PartnerV2 /></ProtectedRoute>} />
+                  <Route path="/challenges" element={<ProtectedRoute><Challenges /></ProtectedRoute>} />
                   <Route path="/monetization" element={<ProtectedRoute><Monetization /></ProtectedRoute>} />
                   <Route path="/monetization/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
-                  <Route path="/about" element={<About />} />
-                  <Route path="/pro" element={<JoinPro />} />
-                  <Route path="/verify" element={<ProtectedRoute><Verify /></ProtectedRoute>} />
+                  <Route path="/pro" element={<ProtectedRoute><JoinPro /></ProtectedRoute>} />
+                  
+                  {/* Admin Routes */}
                   <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminPortal /></ProtectedRoute>} />
                 </Routes>
               </React.Suspense>
