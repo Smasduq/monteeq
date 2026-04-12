@@ -330,7 +330,9 @@ async def upload_video(
         if video_type == "home" and current_user.home_uploads >= HOME_QUOTA_LIMIT:
             raise HTTPException(status_code=403, detail=f"Home quota exceeded ({HOME_QUOTA_LIMIT} max)")
 
-    temp_dir = tempfile.mkdtemp()
+    uploads_dir = os.path.join(config.STATIC_DIR, "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+    temp_dir = tempfile.mkdtemp(dir=uploads_dir)
     temp_file_path = os.path.join(temp_dir, file.filename)
     with open(temp_file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
@@ -410,7 +412,9 @@ async def reupload_video(
         if video.video_type == "home" and current_user.home_uploads >= HOME_QUOTA_LIMIT:
             raise HTTPException(status_code=403, detail=f"Home quota exceeded ({HOME_QUOTA_LIMIT} max)")
             
-    temp_dir = tempfile.mkdtemp()
+    uploads_dir = os.path.join(config.STATIC_DIR, "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+    temp_dir = tempfile.mkdtemp(dir=uploads_dir)
     temp_file_path = os.path.join(temp_dir, file.filename)
     with open(temp_file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
