@@ -39,30 +39,56 @@ def send_push_notification(subscription: PushSubscription, message_data: dict):
         logger.error("Failed to send push: %s", ex)
         return False
 
-def notify_user_push(db: Session, user_id: int, title: str, body: str, link: str = None):
-    # Always save to database first so it shows on the notification page
+from app.utils.emails import send_email
+from app.models.models import User
+
+def notify_user_push(db: Session, user_id: int, title: str, body: str, link: str = None, n_type: str = "info"):
+    """
+    Unified dispatcher for in-app notifications, web push, and email.
+    """
+    # 1. Fetch user to check preferences and email
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return
+
+    # 2. Always save to database for In-App history
     notif_in = NotificationCreate(
         user_id=user_id,
         message=body,
         link=link,
-        type="info" # Default type
+        type=n_type
     )
     create_notification(db, notif_in)
 
+    # 3. Trigger Email if applicable
+    # We map notification types to user email preferences
+    should_email = False
+    if n_type == "follower" and user.notif_new_follower: should_email = True
+    elif n_type == "achievement" and user.notif_challenge_win: should_email = True
+    elif n_type == "comment" and user.notif_comments: should_email = True
+    elif n_type == "status_change": should_email = True # Vital status changes always email
+    
+    if should_email and user.email:
+        send_email(
+            to_email=user.email,
+            subject=f"Monteeq: {title}",
+            title=title,
+            message=body,
+            action_text="View on Monteeq" if link else None,
+            action_url=link
+        )
+
+    # 4. Trigger Web Push if subscribed
     from app.crud.notification import get_user_push_subscriptions
-    
     subscriptions = get_user_push_subscriptions(db, user_id)
-    if not subscriptions:
-        return
-    
-    payload = {
-        "title": title,
-        "body": body,
-        "icon": "/logo192.png", # Default icon
-        "data": {
-            "url": link
+    if subscriptions:
+        payload = {
+            "title": title,
+            "body": body,
+            "icon": "/logo192.png",
+            "data": {
+                "url": link
+            }
         }
-    }
-    
-    for sub in subscriptions:
-        send_push_notification(sub, payload)
+        for sub in subscriptions:
+            send_push_notification(sub, payload)

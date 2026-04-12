@@ -5,8 +5,9 @@ import {
     UploadCloud, History, TrendingUp, ArrowLeft 
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useNotification } from '../context/NotificationContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { getSearchSuggestions, getTrendingSuggestions, getUnreadNotifications } from '../api';
+import { getSearchSuggestions, getTrendingSuggestions } from '../api';
 import s from './ModernHeader.module.css';
 
 const ModernHeader = ({ onMenuToggle, isMenuOpen }) => {
@@ -15,13 +16,13 @@ const ModernHeader = ({ onMenuToggle, isMenuOpen }) => {
     const [trending, setTrending] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [searchHistory, setSearchHistory] = useState([]);
-    const [unreadCount, setUnreadCount] = useState(0);
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [isMobileSearchActive, setIsMobileSearchActive] = useState(false);
     
     const dropdownRef = useRef(null);
     const profileRef = useRef(null);
     const { token, user, logout } = useAuth();
+    const { unreadCount } = useNotification();
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -55,21 +56,7 @@ const ModernHeader = ({ onMenuToggle, isMenuOpen }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Notifications Polling
-    useEffect(() => {
-        if (!token) return;
-        const fetchUnread = async () => {
-            try {
-                const data = await getUnreadNotifications(token);
-                setUnreadCount(Array.isArray(data) ? data.length : 0);
-            } catch (e) {
-                console.error("Failed to fetch unread notifications", e);
-            }
-        };
-        fetchUnread();
-        const interval = setInterval(fetchUnread, 30000);
-        return () => clearInterval(interval);
-    }, [token]);
+
 
     // Search Suggestions Logic
     useEffect(() => {
@@ -240,7 +227,7 @@ const ModernHeader = ({ onMenuToggle, isMenuOpen }) => {
                                     <Settings size={18} /> Settings
                                 </button>
                                 {user?.role === 'admin' && (
-                                    <button className={s.menuItem} onClick={() => window.location.href = 'http://localhost:5174'}>
+                                    <button className={s.menuItem} onClick={() => { setShowProfileMenu(false); navigate('/admin'); }}>
                                         <Shield size={18} /> Admin Panel
                                     </button>
                                 )}

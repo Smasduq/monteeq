@@ -32,6 +32,14 @@ def mark_notification_read(db: Session, notification_id: int, user_id: int):
         db.refresh(notification)
     return notification
 
+def mark_all_notifications_read(db: Session, user_id: int):
+    db.query(Notification).filter(
+        Notification.user_id == user_id,
+        Notification.is_read == False
+    ).update({"is_read": True})
+    db.commit()
+    return True
+
 def get_notifications(db: Session, user_id: int, skip: int = 0, limit: int = 50):
     return db.query(Notification).filter(
         Notification.user_id == user_id

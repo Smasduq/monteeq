@@ -1,6 +1,7 @@
 export const BASE_URL = import.meta.env.VITE_API_URL || '';
 const API_URL = import.meta.env.VITE_API_URL || '';
-export const API_BASE_URL = `${API_URL}/api/v1`;
+// In development, we use the Vite proxy (relative paths). In production, we use the full URL if provided.
+export const API_BASE_URL = API_URL ? `${API_URL}/api/v1` : '/api/v1';
 
 export const login = async (username, password) => {
     const formData = new FormData();
@@ -42,9 +43,12 @@ export const getComments = async (videoId = null, postId = null) => {
 };
 
 export const postComment = async ({ videoId = null, postId = null, content, parent_id = null }, token) => {
+    // Note: Backend currently uses /comment for posts and /comments for videos
+    // We match that here to avoid breakage, but standardizing both to /comments is recommended
     const endpoint = videoId
         ? `${API_BASE_URL}/videos/${videoId}/comments`
         : `${API_BASE_URL}/posts/${postId}/comment`;
+        
     const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -53,19 +57,44 @@ export const postComment = async ({ videoId = null, postId = null, content, pare
         },
         body: JSON.stringify({ content, parent_id })
     });
+    
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to post comment');
+    }
+    
     return response.json();
 };
 
 export const uploadVideo = async (token, videoData) => {
     const formData = new FormData();
     formData.append('title', videoData.title);
+    formData.append('description', videoData.description || '');
     formData.append('video_type', videoData.type);
+    
+    if (videoData.file) {
+        formData.append('file', videoData.file);
+    }
+    
+    if (videoData.thumbnail) {
+        formData.append('thumbnail', videoData.thumbnail);
+    }
+    
+    if (videoData.tags) {
+        formData.append('tags', videoData.tags);
+    }
 
     const response = await fetch(`${API_BASE_URL}/videos/upload`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
     });
+    
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Upload failed');
+    }
+    
     return response.json();
 };
 
@@ -232,6 +261,17 @@ export const markNotificationRead = async (token, notificationId) => {
         }
     });
     if (!response.ok) throw new Error('Failed to mark notification read');
+    return response.json();
+};
+
+export const markAllNotificationsRead = async (token) => {
+    const response = await fetch(`${API_BASE_URL}/notifications/read-all`, {
+        method: 'PUT',
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    });
+    if (!response.ok) throw new Error('Failed to mark all notifications read');
     return response.json();
 };
 

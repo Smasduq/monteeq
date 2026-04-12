@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, MessageSquare, Repeat2, Send, MoreHorizontal, Loader2 } from 'lucide-react';
+import { Heart, MessageSquare, Repeat2, Send, MoreHorizontal, Loader2, X } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE_URL, getPosts } from '../api';
@@ -17,6 +17,7 @@ const Posts = () => {
     const [skip, setSkip] = React.useState(0);
     const [hasMore, setHasMore] = React.useState(true);
     const [activeCommentPostId, setActiveCommentPostId] = React.useState(null);
+    const [selectedImage, setSelectedImage] = React.useState(null);
     const observer = React.useRef();
 
     const lastPostElementRef = React.useCallback(node => {
@@ -186,7 +187,10 @@ const Posts = () => {
                                     </div>
 
                                     {displayData.image_url && (
-                                        <div style={{ borderRadius: '16px', overflow: 'hidden', marginBottom: '1.5rem', border: '1px solid var(--border-glass)' }}>
+                                        <div 
+                                            onClick={() => setSelectedImage(displayData.image_url)}
+                                            style={{ borderRadius: '16px', overflow: 'hidden', marginBottom: '1.5rem', border: '1px solid var(--border-glass)', cursor: 'zoom-in' }}
+                                        >
                                             <img src={displayData.image_url} alt="post content" style={{ width: '100%', display: 'block' }} />
                                         </div>
                                     )}
@@ -258,6 +262,60 @@ const Posts = () => {
                     postId={activeCommentPostId}
                     onClose={() => setActiveCommentPostId(null)}
                 />
+            )}
+
+            {/* Image Viewer Modal */}
+            {selectedImage && (
+                <div 
+                    className="modal-overlay"
+                    onClick={() => setSelectedImage(null)}
+                    style={{
+                        position: 'fixed',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        background: 'rgba(0,0,0,0.9)',
+                        backdropFilter: 'blur(20px)',
+                        zIndex: 3000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '2rem',
+                        cursor: 'zoom-out'
+                    }}
+                >
+                    <button 
+                        onClick={() => setSelectedImage(null)}
+                        style={{
+                            position: 'absolute',
+                            top: '2rem',
+                            right: '2rem',
+                            background: 'rgba(255,255,255,0.1)',
+                            border: 'none',
+                            borderRadius: '50%',
+                            color: 'white',
+                            width: '50px',
+                            height: '50px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            zIndex: 3001
+                        }}
+                    >
+                        <X size={24} />
+                    </button>
+                    <img 
+                        src={selectedImage} 
+                        alt="Preview" 
+                        style={{
+                            maxWidth: '100%',
+                            maxHeight: '90vh',
+                            objectFit: 'contain',
+                            borderRadius: '12px',
+                            boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
             )}
         </div>
     );

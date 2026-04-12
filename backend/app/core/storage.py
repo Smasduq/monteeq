@@ -100,7 +100,10 @@ class Storage:
         elif current_mode == "supabase":
             # Use SDK to get public URL
             res = self.supabase.storage.from_(self.supabase_bucket).get_public_url(url_key)
-            return res
+            # Handle both string return (old SDK) and object return (new SDK)
+            if isinstance(res, str):
+                return res
+            return getattr(res, 'public_url', res) if not isinstance(res, dict) else res.get('publicURL', res.get('public_url', res))
         else:
             # Backblaze B2 S3-Compatible URLs: {endpoint}/{bucket}/{key}
             endpoint = config.S3_ENDPOINT.rstrip('/')

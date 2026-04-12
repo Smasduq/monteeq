@@ -40,7 +40,9 @@ def credit_view_milestone(db: Session, video_id: int) -> Transaction:
     )
     
     wallet.balance += amount
+    video.earnings = (video.earnings or 0.0) + float(amount)
     db.add(transaction)
+    db.add(video)
     db.commit()
     db.refresh(transaction)
     return transaction

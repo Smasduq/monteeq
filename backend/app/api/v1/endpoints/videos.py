@@ -3,7 +3,8 @@ import os
 import shutil
 import tempfile
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -12,6 +13,7 @@ from app.crud import video as crud_video
 from app.schemas import schemas
 from app.core.dependencies import get_current_user, get_current_user_optional
 from app.core import config
+from app.utils.push import notify_user_push
 from app.core.storage import storage
 from app.core.config import FLASH_QUOTA_LIMIT, HOME_QUOTA_LIMIT
 from app.models.models import Video, User
@@ -28,29 +30,74 @@ def read_videos(
     current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     user_id = current_user.id if current_user else None
-    import json
-    import os
+    
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     cache_key = f"feed_{video_type}_{status}_{skip}_{limit}_{user_id}"
+    
+    # Try to get from cache
+    r = None
     try:
         import redis
         r = redis.StrictRedis.from_url(redis_url, decode_responses=True)
         cached = r.get(cache_key)
         if cached:
+            import json
             return json.loads(cached)
     except Exception:
-        r = None
+        pass
         
     videos = crud_video.get_videos(db, video_type=video_type, filter_status=status, current_user_id=user_id, skip=skip, limit=limit)
     
+    # Try to save to cache
     if r:
         try:
+            import json
             serialized_videos = [schemas.Video.from_orm(v).dict() for v in videos]
             r.setex(cache_key, 30, json.dumps(serialized_videos)) # Shorter TTL for homepage
         except Exception:
             pass
             
     return videos
+
+@router.get("/{video_id}/stream/{sub_path:path}")
+@router.get("/{video_id}/stream")
+async def stream_video(video_id: int, request: Request, db: Session = Depends(get_db), sub_path: str = None):
+    video = db.query(Video).filter(Video.id == video_id).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+        
+    base_url = video.video_url
+    if not base_url:
+        raise HTTPException(status_code=400, detail="Video has no URL")
+
+    # Construct the proxy target URL
+    target_url = base_url
+    if sub_path:
+        import os
+        base_dir = os.path.dirname(base_url)
+        target_url = f"{base_dir}/{sub_path}"
+
+    async def get_stream():
+        client = httpx.AsyncClient(timeout=None) 
+        range_header = request.headers.get("Range")
+        headers = {"Range": range_header} if range_header else {}
+        
+        req = client.build_request("GET", target_url, headers=headers)
+        resp = await client.send(req, stream=True)
+        
+        return StreamingResponse(
+            resp.aiter_bytes(),
+            status_code=resp.status_code,
+            headers={
+                "Content-Type": resp.headers.get("Content-Type", "video/mp4"),
+                "Content-Length": resp.headers.get("Content-Length"),
+                "Content-Range": resp.headers.get("Content-Range"),
+                "Accept-Ranges": "bytes",
+            },
+            background=BackgroundTasks([resp.aclose, client.aclose])
+        )
+
+    return await get_stream()
 
 @router.get("/search", response_model=List[schemas.Video])
 async def search_videos(
@@ -229,7 +276,7 @@ def update_video_status(
     video.status = status
     db.commit()
     
-    # Check for FIRST_UPLOAD achievement upon approval
+    # Post-status update actions
     if status == "approved":
         from app.crud import achievement as crud_achievement
         # Check how many approved videos the owner has
@@ -240,6 +287,26 @@ def update_video_status(
         
         if approved_count == 1:
             crud_achievement.create_achievement(db, user_id=video.owner_id, milestone_name="FIRST_UPLOAD")
+
+        # Notify user of approval
+        notify_user_push(
+            db, 
+            video.owner_id, 
+            "Video Approved! 🚀", 
+            f"Great news! Your video '{video.title}' has been approved and is now live.", 
+            link=f"/watch/{video_id}",
+            n_type="status_change"
+        )
+    elif status == "rejected":
+        # Notify user of rejection
+        notify_user_push(
+            db, 
+            video.owner_id, 
+            "Video Status Update", 
+            f"Your video '{video.title}' did not pass our community guidelines at this time.", 
+            link="/manage-content",
+            n_type="status_change"
+        )
 
     return {"status": "success", "video_status": video.status}
 
@@ -263,7 +330,9 @@ async def upload_video(
         if video_type == "home" and current_user.home_uploads >= HOME_QUOTA_LIMIT:
             raise HTTPException(status_code=403, detail=f"Home quota exceeded ({HOME_QUOTA_LIMIT} max)")
 
-    temp_dir = tempfile.mkdtemp()
+    uploads_dir = os.path.join(config.STATIC_DIR, "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+    temp_dir = tempfile.mkdtemp(dir=uploads_dir)
     temp_file_path = os.path.join(temp_dir, file.filename)
     with open(temp_file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
@@ -343,7 +412,9 @@ async def reupload_video(
         if video.video_type == "home" and current_user.home_uploads >= HOME_QUOTA_LIMIT:
             raise HTTPException(status_code=403, detail=f"Home quota exceeded ({HOME_QUOTA_LIMIT} max)")
             
-    temp_dir = tempfile.mkdtemp()
+    uploads_dir = os.path.join(config.STATIC_DIR, "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+    temp_dir = tempfile.mkdtemp(dir=uploads_dir)
     temp_file_path = os.path.join(temp_dir, file.filename)
     with open(temp_file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)

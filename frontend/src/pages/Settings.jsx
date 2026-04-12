@@ -67,7 +67,7 @@ const Settings = () => {
         new_password: '',
         confirm_password: ''
     });
-    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [isPasswordExpanded, setIsPasswordExpanded] = useState(false);
     const [passwordLoading, setPasswordLoading] = useState(false);
     const [sessions, setSessions] = useState([]);
     const [sessionsLoading, setSessionsLoading] = useState(false);
@@ -227,7 +227,7 @@ const Settings = () => {
                 headers: { Authorization: `Bearer ${token}` }
             });
             showNotification('Password updated successfully', 'success');
-            setShowPasswordModal(false);
+            setIsPasswordExpanded(false);
             setPasswordData({ current_password: '', new_password: '', confirm_password: '' });
         } catch (err) {
             showNotification(err.response?.data?.detail || 'Failed to update password', 'error');
@@ -468,7 +468,7 @@ const Settings = () => {
                                 <div style={{ textAlign: 'right' }}>
                                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.3rem' }}>Current Balance</div>
                                     <div style={{ fontSize: '2.2rem', fontWeight: 900, color: 'white' }}>
-                                        ${insights ? insights.total_earnings.toFixed(2) : '0.00'} <span style={{ fontSize: '1rem', opacity: 0.5 }}>USD</span>
+                                        ₦{insights ? insights.total_earnings.toFixed(2) : '0.00'} <span style={{ fontSize: '1rem', opacity: 0.5 }}>NGN</span>
                                     </div>
                                 </div>
                             </div>
@@ -495,14 +495,48 @@ const Settings = () => {
                                 <Shield size={20} color="var(--accent-primary)" style={{ marginRight: '0.8rem' }} />
                                 Login & Access
                             </h3>
-                            <div className="setting-tile">
-                                <div className="setting-tile-label">
-                                    <div className="setting-tile-title">Password</div>
-                                    <div className="setting-tile-desc">Maintain your account security</div>
+                            <div className="setting-tile-expanded" style={{ padding: '1rem 0' }}>
+                                <div className="setting-tile" style={{ border: 'none', padding: 0 }}>
+                                    <div className="setting-tile-label">
+                                        <div className="setting-tile-title">Password</div>
+                                        <div className="setting-tile-desc">Maintain your account security</div>
+                                    </div>
+                                    <div className="setting-tile-action">
+                                        <button className="tile-btn-minimal" onClick={() => setIsPasswordExpanded(!isPasswordExpanded)}>
+                                            {isPasswordExpanded ? 'Hide' : 'Update'}
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="setting-tile-action">
-                                    <button className="tile-btn-minimal" onClick={() => setShowPasswordModal(true)}>Update</button>
-                                </div>
+
+                                {isPasswordExpanded && (
+                                    <div className="inline-password-form" style={{ marginTop: '2rem', padding: '1.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid var(--border-glass)' }}>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                                            <div className="form-group">
+                                                <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Current Password</label>
+                                                <input type="password" className="glass" style={{ width: '100%', padding: '1rem' }} value={passwordData.current_password} onChange={e => setPasswordData({...passwordData, current_password: e.target.value})} required />
+                                            </div>
+                                            <div style={{ visibility: 'hidden' }}></div>
+                                            <div className="form-group">
+                                                <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>New Password</label>
+                                                <input type="password" className="glass" style={{ width: '100%', padding: '1rem' }} value={passwordData.new_password} onChange={e => setPasswordData({...passwordData, new_password: e.target.value})} required />
+                                            </div>
+                                            <div className="form-group">
+                                                <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Confirm New Password</label>
+                                                <input type="password" className="glass" style={{ width: '100%', padding: '1rem' }} value={passwordData.confirm_password} onChange={e => setPasswordData({...passwordData, confirm_password: e.target.value})} required />
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                            <button 
+                                                onClick={handlePasswordSave} 
+                                                className="save-btn" 
+                                                style={{ padding: '0.8rem 2rem' }}
+                                                disabled={passwordLoading}
+                                            >
+                                                {passwordLoading ? 'Updating...' : 'Save Password'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </section>
 
@@ -577,38 +611,7 @@ const Settings = () => {
                 </div>
             </main>
 
-            {/* Modals */}
-            {showPasswordModal && (
-                <div className="modal-overlay" onClick={() => setShowPasswordModal(false)}>
-                    <div className="modal-content glass" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', width: '90%' }}>
-                        <h3>Update Password</h3>
-                        <form onSubmit={handlePasswordSave} style={{ marginTop: '2rem' }}>
-                            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                                <label>Current Password</label>
-                                <input type="password" className="glass" value={passwordData.current_password} onChange={e => setPasswordData({...passwordData, current_password: e.target.value})} required />
-                            </div>
-                            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                                <label>New Password</label>
-                                <input type="password" className="glass" value={passwordData.new_password} onChange={e => setPasswordData({...passwordData, new_password: e.target.value})} required />
-                            </div>
-                            <div className="form-group" style={{ marginBottom: '2rem' }}>
-                                <label>Confirm New Password</label>
-                                <input type="password" className="glass" value={passwordData.confirm_password} onChange={e => setPasswordData({...passwordData, confirm_password: e.target.value})} required />
-                            </div>
-                            <button 
-                                type="submit" 
-                                className="save-btn" 
-                                style={{ width: '100%', padding: '1.4rem', opacity: passwordLoading ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                                disabled={passwordLoading}
-                            >
-                                {passwordLoading ? (
-                                    <><Loader2 className="animate-spin" size={20} /> Updating Password...</>
-                                ) : 'Update Password'}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            )}
+            {/* 2FA Setup Modal */}
 
             {show2FAModal && (
                 <div className="modal-overlay" onClick={() => setShow2FAModal(false)}>

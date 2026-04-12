@@ -8,10 +8,10 @@ import random
 import string
 
 def get_user_by_username(db: Session, username: str):
-    return db.query(User).filter(User.username == username).first()
+    return db.query(User).filter(User.username.ilike(username)).first()
 
 def get_user_by_email(db: Session, email: str):
-    return db.query(User).filter(User.email == email).first()
+    return db.query(User).filter(User.email.ilike(email)).first()
 
 def create_user(db: Session, user: schemas.UserCreate, google_id: str = None, is_onboarded: bool = False):
     hashed_password = security.get_password_hash(user.password) if user.password else None
@@ -217,7 +217,7 @@ def toggle_follow(db: Session, follower_id: int, followed_id: int):
         try:
             follower = get_user_by_id(db, follower_id)
             msg = f"{follower.username} started following you!"
-            notify_user_push(db, followed_id, "New Follower!", msg, link=f"/profile/{follower.username}")
+            notify_user_push(db, followed_id, "New Follower!", msg, link=f"/profile/{follower.username}", n_type="follower")
         except Exception:
             pass
 
@@ -240,7 +240,7 @@ def create_verification_code(db: Session, email: str):
     return code
 
 def verify_code(db: Session, email: str, code: str):
-    db_code = db.query(VerificationCode).filter(VerificationCode.email == email, VerificationCode.code == code).first()
+    db_code = db.query(VerificationCode).filter(VerificationCode.email.ilike(email), VerificationCode.code == code).first()
     if not db_code:
         return False
     

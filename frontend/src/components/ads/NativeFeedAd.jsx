@@ -1,7 +1,7 @@
 import React from 'react';
 import { ExternalLink } from 'lucide-react';
 
-const NativeFeedAd = ({ ad = {}, variant = 'grid' }) => {
+const NativeFeedAd = React.memo(({ ad = {}, variant = 'grid' }) => {
     // Default ad content if none provided
     const content = {
         title: ad.title || "Experience Premium Performance",
@@ -71,23 +71,10 @@ const NativeFeedAd = ({ ad = {}, variant = 'grid' }) => {
                     </div>
                 </div>
             </div>
-            
-            <style>{`
-                .ad-native {
-                    cursor: pointer;
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                }
-                .ad-native:hover {
-                    transform: translateY(-4px);
-                    box-shadow: 0 10px 30px rgba(255, 60, 60, 0.1);
-                }
-                .ad-native:hover .vc-img {
-                    transform: scale(1.05);
-                    opacity: 1;
-                }
-            `}</style>
         </div>
     );
-};
+});
+
+NativeFeedAd.displayName = 'NativeFeedAd';
 
 export default NativeFeedAd;
