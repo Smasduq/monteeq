@@ -21,8 +21,9 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
 import axios from 'axios';
-import { API_BASE_URL } from '../api';
+import { API_BASE_URL, linkGoogleAccount } from '../api';
 import DashboardBannerAd from '../components/ads/DashboardBannerAd';
+import { useGoogleLogin } from '@react-oauth/google';
 import { useLocation } from 'react-router-dom';
 
 const Settings = () => {
@@ -357,6 +358,38 @@ const Settings = () => {
         showNotification('Secret key copied to clipboard', 'success');
     };
 
+    const handleGoogleLink = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+            try {
+                // Get ID token or just access token (backend expects id_token usually for auth, 
+                // but let's see if we can get it from the response or if we need a different flow)
+                // useGoogleLogin with default implicit flow gives access_token.
+                // For linking, we might need a code flow or fetch profile info.
+                // Actually, let's use the access_token to fetch user info if id_token isn't available.
+                // OR better, use the auth-code flow for the backend to get the token.
+                
+                // For simplicity and matching my plan, I'll use the access_token 
+                // and the backend will verify it via google-auth (which also supports access_token verification).
+                // Wait, verify_oauth2_token usually expects an ID token.
+                // I'll adjust the backend in a moment if needed, or get the ID token here.
+                
+                // Assuming we want to stay simple:
+                const res = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+                    headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+                });
+                
+                const linkRes = await linkGoogleAccount(tokenResponse.access_token, token);
+                if (linkRes.google_id) {
+                    setUser(linkRes);
+                    showNotification('Google Account linked successfully', 'success');
+                }
+            } catch (err) {
+                showNotification('Failed to link Google account', 'error');
+            }
+        },
+        scope: 'https://www.googleapis.com/auth/drive.file email profile',
+    });
+
     const SidebarItem = ({ id, icon: Icon, label }) => (
         <div 
             className={`settings-sidebar-item ${activeTab === id ? 'active' : ''}`}
@@ -482,6 +515,28 @@ const Settings = () => {
                                 </div>
                                 <div className="setting-tile-action">
                                     <button className="tile-btn-minimal" onClick={() => navigate('/manage')}>View All</button>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="settings-group-box glass">
+                            <h3 className="settings-card-title" style={{ fontSize: '1.2rem', marginBottom: '1.5rem' }}>
+                                <Globe size={20} color="var(--accent-primary)" style={{ marginRight: '0.8rem' }} />
+                                Connected Identity
+                            </h3>
+                            <div className="setting-tile">
+                                <div className="setting-tile-label">
+                                    <div className="setting-tile-title">Google Account</div>
+                                    <div className="setting-tile-desc">
+                                        {user?.google_id ? 'Linked for automatic Chat Sync' : 'Link to enable secure cloud backups'}
+                                    </div>
+                                </div>
+                                <div className="setting-tile-action">
+                                    {user?.google_id ? (
+                                        <span className="status-badge-hero">CONNECTED</span>
+                                    ) : (
+                                        <button className="save-btn" onClick={() => handleGoogleLink()}>Connect</button>
+                                    )}
                                 </div>
                             </div>
                         </section>

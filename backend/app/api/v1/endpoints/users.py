@@ -20,6 +20,8 @@ from app.core.dependencies import get_current_user, get_current_user_optional
 from app.core import config
 from app.core.storage import storage
 from app.models.models import User, Video, Like, Follow, UserSession
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 router = APIRouter()
 
@@ -757,6 +759,48 @@ def delete_account(
     db.delete(current_user)
     db.commit()
     return {"message": "Account deleted forever"}
+
+
+@router.post("/me/link-google", response_model=schemas.User)
+def link_google_account(
+    link_data: schemas.GoogleLinkRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Link a Google account to the current user."""
+    try:
+        # 1. Verify Google Token (Access Token or ID Token)
+        # We call userinfo endpoint which accepts both and returns the 'sub' (Google ID)
+        import requests
+        resp = requests.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {link_data.id_token}"}
+        )
+        
+        if resp.status_code != 200:
+            raise HTTPException(status_code=400, detail="Invalid Google token or expired session")
+            
+        idinfo = resp.json()
+        google_id = idinfo['sub']
+        
+        # 2. Check for conflicts
+        existing_user = db.query(User).filter(User.google_id == google_id).first()
+        if existing_user and existing_user.id != current_user.id:
+            raise HTTPException(
+                status_code=400, 
+                detail="This Google account is already linked to another Monteeq profile."
+            )
+            
+        # 3. Update user
+        current_user.google_id = google_id
+        db.commit()
+        db.refresh(current_user)
+        return current_user
+        
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid Google token")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/{username}/followers", response_model=List[schemas.User])

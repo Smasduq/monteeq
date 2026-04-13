@@ -4,8 +4,7 @@ use sysinfo::{System, SystemExt};
 use crate::queue::WeightedScheduler;
 use crate::transcoder;
 use crate::ax_status::StatusMap;
-use crate::models::{TaskStatus, UserTier};
-use anyhow::Result;
+use crate::models::TaskStatus;
 
 pub struct WorkerPool {
     scheduler: WeightedScheduler,

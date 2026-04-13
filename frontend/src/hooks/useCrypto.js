@@ -6,6 +6,7 @@ const KEY_NAME = 'ChatPrivateKey';
 
 /**
  * Hook for End-to-End Encryption using Web Crypto API
+ * Supports Hybrid Encryption (AES + RSA) for text, voice, and files.
  */
 export const useCrypto = () => {
     const [isGenerating, setIsGenerating] = useState(false);
@@ -60,10 +61,8 @@ export const useCrypto = () => {
                 ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']
             );
 
-            // Save Private Key to IndexedDB
             await savePrivateKey(keyPair.privateKey);
 
-            // Export Public Key as SPKI Base64
             const exportedPublic = await window.crypto.subtle.exportKey('spki', keyPair.publicKey);
             const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(exportedPublic)));
 
@@ -73,10 +72,25 @@ export const useCrypto = () => {
         }
     }, [savePrivateKey]);
 
-    const encryptMessage = useCallback(async (text, recipientPublicKeyBase64, senderPublicKeyBase64) => {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(text);
+    const arrayBufferToBase64 = (buffer) => {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary);
+    };
 
+    const base64ToArrayBuffer = (base64) => {
+        const binaryString = window.atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+    };
+
+    const encryptBinary = useCallback(async (data, recipientPublicKeyBase64, senderPublicKeyBase64) => {
         // 1. Generate AES-GCM Key
         const aesKey = await window.crypto.subtle.generateKey(
             { name: 'AES-GCM', length: 256 },
@@ -94,14 +108,10 @@ export const useCrypto = () => {
 
         // 3. Import Public Keys
         const importKey = (base64) => {
-            const binaryString = atob(base64);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
+            const bytes = base64ToArrayBuffer(base64);
             return window.crypto.subtle.importKey(
                 'spki',
-                bytes.buffer,
+                bytes,
                 { name: 'RSA-OAEP', hash: 'SHA-256' },
                 true,
                 ['wrapKey']
@@ -126,35 +136,31 @@ export const useCrypto = () => {
         );
 
         return {
-            encrypted_content: btoa(String.fromCharCode(...new Uint8Array(encryptedContent))),
-            iv: btoa(String.fromCharCode(...iv)),
-            recipient_key: btoa(String.fromCharCode(...new Uint8Array(wrappedRecipient))),
-            sender_key: btoa(String.fromCharCode(...new Uint8Array(wrappedSender))),
+            encrypted_content: arrayBufferToBase64(encryptedContent),
+            iv: arrayBufferToBase64(iv),
+            recipient_key: arrayBufferToBase64(wrappedRecipient),
+            sender_key: arrayBufferToBase64(wrappedSender),
         };
     }, []);
 
-    const decryptMessage = useCallback(async (encryptedContentB64, ivB64, wrappedKeyB64) => {
+    const encryptMessage = useCallback(async (text, recipientPublicKeyBase64, senderPublicKeyBase64) => {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(text);
+        return encryptBinary(data, recipientPublicKeyBase64, senderPublicKeyBase64);
+    }, [encryptBinary]);
+
+    const decryptBinary = useCallback(async (encryptedContentB64, ivB64, wrappedKeyB64) => {
         const privateKey = await loadPrivateKey();
         if (!privateKey) throw new Error('Private key not found locally');
 
-        // 1. Decode inputs
-        const decodeB64 = (b64) => {
-            const binaryString = atob(b64);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            return bytes;
-        };
+        const content = base64ToArrayBuffer(encryptedContentB64);
+        const iv = base64ToArrayBuffer(ivB64);
+        const wrappedKey = base64ToArrayBuffer(wrappedKeyB64);
 
-        const content = decodeB64(encryptedContentB64);
-        const iv = decodeB64(ivB64);
-        const wrappedKey = decodeB64(wrappedKeyB64);
-
-        // 2. Unwrap AES Key
+        // 1. Unwrap AES Key
         const aesKey = await window.crypto.subtle.unwrapKey(
             'raw',
-            wrappedKey.buffer,
+            wrappedKey,
             privateKey,
             { name: 'RSA-OAEP', hash: 'SHA-256' },
             { name: 'AES-GCM', length: 256 },
@@ -162,21 +168,47 @@ export const useCrypto = () => {
             ['decrypt']
         );
 
-        // 3. Decrypt Content
-        const decryptedBuffer = await window.crypto.subtle.decrypt(
-            { name: 'AES-GCM', iv },
+        // 2. Decrypt Content
+        return await window.crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: new Uint8Array(iv) },
             aesKey,
             content
         );
+    }, [loadPrivateKey]);
 
+    const decryptMessage = useCallback(async (encryptedContentB64, ivB64, wrappedKeyB64) => {
+        const decryptedBuffer = await decryptBinary(encryptedContentB64, ivB64, wrappedKeyB64);
         const decoder = new TextDecoder();
         return decoder.decode(decryptedBuffer);
+    }, [decryptBinary]);
+
+    const exportPrivateKey = useCallback(async () => {
+        const privateKey = await loadPrivateKey();
+        if (!privateKey) return null;
+        const exported = await window.crypto.subtle.exportKey('pkcs8', privateKey);
+        return arrayBufferToBase64(exported);
     }, [loadPrivateKey]);
+
+    const importPrivateKey = useCallback(async (base64Key) => {
+        const bytes = base64ToArrayBuffer(base64Key);
+        const privateKey = await window.crypto.subtle.importKey(
+            'pkcs8',
+            bytes,
+            { name: 'RSA-OAEP', hash: 'SHA-256' },
+            true,
+            ['decrypt', 'unwrapKey']
+        );
+        await savePrivateKey(privateKey);
+    }, [savePrivateKey]);
 
     return {
         generateKeyPair,
         encryptMessage,
         decryptMessage,
+        encryptBinary,
+        decryptBinary,
+        exportPrivateKey,
+        importPrivateKey,
         isGenerating,
         hasLocalKey: async () => !!(await loadPrivateKey()),
     };

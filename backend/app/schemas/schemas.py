@@ -300,6 +300,9 @@ class ChatMessageBase(BaseModel):
     iv: str
     recipient_key: str
     sender_key: str
+    message_type: Optional[str] = "text"
+    attachment_url: Optional[str] = None
+    file_metadata: Optional[str] = None
 
 class ChatMessageCreate(ChatMessageBase):
     recipient_username: str
@@ -446,3 +449,10 @@ class GrowthIntelligence(BaseModel):
     score: int  # 0-100 composite
     breakdown: ScoreBreakdown
     insights: List[str]  # plain text, HTML-safe
+
+class AttachmentResponse(BaseModel):
+    url: str
+    filename: Optional[str] = None
+
+class GoogleLinkRequest(BaseModel):
+    id_token: str

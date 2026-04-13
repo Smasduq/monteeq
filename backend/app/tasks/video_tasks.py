@@ -22,6 +22,7 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
     db = SessionLocal()
     try:
         # Phase 1: Communication with Rust Service
+        try:
             logger.info(f"Phase 1: POST to Rust service at {config.RUST_SERVICE_URL}/process")
             rust_response = requests.post(
                 f"{config.RUST_SERVICE_URL}/process",
@@ -88,125 +89,135 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
                 db.commit()
             raise self.retry(exc=e, countdown=60)
 
-            # Phase 2: Post-processing (Moving files and updating DB)
-            logger.info(f"Phase 2: Starting post-processing for video_id={video_id}")
-            clean_title = "".join([c if c.isalnum() else "_" for c in title])
-            timestamp = int(os.path.getmtime(temp_file_path))
-            base_filename = f"{clean_title}_{timestamp}"
-            hls_dir = f"{temp_file_path}_hls"
-            video_url = ""
-            url_480p = None
-            url_720p = None
-            url_1080p = None
-            url_2k = None
-            url_4k = None
-            
-            # Secure HLS directory discovery
-            if os.path.isdir(hls_dir):
-                logger.info(f"HLS directory found: {hls_dir}. Starting cloud upload.")
-                # Update DB to show upload stage
-                db_video = db.query(Video).filter(Video.id == video_id).first()
-                if db_video:
-                    db_video.processing_message = "Optimizing for streaming..."
-                    db.commit()
-
-                for root, _, files in os.walk(hls_dir):
-                    for file in files:
-                        local_path = os.path.join(root, file)
-                        rel_path = os.path.relpath(local_path, hls_dir)
-                        s3_key = f"videos/{base_filename}_hls/{rel_path}".replace("\\", "/")
-                        
-                        try:
-                            url = storage.upload_file(local_path, s3_key)
-                            if file == "master.m3u8":
-                                video_url = url
-                            elif file == "480p.m3u8":
-                                url_480p = url
-                            elif file == "720p.m3u8":
-                                url_720p = url
-                            elif file == "1080p.m3u8":
-                                url_1080p = url
-                        except Exception as e:
-                            logger.error(f"Error uploading HLS segment {file}: {e}")
-            else:
-                logger.error(f"Critical Error: HLS directory {hls_dir} not found after processing task {task_id}")
-                # If HLS failed but the original file is there, we might fallback or fail
-                if os.path.exists(temp_file_path):
-                     logger.info(f"Fallback: Original file exists at {temp_file_path}")
-
-            
-            temp_thumb_path = f"{temp_file_path}.jpg"
-            thumbnail_url = None
-            if not thumbnail_provided and os.path.exists(temp_thumb_path):
-                s3_key = f"thumbs/{base_filename}.jpg"
-                thumbnail_url = storage.upload_file(temp_thumb_path, s3_key)
-
-            duration = 0
-            try:
-                probe_cmd = [
-                    "ffprobe", "-v", "error", "-show_entries", "format=duration",
-                    "-of", "default=noprint_wrappers=1:nokey=1", temp_file_path
-                ]
-                duration_str = subprocess.check_output(probe_cmd).decode('utf-8').strip()
-                duration = int(float(duration_str))
-            except Exception as e:
-                print(f"Failed to get duration: {e}")
-
-            video = db.query(Video).filter(Video.id == video_id).first()
-            if video:
-                video.video_url = video_url
-                video.url_480p = url_480p
-                video.url_720p = url_720p
-                video.url_1080p = url_1080p
-                video.url_2k = url_2k
-                video.url_4k = url_4k
-                video.duration = duration
-                # video.status = "approved"  # Manual Approval Required per user request
-                video.failed_at = None 
-                
-                if thumbnail_url:
-                    video.thumbnail_url = thumbnail_url
-                
-                # Automated Video Recognition
-                try:
-                    import sys
-                    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-                    recognition_script = os.path.join(backend_dir, "..", "video-service", "scripts", "video_recognition.py")
-                    
-                    if os.path.exists(recognition_script):
-                        rec_result = subprocess.run(
-                            [sys.executable, recognition_script, temp_file_path],
-                            capture_output=True, text=True, timeout=60
-                        )
-                        if rec_result.returncode == 0:
-                            auto_tags = json.loads(rec_result.stdout)
-                            if auto_tags:
-                                existing_tags = [t.strip() for t in (video.tags or "").split(",") if t.strip()]
-                                all_tags = list(set(existing_tags + auto_tags))
-                                video.tags = ",".join(all_tags)
-                except Exception as e:
-                    print(f"Video recognition failed: {e}")
-
+        # Phase 2: Post-processing (Moving files and updating DB)
+        logger.info(f"Phase 2: Starting post-processing for video_id={video_id}")
+        clean_title = "".join([c if c.isalnum() else "_" for c in title])
+        timestamp = int(os.path.getmtime(temp_file_path))
+        base_filename = f"{clean_title}_{timestamp}"
+        hls_dir = f"{temp_file_path}_hls"
+        video_url = ""
+        url_480p = None
+        url_720p = None
+        url_1080p = None
+        url_2k = None
+        url_4k = None
+        
+        # Secure HLS directory discovery
+        if os.path.isdir(hls_dir):
+            logger.info(f"HLS directory found: {hls_dir}. Starting cloud upload.")
+            # Update DB to show upload stage
+            db_video = db.query(Video).filter(Video.id == video_id).first()
+            if db_video:
+                db_video.processing_message = "Optimizing for streaming..."
                 db.commit()
-                return {"status": "success", "video_id": video_id}
+
+            for root, _, files in os.walk(hls_dir):
+                for file in files:
+                    local_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(local_path, hls_dir)
+                    s3_key = f"videos/{base_filename}_hls/{rel_path}".replace("\\", "/")
+                    
+                    try:
+                        url = storage.upload_file(local_path, s3_key)
+                        if file == "master.m3u8":
+                            video_url = url
+                        elif file == "480p.m3u8":
+                            url_480p = url
+                        elif file == "720p.m3u8":
+                            url_720p = url
+                        elif file == "1080p.m3u8":
+                            url_1080p = url
+                    except Exception as e:
+                        logger.error(f"Error uploading HLS segment {file}: {e}")
+        else:
+            logger.error(f"Critical Error: HLS directory {hls_dir} not found after processing task {task_id}")
+            if os.path.exists(temp_file_path):
+                 logger.info(f"Fallback: Original file exists at {temp_file_path}")
+
+        temp_thumb_path = f"{temp_file_path}.jpg"
+        thumbnail_url = None
+        if not thumbnail_provided and os.path.exists(temp_thumb_path):
+            s3_key = f"thumbs/{base_filename}.jpg"
+            thumbnail_url = storage.upload_file(temp_thumb_path, s3_key)
+
+        duration = 0
+        try:
+            probe_cmd = [
+                "ffprobe", "-v", "error", "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1", temp_file_path
+            ]
+            duration_str = subprocess.check_output(probe_cmd).decode('utf-8').strip()
+            duration = int(float(duration_str))
         except Exception as e:
-            # Notify user of failure
+            print(f"Failed to get duration: {e}")
+
+        video = db.query(Video).filter(Video.id == video_id).first()
+        if video:
+            video.video_url = video_url
+            video.url_480p = url_480p
+            video.url_720p = url_720p
+            video.url_1080p = url_1080p
+            video.url_2k = url_2k
+            video.url_4k = url_4k
+            video.duration = duration
+            video.failed_at = None 
+            
+            if thumbnail_url:
+                video.thumbnail_url = thumbnail_url
+            
+            # Automated Video Recognition
             try:
-                 video = db.query(Video).filter(Video.id == video_id).first()
-                 if video:
-                     notify_user_push(
-                         db, 
-                         user_id=video.owner_id, 
-                         title="Video Processing Failed", 
-                         body=f"Something went wrong while processing '{title}'. Please try uploading again.", 
-                         link="/upload",
-                         n_type="status_change"
-                     )
+                import sys
+                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+                recognition_script = os.path.join(backend_dir, "..", "video-service", "scripts", "video_recognition.py")
+                
+                if os.path.exists(recognition_script):
+                    rec_result = subprocess.run(
+                        [sys.executable, recognition_script, temp_file_path],
+                        capture_output=True, text=True, timeout=60
+                    )
+                    if rec_result.returncode == 0:
+                        auto_tags = json.loads(rec_result.stdout)
+                        if auto_tags:
+                            existing_tags = [t.strip() for t in (video.tags or "").split(",") if t.strip()]
+                            all_tags = list(set(existing_tags + auto_tags))
+                            video.tags = ",".join(all_tags)
+            except Exception as e:
+                print(f"Video recognition failed: {e}")
+
+            db.commit()
+            
+            # Notify user of success
+            try:
+                notify_user_push(
+                    db,
+                    user_id=video.owner_id,
+                    title="Video Published!",
+                    body=f"Your video '{title}' is ready for the world.",
+                    link=f"/watch/{video_id}",
+                    n_type="status_change"
+                )
             except: pass
             
-            print(f"Error in post-processing: {e}")
-            raise e
+            return {"status": "success", "video_id": video_id}
 
+    except Exception as e:
+        # Notify user of failure
+        try:
+             video = db.query(Video).filter(Video.id == video_id).first()
+             if video:
+                 notify_user_push(
+                     db, 
+                     user_id=video.owner_id, 
+                     title="Video Processing Failed", 
+                     body=f"Something went wrong while processing '{title}'. Please try uploading again.", 
+                     link="/upload",
+                     n_type="status_change"
+                 )
+        except: pass
+        
+        print(f"Error in post-processing: {e}")
+        raise e
     finally:
         db.close()
         temp_dir = os.path.dirname(temp_file_path)

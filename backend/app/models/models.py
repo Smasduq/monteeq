@@ -306,6 +306,9 @@ class ChatMessage(Base):
     iv = Column(String) # Initialization Vector
     recipient_key = Column(Text) # AES key wrapped with recipient's public key
     sender_key = Column(Text) # AES key wrapped with sender's public key
+    message_type = Column(String, default="text") # text, voice, file
+    attachment_url = Column(String, nullable=True)
+    file_metadata = Column(Text, nullable=True) # JSON blob for filename, size, etc.
     created_at = Column(DateTime, default=func.now())
 
     conversation = relationship("Conversation", back_populates="messages")

@@ -9,7 +9,6 @@ use dotenvy::dotenv;
 use std::env;
 use fred::prelude::*;
 
-mod processor; // Legacy logic if needed, but we use transcoder
 mod transcoder;
 mod ax_status;
 mod worker;

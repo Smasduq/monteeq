@@ -11,7 +11,7 @@ pub struct StorageManager {
 
 impl StorageManager {
     pub async fn new() -> Result<Self> {
-        let config = aws_config::load_from_env().await;
+        let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
         let client = Client::new(&config);
         let bucket = std::env::var("S3_BUCKET_NAME").map_err(|_| anyhow!("S3_BUCKET_NAME not set"))?;
         

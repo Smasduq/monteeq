@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import List
+import os
+import uuid
+from app.core import config
 
 from app.db.session import get_db
 from app.schemas import schemas
@@ -65,7 +68,10 @@ def send_message(
         encrypted_content=message_in.encrypted_content,
         iv=message_in.iv,
         recipient_key=message_in.recipient_key,
-        sender_key=message_in.sender_key
+        sender_key=message_in.sender_key,
+        message_type=message_in.message_type,
+        attachment_url=message_in.attachment_url,
+        file_metadata=message_in.file_metadata
     )
     db.add(message)
     db.commit()
@@ -98,3 +104,23 @@ def get_messages(
     
     messages = db.query(ChatMessage).filter(ChatMessage.conversation_id == conversation_id).order_by(ChatMessage.created_at.asc()).all()
     return messages
+
+@router.post("/upload", response_model=schemas.AttachmentResponse)
+def upload_attachment(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    # Ensure directory exists
+    attachments_dir = os.path.join(config.STATIC_DIR, "chat_attachments")
+    os.makedirs(attachments_dir, exist_ok=True)
+    
+    # Save file
+    file_id = str(uuid.uuid4())
+    filename = f"{file_id}_{file.filename}"
+    file_path = os.path.join(attachments_dir, filename)
+    
+    with open(file_path, "wb") as f:
+        f.write(file.file.read())
+        
+    url = f"{config.BASE_URL}/static/chat_attachments/{filename}"
+    return {"url": url, "filename": file.filename}

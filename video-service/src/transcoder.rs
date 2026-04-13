@@ -66,7 +66,7 @@ pub async fn process(
     }
 
     // 3. Transcode + Thumbnail Concurrently
-    let transcoding_fut = transcode_tiered(video_path, &output_dir, format, &config, status_map.clone(), task_id.clone(), has_audio);
+    let transcoding_fut = transcode_tiered(video_path, &output_dir, format, &config, status_map.clone(), task_id.clone(), has_audio, &tier);
     let v_path = video_path.to_string();
     let thumbnail_fut = async move {
         if !skip_thumbnail {
@@ -151,7 +151,8 @@ async fn transcode_tiered(
     config: &TranscodingConfig,
     status_map: Option<StatusMap>,
     task_id: String,
-    has_audio: bool
+    has_audio: bool,
+    tier: &UserTier
 ) -> Result<()> {
     let mut args = vec![
         "-i", input,
@@ -168,7 +169,7 @@ async fn transcode_tiered(
         "-hls_time", "6",
         "-hls_playlist_type", "vod",
         "-master_pl_name", "master.m3u8",
-    ];
+    ]);
 
     println!("Transcoding tiered levels for {} -> {}", input, output_dir);
 

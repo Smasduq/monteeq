@@ -1,341 +1,328 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Shield, Search, User, Key, Lock, MessageSquare } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useCrypto } from '../hooks/useCrypto';
-import {
-    getConversations,
-    getChatMessages,
-    sendChatMessage,
-    getUserPublicKey,
-    uploadPublicKey
-} from '../api';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ChatSkeleton } from '../components/Skeleton';
+import { useCrypto } from '../hooks/useCrypto';
+import { useGoogleDrive } from '../hooks/useGoogleDrive';
+import { 
+    getConversations, 
+    getChatMessages, 
+    sendChatMessage, 
+    getUserPublicKey, 
+    uploadPublicKey,
+    uploadChatAttachment,
+    searchUnified,
+    linkGoogleAccount
+} from '../api';
+import ChatList from '../components/chat/ChatList';
+import ChatWindow from '../components/chat/ChatWindow';
+import { useGoogleLogin } from '@react-oauth/google';
+import './Chat.css';
 
 const Chat = () => {
-    const { user, token } = useAuth();
-    const { generateKeyPair, encryptMessage, decryptMessage, hasLocalKey, isGenerating } = useCrypto();
-    const location = useLocation();
-    const navigate = useNavigate();
+    const { user, token, setUser } = useAuth();
+    const { 
+        generateKeyPair, 
+        encryptMessage, 
+        decryptMessage, 
+        encryptBinary, 
+        decryptBinary,
+        exportPrivateKey,
+        importPrivateKey,
+        hasLocalKey 
+    } = useCrypto();
 
     const [conversations, setConversations] = useState([]);
     const [selectedConv, setSelectedConv] = useState(null);
     const [messages, setMessages] = useState([]);
     const [decryptedMessages, setDecryptedMessages] = useState({});
-    const [newMessage, setNewMessage] = useState('');
-    const [keysLoaded, setKeysLoaded] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [recipientUsername, setRecipientUsername] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isSetup, setIsSetup] = useState(false);
+    const [isInitialSync, setIsInitialSync] = useState(true);
 
-    const messagesEndRef = useRef(null);
+    const drive = useGoogleDrive(async (driveToken) => {
+        // Callback when drive authenticates
+        await performDriveSync(driveToken);
+    });
 
-    const fetchConversations = async () => {
+    const handleGoogleLink = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+            try {
+                const linkRes = await linkGoogleAccount(tokenResponse.access_token, token);
+                if (linkRes.google_id) {
+                    setUser(linkRes);
+                    // drive hook will automatically have access to updated user
+                    // We might need to manually trigger sync if it doesn't happen
+                }
+            } catch (err) {
+                console.error("Link failed", err);
+            }
+        },
+        scope: 'https://www.googleapis.com/auth/drive.file email profile'
+    });
+
+    const performDriveSync = useCallback(async (driveToken) => {
+        if (!user.google_id) return;
+        const backup = await drive.loadBackup();
+        if (backup && backup.wrappedPrivateKey) {
+            console.log("Found backup on Google Drive, syncing keys...");
+            await importPrivateKey(backup.wrappedPrivateKey);
+            setIsSetup(true);
+        }
+    }, [user.google_id, drive, importPrivateKey]);
+
+    useEffect(() => {
+        const checkKey = async () => {
+            const hasKey = await hasLocalKey();
+            if (hasKey) {
+                setIsSetup(true);
+            } else if (user.google_id && drive.isAuthenticated) {
+                await performDriveSync();
+            }
+            setIsInitialSync(false);
+        };
+        checkKey();
+    }, [hasLocalKey, user.google_id, drive.isAuthenticated, performDriveSync]);
+
+    const fetchConversations = useCallback(async () => {
         try {
             const data = await getConversations(token);
             setConversations(data);
-            setLoading(false);
-            return data;
         } catch (error) {
             console.error('Failed to fetch conversations', error);
-            setLoading(false);
-            return [];
         }
-    };
+    }, [token]);
 
-    const startChatInternal = async (target) => {
-        try {
-            const { public_key: recipientPubKey } = await getUserPublicKey(target, token);
-            if (!recipientPubKey) {
-                alert("Recipient hasn't set up E2EE yet.");
-                return;
-            }
-
-            const encrypted = await encryptMessage("System: Chat Started", recipientPubKey, user.public_key);
-            await sendChatMessage({
-                ...encrypted,
-                recipient_username: target
-            }, token);
-
-            setRecipientUsername('');
-            const updatedConvs = await fetchConversations();
-            const newConv = updatedConvs.find(c =>
-                c.user1.username === target || c.user2.username === target
-            );
-            if (newConv) setSelectedConv(newConv);
-        } catch (error) {
-            console.error("Failed to start chat:", error);
-        }
-    };
-
-    // Primary initialization effect
     useEffect(() => {
-        const initChat = async () => {
-            if (!user) return;
+        if (token && isSetup) {
+            fetchConversations();
+            const interval = setInterval(fetchConversations, 10000);
+            return () => clearInterval(interval);
+        }
+    }, [token, isSetup, fetchConversations]);
 
-            const hasKey = await hasLocalKey();
-            if (hasKey) {
-                setKeysLoaded(true);
-                const convs = await fetchConversations();
-
-                // Handle navigation from Profile
-                if (location.state?.startChatWith) {
-                    const target = location.state.startChatWith;
-                    const existing = convs.find(c =>
-                        c.user1.username === target || c.user2.username === target
-                    );
-                    if (existing) {
-                        setSelectedConv(existing);
+    const decryptAll = useCallback(async (msgs) => {
+        for (const msg of msgs) {
+            if (!decryptedMessages[msg.id]) {
+                try {
+                    const wrappedKey = String(msg.sender_id) === String(user.id) ? msg.sender_key : msg.recipient_key;
+                    if (msg.message_type === 'text') {
+                        const decrypted = await decryptMessage(msg.encrypted_content, msg.iv, wrappedKey);
+                        setDecryptedMessages(prev => ({ ...prev, [msg.id]: decrypted }));
                     } else {
-                        await startChatInternal(target);
+                        // For files/voice, we just return a placeholder or handle on-demand
+                        setDecryptedMessages(prev => ({ ...prev, [msg.id]: `[${msg.message_type.toUpperCase()}]` }));
                     }
-                    // Clear state after handling
-                    navigate(location.pathname, { replace: true, state: {} });
+                } catch (e) {
+                    setDecryptedMessages(prev => ({ ...prev, [msg.id]: '[Secure Message]' }));
                 }
-            } else {
-                setLoading(false);
             }
-        };
-        initChat();
-    }, [user, location.state]);
-
-    // Message fetching and polling
-    useEffect(() => {
-        let interval;
-        if (selectedConv) {
-            fetchMessages(selectedConv.id);
-            interval = setInterval(() => fetchMessages(selectedConv.id), 5000);
         }
-        return () => {
-            if (interval) clearInterval(interval);
-        };
-    }, [selectedConv]);
+    }, [user.id, decryptedMessages, decryptMessage]);
 
-    // Scroll to bottom on new messages
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
-
-    const fetchMessages = async (convId) => {
+    const fetchMessages = useCallback(async (convId) => {
         try {
             const data = await getChatMessages(convId, token);
             setMessages(data);
-
-            // Decrypt messages
-            for (const msg of data) {
-                if (!decryptedMessages[msg.id]) {
-                    try {
-                        const wrappedKey = String(msg.sender_id) === String(user.id) ? msg.sender_key : msg.recipient_key;
-                        const decrypted = await decryptMessage(msg.encrypted_content, msg.iv, wrappedKey);
-                        setDecryptedMessages(prev => ({ ...prev, [msg.id]: decrypted }));
-                    } catch (e) {
-                        console.error('Failed to decrypt message', msg.id, e);
-                        setDecryptedMessages(prev => ({ ...prev, [msg.id]: '[Decryption Failed]' }));
-                    }
-                }
-            }
+            decryptAll(data);
         } catch (error) {
             console.error('Failed to fetch messages', error);
         }
-    };
+    }, [token, decryptAll]);
 
-    const handleGenerateKeys = async () => {
-        try {
-            const publicKey = await generateKeyPair();
-            await uploadPublicKey(publicKey, token);
-            setKeysLoaded(true);
-            const convs = await fetchConversations();
+    useEffect(() => {
+        if (selectedConv) {
+            fetchMessages(selectedConv.id);
+            const interval = setInterval(() => fetchMessages(selectedConv.id), 5000);
+            return () => clearInterval(interval);
+        }
+    }, [selectedConv, fetchMessages]);
 
-            // Check if we were redirected here from a profile
-            if (location.state?.startChatWith) {
-                const target = location.state.startChatWith;
-                const existing = convs.find(c =>
-                    c.user1.username === target || c.user2.username === target
-                );
-                if (existing) {
-                    setSelectedConv(existing);
-                } else {
-                    await startChatInternal(target);
-                }
-            }
-        } catch (error) {
-            console.error('Key generation failed', error);
-            alert("Failed to generate secure keys. Please try again.");
+    const handleSetupKeys = async () => {
+        const pubKey = await generateKeyPair();
+        await uploadPublicKey(pubKey, token);
+        setIsSetup(true);
+        
+        // If Google user, backup the private key immediately
+        if (user.google_id && drive.isAuthenticated) {
+            const privKeyB64 = await exportPrivateKey();
+            await drive.saveBackup({ wrappedPrivateKey: privKeyB64, syncedAt: new Date().toISOString() });
         }
     };
 
-    const handleSendMessage = async (e) => {
-        e.preventDefault();
-        if (!newMessage.trim() || !selectedConv) return;
-
+    const handleSendMessage = async (text) => {
+        if (!selectedConv) return;
         const recipient = selectedConv.user1.username === user.username ? selectedConv.user2 : selectedConv.user1;
-
+        
         try {
-            const { public_key: recipientPubKey } = await getUserPublicKey(recipient.username, token);
-            if (!recipientPubKey) {
-                alert("Recipient hasn't set up End-2-End Encrypted yet.");
-                return;
-            }
-
-            const encrypted = await encryptMessage(newMessage, recipientPubKey, user.public_key);
+            const recipientKeys = await getUserPublicKey(recipient.username, token);
+            const encrypted = await encryptMessage(text, recipientKeys.public_key, user.public_key);
+            
             await sendChatMessage({
                 ...encrypted,
-                recipient_username: recipient.username
+                recipient_username: recipient.username,
+                message_type: 'text'
             }, token);
-
-            setNewMessage('');
+            
             fetchMessages(selectedConv.id);
         } catch (error) {
             console.error('Failed to send message', error);
         }
     };
 
-    const handleStartNewChat = async (e) => {
-        e.preventDefault();
-        if (!recipientUsername.trim()) return;
-
-        if (recipientUsername === user.username) {
-            alert("You cannot chat with yourself.");
-            return;
+    const handleSendVoice = async (blob) => {
+        if (!selectedConv) return;
+        const recipient = selectedConv.user1.username === user.username ? selectedConv.user2 : selectedConv.user1;
+        
+        try {
+            // 1. Upload encrypted attachment
+            const arrayBuffer = await blob.arrayBuffer();
+            const recipientKeys = await getUserPublicKey(recipient.username, token);
+            const encrypted = await encryptBinary(arrayBuffer, recipientKeys.public_key, user.public_key);
+            
+            // 2. Upload file
+            const encryptedBlob = new Blob([base64ToArrayBuffer(encrypted.encrypted_content)], { type: 'application/octet-stream' });
+            const uploadRes = await uploadChatAttachment(encryptedBlob, token);
+            
+            // 3. Send message
+            await sendChatMessage({
+                ...encrypted,
+                encrypted_content: 'ENCRYPTED_VOICE', // Real content is in the file
+                recipient_username: recipient.username,
+                message_type: 'voice',
+                attachment_url: uploadRes.url,
+                file_metadata: JSON.stringify({ size: blob.size, type: blob.type })
+            }, token);
+            
+            fetchMessages(selectedConv.id);
+        } catch (err) {
+            console.error("Voice send failed", err);
         }
-
-        await startChatInternal(recipientUsername);
-        setRecipientUsername('');
     };
 
-    if (loading) return <ChatSkeleton />;
+    const handleUploadFile = async (file) => {
+        if (!selectedConv || !file) return;
+        const recipient = selectedConv.user1.username === user.username ? selectedConv.user2 : selectedConv.user1;
+        
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const recipientKeys = await getUserPublicKey(recipient.username, token);
+            const encrypted = await encryptBinary(arrayBuffer, recipientKeys.public_key, user.public_key);
+            
+            const encryptedBlob = new Blob([base64ToArrayBuffer(encrypted.encrypted_content)], { type: 'application/octet-stream' });
+            const uploadRes = await uploadChatAttachment(encryptedBlob, token);
+            
+            await sendChatMessage({
+                ...encrypted,
+                encrypted_content: 'ENCRYPTED_FILE',
+                recipient_username: recipient.username,
+                message_type: 'file',
+                attachment_url: uploadRes.url,
+                file_metadata: JSON.stringify({ name: file.name, size: file.size, type: file.type })
+            }, token);
+            
+            fetchMessages(selectedConv.id);
+        } catch (err) {
+            console.error("File upload failed", err);
+        }
+    };
 
-    if (!keysLoaded) {
+    const handleDownloadFile = async (msg) => {
+        try {
+            const response = await fetch(msg.attachment_url);
+            const encryptedBuffer = await response.arrayBuffer();
+            const encryptedB64 = arrayBufferToBase64(encryptedBuffer);
+            
+            const wrappedKey = String(msg.sender_id) === String(user.id) ? msg.sender_key : msg.recipient_key;
+            const decryptedBuffer = await decryptBinary(encryptedB64, msg.iv, wrappedKey);
+            
+            const metadata = JSON.parse(msg.file_metadata);
+            const blob = new Blob([decryptedBuffer], { type: metadata.type });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = metadata.name || 'download';
+            a.click();
+        } catch (err) {
+            console.error("File download/decrypt failed", err);
+        }
+    };
+
+    // Helper functions for base64 (already in useCrypto but re-declared here for handle logic if needed or just use useCrypto ones)
+    const arrayBufferToBase64 = (buffer) => {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary);
+    };
+
+    const base64ToArrayBuffer = (base64) => {
+        const binaryString = window.atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+    };
+
+    if (isInitialSync) return <div className="chatWorkspace-loading">Initializing Elite Workspace...</div>;
+
+    if (!isSetup) {
         return (
-            <div className="chat-empty-state" style={{ padding: '2rem' }}>
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="crypto-setup-card glass"
-                >
-                    <Shield size={64} color="var(--accent-primary)" style={{ marginBottom: '1.5rem' }} />
-                    <h2>Secure End-to-End Chat</h2>
-                    <p style={{ margin: '1rem 0', color: 'var(--text-secondary)' }}>
-                        To protect your privacy, Monteeq uses E2EE. Your messages are encrypted on your device and can only be read by you and the recipient.
-                    </p>
-                    <button
-                        className="btn-active glass"
-                        style={{ width: '100%', marginTop: '1rem', background: 'var(--accent-primary)', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', cursor: 'pointer' }}
-                        onClick={handleGenerateKeys}
-                        disabled={isGenerating}
-                    >
-                        {isGenerating ? 'Generating Keys...' : 'Generate Secure Keys'}
-                    </button>
-                    <p style={{ marginTop: '1.5rem', fontSize: '0.8rem', opacity: 0.6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                        <Lock size={14} /> Your private key never leaves your browser.
-                    </p>
-                </motion.div>
+            <div className="chat-setup-container">
+                <div className="glass setup-card">
+                    <h2>E2E Encryption Required</h2>
+                    <p>To access the Monteeq workspace, you must generate your unique client-side encryption key.</p>
+                    <button className="primary-btn" onClick={handleSetupKeys}>Generate Workspace Key</button>
+                    {user.google_id && !drive.isAuthenticated && (
+                        <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            Logged in with Google? Your keys will be automatically synced.
+                        </p>
+                    )}
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="chat-page">
-            <div className="chat-sidebar">
-                <div className="chat-sidebar-header">
-                    <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <MessageSquare size={20} color="var(--accent-primary)" /> Messages
-                    </h2>
-                    <form onSubmit={handleStartNewChat} style={{ marginTop: '1rem' }}>
-                        <div className="message-input-container">
-                            <Search size={16} />
-                            <input
-                                type="text"
-                                placeholder="Find editor..."
-                                value={recipientUsername}
-                                onChange={(e) => setRecipientUsername(e.target.value)}
-                            />
+        <div className="chatWorkspace">
+            <ChatList 
+                conversations={conversations} 
+                selectedId={selectedConv?.id}
+                onSelect={(conv) => setSelectedConv(conv)}
+                user={user}
+                searchTerm={searchTerm}
+                onSearch={setSearchTerm}
+            />
+            <ChatWindow 
+                selectedConv={selectedConv}
+                messages={messages}
+                decryptedMessages={decryptedMessages}
+                user={user}
+                onSendMessage={handleSendMessage}
+                onSendVoice={handleSendVoice}
+                onUploadFile={handleUploadFile}
+                onDownloadFile={handleDownloadFile}
+            />
+            <div className="chatInfo">
+                {selectedConv && (
+                   <div className="info-panel-content">
+                        <h3>Session Security</h3>
+                        <p>Fully End-to-End Encrypted</p>
+                        <div className="drive-status">
+                            {user.google_id && (
+                                <>
+                                    <span>Sync Status:</span>
+                                    {drive.isSyncing ? 'Syncing...' : (drive.isAuthenticated ? 'Protected by Google' : 'Cloud Backup Pending')}
+                                    {!user.google_id ? (
+                                        <button className="primary-btn-mini" onClick={() => handleGoogleLink()}>Link Google</button>
+                                    ) : (!drive.isAuthenticated && (
+                                        <button className="primary-btn-mini" onClick={() => drive.login()}>Enable Drive Sync</button>
+                                    ))}
+                                </>
+                            )}
                         </div>
-                    </form>
-                </div>
-                <div className="conversation-list">
-                    {conversations.length === 0 && (
-                        <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.5, fontSize: '0.9rem' }}>
-                            No active chats.<br />Search for a username above to start chatting.
-                        </div>
-                    )}
-                    {conversations.map(conv => {
-                        const partner = conv.user1.username === user.username ? conv.user2 : conv.user1;
-                        return (
-                            <div
-                                key={conv.id}
-                                className={`conversation-item ${selectedConv?.id === conv.id ? 'active' : ''}`}
-                                onClick={() => setSelectedConv(conv)}
-                            >
-                                <div className="avatar-placeholder-sm" style={{ width: '40px', height: '40px', fontSize: '1rem' }}>
-                                    {(partner.profile_pic) ? (
-                                        <img src={partner.profile_pic} className="avatar-img-sm" alt="" />
-                                    ) : (
-                                        partner.username[0].toUpperCase()
-                                    )}
-                                </div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        {partner.username}
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', opacity: 0.5 }}>E2EE Enabled</div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            <div className="chat-window">
-                {selectedConv ? (
-                    <>
-                        <div className="chat-header">
-                            <div className="avatar-placeholder-sm">
-                                {(selectedConv.user1.username === user.username ? selectedConv.user2 : selectedConv.user1).username[0].toUpperCase()}
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 600 }}>
-                                    {(selectedConv.user1.username === user.username ? selectedConv.user2 : selectedConv.user1).username}
-                                </div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <Shield size={10} /> End-to-End Encrypted
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="messages-container">
-                            {messages.map(msg => (
-                                <div key={msg.id} className={`message-bubble ${msg.sender_id === user.id ? 'sent' : 'received'}`}>
-                                    {decryptedMessages[msg.id] || 'Decrypting...'}
-                                    <div style={{ fontSize: '0.65rem', opacity: 0.6, marginTop: '4px', textAlign: 'right' }}>
-                                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </div>
-                                </div>
-                            ))}
-                            <div ref={messagesEndRef} />
-                        </div>
-
-                        <div className="message-input-area">
-                            <form onSubmit={handleSendMessage} className="message-input-container" style={{ padding: '0.6rem 1rem' }}>
-                                <input
-                                    type="text"
-                                    placeholder="Type a secure message..."
-                                    value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
-                                    autoComplete="off"
-                                />
-                                <button type="submit" className="btn-active" style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                                    <Send size={20} />
-                                </button>
-                            </form>
-                        </div>
-                    </>
-                ) : (
-                    <div className="chat-empty-state" style={{ opacity: 0.4 }}>
-                        <Shield size={64} style={{ marginBottom: '1rem' }} />
-                        <h3>Your Privacy is Our Priority</h3>
-                        <p>Select an editor to start a conversation</p>
-                    </div>
+                   </div>
                 )}
             </div>
         </div>
