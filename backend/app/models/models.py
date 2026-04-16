@@ -397,3 +397,59 @@ class PayoutRequest(Base):
 
     user = relationship("User")
     wallet = relationship("Wallet")
+
+
+# ─── Recommendation Engine Models ─────────────────────────────────────────────
+
+class VideoInteraction(Base):
+    """
+    Stores one record per user-video interaction event.
+    Used by the recommendation engine to compute personalized scores.
+    """
+    __tablename__ = "video_interactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    video_id = Column(Integer, ForeignKey("videos.id"), nullable=False, index=True)
+
+    # Raw watch data
+    watch_time = Column(Float, default=0.0)      # seconds actually watched
+    duration = Column(Float, default=0.0)         # total video length in seconds
+    liked = Column(Boolean, default=False)
+    skipped = Column(Boolean, default=False)
+    replayed = Column(Boolean, default=False)     # true if user rewound / re-watched
+
+    # Computed at write-time for fast reads
+    completion_rate = Column(Float, default=0.0)  # watch_time / duration
+    skipped_fast = Column(Boolean, default=False) # watch_time < 2 s
+    interaction_score = Column(Float, default=0.0)  # final weighted score
+
+    timestamp = Column(DateTime, default=func.now(), index=True)
+
+    user = relationship("User")
+    video = relationship("Video")
+
+
+class UserRecommendationProfile(Base):
+    """
+    One row per user — stores a JSON-encoded tag→affinity mapping
+    so the feed can be assembled quickly without re-scanning all interactions.
+    Updated in background after each interaction.
+    """
+    __tablename__ = "user_recommendation_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False, index=True)
+
+    # JSON: {"footballedit": 0.85, "anime": 0.6, ...}
+    tag_affinity = Column(Text, default="{}")
+    
+    # JSON: [video_id, ...] — LEGACY: used for strict exclusion
+    seen_video_ids = Column(Text, default="[]")
+    
+    # JSON: {"video_id": {"c": count, "t": timestamp, "wt": total_watch_time, "mc": max_completion}}
+    watch_history = Column(Text, default="{}")
+    
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    user = relationship("User")

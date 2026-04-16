@@ -29,13 +29,15 @@ def read_videos(
     status: str = "approved", 
     skip: int = 0,
     limit: int = 20,
+    mood: str = None,
+    feed_mode: str = None,
     db: Session = Depends(get_db), 
     current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     user_id = current_user.id if current_user else None
     
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    cache_key = f"feed_{video_type}_{status}_{skip}_{limit}_{user_id}"
+    cache_key = f"feed_{video_type}_{status}_{skip}_{limit}_{user_id}_{mood}_{feed_mode}"
     
     # Try to get from cache
     r = None
@@ -49,7 +51,7 @@ def read_videos(
     except Exception:
         pass
         
-    videos = crud_video.get_videos(db, video_type=video_type, filter_status=status, current_user_id=user_id, skip=skip, limit=limit)
+    videos = crud_video.get_videos(db, video_type=video_type, filter_status=status, current_user_id=user_id, skip=skip, limit=limit, mood=mood, feed_mode=feed_mode)
     
     # Try to save to cache
     if r:

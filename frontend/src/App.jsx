@@ -66,7 +66,7 @@ function AppContent() {
   // Hide sidebar/header on auth pages, landing page, and marketing pages
   const isAuthPage = ['/login', '/signup', '/verify'].includes(location.pathname);
   const isMarketingPage = ['/about', '/partner', '/pro'].includes(location.pathname);
-  const hideNavigation = isLandingPage || isAuthPage || isMarketingPage;
+  const hideNavigation = isLandingPage || isAuthPage || isMarketingPage || isFlashPage;
 
   // Redirection guard (Onboarding & Verification)
   React.useEffect(() => {
@@ -87,16 +87,16 @@ function AppContent() {
           isMenuOpen={isMenuOpen}
         />
       )}
-      <div className={hideNavigation ? "" : "app-layout"}>
+      <div className={hideNavigation ? "app-layout-fullscreen" : "app-layout"}>
         {!hideNavigation && <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />}
         <main className={hideNavigation ? "landing-page-main" : `main-stage ${isFlashPage ? 'no-padding' : ''}`}>
-          <div className={hideNavigation ? "" : "content-wrapper"} style={hideNavigation ? {} : {
+          <div className={hideNavigation ? "content-wrapper-fullscreen" : "content-wrapper"} style={hideNavigation ? { height: '100%', display: 'flex' } : {
             display: 'flex',
             gap: '2rem',
             width: '100%',
             flexWrap: 'wrap'
           }}>
-            <div style={hideNavigation ? { width: '100%' } : { flex: 1, minWidth: '300px' }}>
+            <div style={hideNavigation ? { width: '100%', height: '100%' } : { flex: 1, minWidth: '300px' }}>
               <React.Suspense fallback={<PageSkeleton />}>
                 <Routes>
                   {/* Public Routes */}

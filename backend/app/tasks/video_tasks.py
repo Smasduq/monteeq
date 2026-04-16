@@ -79,6 +79,7 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
             video = db.query(Video).filter(Video.id == video_id).first()
             if video:
                 video.status = "failed"
+                
                 video.failed_at = func.now()
                 owner = db.query(User).filter(User.id == video.owner_id).first()
                 if owner:

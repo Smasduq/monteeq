@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Flame, TrendingUp, Heart, Zap, Loader2 } from 'lucide-react';
-import { getVideos, likeVideo } from '../api';
+import { getVideos, likeVideo, getRecommendedFeed } from '../api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -44,13 +44,20 @@ const Home = () => {
     const fetchInitialData = async () => {
         setLoading(true);
         try {
-            const [homeData, flashData] = await Promise.all([
-                getVideos('home', token, 0, 12),
-                getVideos('flash', token, 0, 18)
-            ]);
+            // For logged-in users, use the recommendation engine for the home feed.
+            // getRecommendedFeed returns null on error, so we fall back to getVideos.
+            let homeData;
+            if (token) {
+                homeData = await getRecommendedFeed('home', token, 12);
+            }
+            if (!homeData) {
+                homeData = await getVideos('home', token, 0, 12);
+            }
+
+            const flashData = await getVideos('flash', token, 0, 18);
             setVideos(Array.isArray(homeData) ? homeData : []);
             setFlashVideos(Array.isArray(flashData) ? flashData : []);
-            setHasMore(homeData.length === 12);
+            setHasMore((homeData?.length ?? 0) === 12);
         } catch (err) {
             console.error("Initial fetch error:", err);
             setError("Failed to load content.");

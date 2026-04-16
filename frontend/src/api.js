@@ -15,13 +15,51 @@ export const login = async (username, password) => {
     return response.json();
 };
 
-export const getVideos = async (type, token = null, skip = 0, limit = 20) => {
+export const getVideos = async (type, token = null, skip = 0, limit = 20, mood = '', feedMode = '') => {
     const headers = {};
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
-    const response = await fetch(`${API_BASE_URL}/videos/?video_type=${type}&skip=${skip}&limit=${limit}`, { headers });
+    const moodQuery = mood ? `&mood=${mood}` : '';
+    const feedModeQuery = feedMode ? `&feed_mode=${feedMode}` : '';
+    const response = await fetch(`${API_BASE_URL}/videos/?video_type=${type}&skip=${skip}&limit=${limit}${moodQuery}${feedModeQuery}`, { headers });
     return response.json();
+};
+
+/**
+ * Fetch a personalised ranked feed from the recommendation engine.
+ * Falls back gracefully if the user is unauthenticated.
+ * @param {'flash'|'home'} videoType
+ */
+export const getRecommendedFeed = async (videoType = 'flash', token = null, limit = 20, mood = '') => {
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const moodQuery = mood ? `&mood=${mood}` : '';
+    const response = await fetch(
+        `${API_BASE_URL}/recommend/feed?video_type=${videoType}&limit=${limit}${moodQuery}`,
+        { headers }
+    );
+    if (!response.ok) return null;  // caller falls back to getVideos on failure
+    return response.json();
+};
+
+/**
+ * Track a user-video interaction for the recommendation engine.
+ */
+export const trackInteraction = async (payload, token) => {
+    if (!token) return;
+    try {
+        await fetch(`${API_BASE_URL}/recommend/track`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+        });
+    } catch (_) {
+        // Fire-and-forget: never block the UI on tracking failures
+    }
 };
 
 export const getVideoById = async (id, token = null) => {

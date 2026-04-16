@@ -5,7 +5,8 @@ from app.schemas import schemas
 from datetime import datetime
 from typing import Optional
 
-def get_videos(db: Session, video_type: Optional[str] = None, filter_status: str = "approved", current_user_id: Optional[int] = None, skip: int = 0, limit: int = 100):
+def get_videos(db: Session, video_type: Optional[str] = None, filter_status: str = "approved", current_user_id: Optional[int] = None, skip: int = 0, limit: int = 100, mood: Optional[str] = None, feed_mode: Optional[str] = None):
+    from app.models.models import Follow
     query = db.query(Video)
     from datetime import timedelta
     twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
@@ -35,7 +36,15 @@ def get_videos(db: Session, video_type: Optional[str] = None, filter_status: str
     
     if video_type:
         query = query.filter(Video.video_type == video_type)
-    
+        
+    if mood:
+        query = query.filter(Video.tags.ilike(f"%{mood}%"))
+
+    # Following feed: restrict to videos from accounts the user follows
+    if feed_mode == 'following' and current_user_id:
+        followed_ids = db.query(Follow.followed_id).filter(Follow.follower_id == current_user_id).subquery()
+        query = query.filter(Video.owner_id.in_(followed_ids))
+
     # Personalization: Get user interests for boosting
     user_interests = []
     if current_user_id:
@@ -44,8 +53,15 @@ def get_videos(db: Session, video_type: Optional[str] = None, filter_status: str
         if user_data and user_data.interests:
             user_interests = [t.strip().lower() for t in user_data.interests.split(",") if t.strip()]
 
-    # Order by discovery score by default
-    query = query.order_by(desc(Video.discovery_score))
+    # Ordering: trending sorts by recent engagement, default is discovery score
+    if feed_mode == 'trending':
+        from datetime import timedelta
+        week_ago = datetime.now() - timedelta(days=7)
+        query = query.filter(Video.created_at >= week_ago)
+        query = query.order_by(desc(Video.likes_count + Video.views))
+    else:
+        # Order by discovery score by default
+        query = query.order_by(desc(Video.discovery_score))
     
     videos = query.offset(skip).limit(limit).all()
     

@@ -18,6 +18,7 @@ const CommentItem = ({
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState(comment.content);
     const [showAllReplies, setShowAllReplies] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const isReplying = replyingTo === comment.id;
 
     // Smart visibility logic:
@@ -37,7 +38,6 @@ const CommentItem = ({
                     width: level === 0 ? '36px' : '28px',
                     height: level === 0 ? '36px' : '28px',
                     borderRadius: '50%',
-                    background: '#444',
                     flexShrink: 0,
                     overflow: 'hidden'
                 }}>
@@ -150,7 +150,7 @@ const CommentItem = ({
                             {isReplying ? 'Cancel' : 'Reply'}
                         </button>
 
-                        {!isEditing && user && user.id === comment.owner_id && (
+                        {!isEditing && user && user.id === comment.owner_id && !showDeleteConfirm && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                                 <button
                                     title="Edit Comment"
@@ -167,15 +167,11 @@ const CommentItem = ({
                                         gap: '4px'
                                     }}
                                 >
-                                    <Edit2 size={12} /> Edit
+                                    <Edit2 size={16} /> Edit
                                 </button>
                                 <button
                                     title="Delete Comment"
-                                    onClick={() => {
-                                        if (window.confirm("Are you sure you want to delete this comment?")) {
-                                            onDelete(comment.id);
-                                        }
-                                    }}
+                                    onClick={() => setShowDeleteConfirm(true)}
                                     style={{
                                         background: 'none',
                                         border: 'none',
@@ -188,7 +184,27 @@ const CommentItem = ({
                                         gap: '4px'
                                     }}
                                 >
-                                    <Trash2 size={12} /> Delete
+                                    <Trash2 size={16} /> Delete
+                                </button>
+                            </div>
+                        )}
+
+                        {showDeleteConfirm && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '4px 10px', borderRadius: '12px', background: 'rgba(255, 77, 77, 0.1)', border: '1px solid rgba(255, 77, 77, 0.2)', animation: 'fadeIn 0.2s ease-out' }}>
+                                <span style={{ fontSize: '0.75rem', color: '#ff4d4d', fontWeight: 700 }}>Confirm delete?</span>
+                                <button 
+                                    onClick={() => onDelete(comment.id)} 
+                                    style={{ background: '#ff4d4d', border: 'none', color: 'white', padding: '4px 10px', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700, transition: 'all 0.2s' }}
+                                    className="hover-scale"
+                                >
+                                    Yes
+                                </button>
+                                <button 
+                                    onClick={() => setShowDeleteConfirm(false)} 
+                                    style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', padding: '4px 10px', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700, transition: 'all 0.2s' }}
+                                    className="hover-scale"
+                                >
+                                    No
                                 </button>
                             </div>
                         )}
@@ -231,7 +247,7 @@ const CommentItem = ({
                                     opacity: replyComment.trim() ? 1 : 0.5
                                 }}
                             >
-                                <Send size={16} color="white" />
+                                <Send size={20} color="white" />
                             </button>
                         </form>
                     )}
