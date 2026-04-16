@@ -33,6 +33,7 @@ from app.models.models import (
     UserRecommendationProfile,
     Video,
     VideoInteraction,
+    Like
 )
 
 log = logging.getLogger("monteeq.recommend")

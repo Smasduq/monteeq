@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.schemas import schemas
 from app.core import security
-from app.models.models import User, Follow, Video, Post, VerificationCode, ChallengeEntry, Challenge
+from app.models.models import User, Follow, Video, Like, Post, VerificationCode, ChallengeEntry, Challenge
 from datetime import datetime, timedelta
 import random
 import string
@@ -129,8 +129,9 @@ def get_user_profile(db: Session, username: str, current_user_id: int = None):
     followers_count = db.query(func.count(Follow.follower_id)).filter(Follow.followed_id == user_id).scalar() or 0
     following_count = db.query(func.count(Follow.followed_id)).filter(Follow.follower_id == user_id).scalar() or 0
     
-    # Total Views
+    # Total Views & Likes
     total_views = db.query(func.sum(Video.views)).filter(Video.owner_id == user_id).scalar() or 0
+    total_likes = db.query(func.count(Like.id)).join(Video).filter(Video.owner_id == user_id).scalar() or 0
     
     is_following = False
     if current_user_id:
@@ -140,9 +141,22 @@ def get_user_profile(db: Session, username: str, current_user_id: int = None):
     all_videos = db.query(Video).filter(Video.owner_id == user_id).all()
     videos = [v for v in all_videos if v.video_type == "home"]
     flash_videos = [v for v in all_videos if v.video_type == "flash"]
+
+    # Sort videos to find most popular
+    sorted_videos = sorted(all_videos, key=lambda x: x.views or 0, reverse=True)
+    most_popular = sorted_videos[0] if sorted_videos else None
+    
+    # Identify Featured Video (Pinned or Popular)
+    featured_video = db_user.pinned_video
+    
+    if not featured_video and most_popular:
+        featured_video = most_popular
     
     # Posts
     posts = db.query(Post).filter(Post.owner_id == user_id).all()
+    
+    # Liked Videos
+    liked_videos = db.query(Video).join(Like).filter(Like.user_id == user_id).all()
     
     # Trophies (Won Challenges)
     trophies = db.query(ChallengeEntry).filter(
@@ -172,12 +186,16 @@ def get_user_profile(db: Session, username: str, current_user_id: int = None):
         "followers_count": followers_count,
         "following_count": following_count,
         "total_views": total_views,
+        "total_likes": total_likes,
+        "featured_video": featured_video,
+        "most_popular_video": most_popular,
         "videos_count": len(videos),
         "flash_videos_count": len(flash_videos),
         "posts_count": len(posts),
         "videos": videos,
         "flash_videos": flash_videos,
         "posts": posts,
+        "liked_videos": liked_videos,
         "trophies": trophies,
         "is_following": is_following
     }

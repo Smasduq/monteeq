@@ -112,12 +112,16 @@ class UserProfile(User):
     followers_count: int
     following_count: int
     total_views: int
+    total_likes: int = 0
+    featured_video: Optional["Video"] = None
+    most_popular_video: Optional["Video"] = None
     videos_count: int
     flash_videos_count: int
     posts_count: int
     videos: List["Video"]
     flash_videos: List["Video"]
     posts: List["Post"]
+    liked_videos: List["Video"] = []
     trophies: List["ChallengeEntry"] = []
     is_following: bool = False
 

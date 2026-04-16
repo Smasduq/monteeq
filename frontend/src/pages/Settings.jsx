@@ -1,22 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-    User, 
-    Settings as AccountIcon, 
-    Award, 
-    CreditCard, 
-    Bell, 
-    Shield, 
-    Save, 
-    Check, 
-    AlertCircle, 
+import {
+    User,
+    Settings as AccountIcon,
+    Award,
+    CreditCard,
+    Bell,
+    Shield,
+    Save,
+    Check,
+    AlertCircle,
     Camera,
-    ChevronRight,
+    ChevronRight, ChevronLeft,
     Globe,
     ExternalLink,
     Copy,
     Key,
     Loader2,
+    Mail
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotification } from '../context/NotificationContext';
@@ -37,6 +38,7 @@ const Settings = () => {
     const initialTab = queryParams.get('tab') || 'profile';
 
     const [activeTab, setActiveTab] = useState(initialTab);
+    const [isMobileDetail, setIsMobileDetail] = useState(!!queryParams.get('tab'));
     const [loading, setLoading] = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
@@ -306,7 +308,7 @@ const Settings = () => {
     const downloadRecoveryCodes = () => {
         const content = `MONTEEQ RECOVERY CODES\n\nStore these codes in a safe place. Each code is one-time use.\n\n${recoveryCodes.join('\n')}\n\nGenerated on: ${new Date().toLocaleString()}`;
         const element = document.createElement('a');
-        const file = new Blob([content], {type: 'text/plain'});
+        const file = new Blob([content], { type: 'text/plain' });
         element.href = URL.createObjectURL(file);
         element.download = `monteeq-recovery-codes-${user.username}.txt`;
         document.body.appendChild(element);
@@ -367,17 +369,17 @@ const Settings = () => {
                 // For linking, we might need a code flow or fetch profile info.
                 // Actually, let's use the access_token to fetch user info if id_token isn't available.
                 // OR better, use the auth-code flow for the backend to get the token.
-                
+
                 // For simplicity and matching my plan, I'll use the access_token 
                 // and the backend will verify it via google-auth (which also supports access_token verification).
                 // Wait, verify_oauth2_token usually expects an ID token.
                 // I'll adjust the backend in a moment if needed, or get the ID token here.
-                
+
                 // Assuming we want to stay simple:
                 const res = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
                     headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
                 });
-                
+
                 const linkRes = await linkGoogleAccount(tokenResponse.access_token, token);
                 if (linkRes.google_id) {
                     setUser(linkRes);
@@ -391,16 +393,18 @@ const Settings = () => {
     });
 
     const SidebarItem = ({ id, icon: Icon, label }) => (
-        <div 
+        <div
             className={`settings-sidebar-item ${activeTab === id ? 'active' : ''}`}
             onClick={() => {
                 setActiveTab(id);
+                setIsMobileDetail(true);
                 const newUrl = `${window.location.pathname}?tab=${id}`;
                 window.history.replaceState({ ...window.history.state, path: newUrl }, '', newUrl);
             }}
         >
             <Icon size={20} />
             <span>{label}</span>
+            <ChevronRight size={16} className="mobile-chevron" />
         </div>
     );
 
@@ -408,11 +412,11 @@ const Settings = () => {
         <div className="toggle-wrapper">
             <span style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>{label}</span>
             <label className="toggle-switch">
-                <input 
-                    type="checkbox" 
-                    name={name} 
-                    checked={checked} 
-                    onChange={onChange} 
+                <input
+                    type="checkbox"
+                    name={name}
+                    checked={checked}
+                    onChange={onChange}
                 />
                 <span className="toggle-slider"></span>
             </label>
@@ -420,7 +424,7 @@ const Settings = () => {
     );
 
     return (
-        <div className="settings-wrapper">
+        <div className={`settings-wrapper ${isMobileDetail ? 'detail-mode' : 'menu-mode'}`}>
             <aside className="settings-sidebar">
                 <h2 style={{ padding: '0 1.6rem 1.5rem', fontSize: '1.8rem', fontWeight: 900 }}>Settings</h2>
                 <SidebarItem id="profile" icon={User} label="Profile" />
@@ -432,17 +436,21 @@ const Settings = () => {
             </aside>
 
             <main className="settings-content">
+                <button className="mobile-back-btn" onClick={() => setIsMobileDetail(false)}>
+                    <ChevronLeft size={20} /> <span style={{ marginLeft: '0.4rem', fontWeight: '800' }}>Back to Settings</span>
+                </button>
+
                 {activeTab === 'profile' && (
-                    <section className="settings-card glass">
+                    <section className="settings-card">
                         <div className="settings-card-title">
                             <User size={24} color="var(--accent-primary)" />
                             Profile Details
                         </div>
-                        
+
                         <div style={{ display: 'flex', gap: '3rem', alignItems: 'center', marginBottom: '3rem' }}>
                             <div style={{ position: 'relative' }}>
-                                <div style={{ 
-                                    width: '120px', height: '120px', borderRadius: '50%', 
+                                <div style={{
+                                    width: '120px', height: '120px', borderRadius: '50%',
                                     border: '3px solid var(--accent-primary)', padding: '4px',
                                     background: 'var(--bg-deep)'
                                 }}>
@@ -456,8 +464,8 @@ const Settings = () => {
                                         )}
                                     </div>
                                 </div>
-                                <label htmlFor="avatar-sub" style={{ 
-                                    position: 'absolute', bottom: '0', right: '0', 
+                                <label htmlFor="avatar-sub" style={{
+                                    position: 'absolute', bottom: '0', right: '0',
                                     background: 'var(--accent-primary)', padding: '8px', borderRadius: '50%',
                                     cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center'
@@ -474,22 +482,22 @@ const Settings = () => {
 
                         <div className="form-group" style={{ marginBottom: '1.5rem' }}>
                             <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Full Name</label>
-                            <input className="glass" style={{ width: '100%', border: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.03)', padding: '1.2rem', borderRadius: '14px', color: 'white' }} name="full_name" value={formData.full_name} onChange={handleFormChange} placeholder="Display name" />
+                            <input className="settings-input" name="full_name" value={formData.full_name} onChange={handleFormChange} placeholder="Display name" />
                         </div>
                         <div className="form-group" style={{ marginBottom: '1.5rem' }}>
                             <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Username</label>
-                            <input className="glass" style={{ width: '100%', border: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.03)', padding: '1.2rem', borderRadius: '14px', color: 'white' }} name="username" value={formData.username} onChange={handleFormChange} placeholder="Unique handle" />
+                            <input className="settings-input" name="username" value={formData.username} onChange={handleFormChange} placeholder="Unique handle" />
                         </div>
                         <div className="form-group" style={{ marginBottom: '1.5rem' }}>
                             <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Public Bio</label>
-                            <textarea className="glass" style={{ width: '100%', border: '1px solid var(--border-glass)', background: 'rgba(255,255,255,0.03)', padding: '1.2rem', borderRadius: '14px', color: 'white', resize: 'none' }} name="bio" value={formData.bio} onChange={handleFormChange} rows="3" placeholder="Briefly describe your style..." />
+                            <textarea className="settings-input" style={{resize: 'none'}} name="bio" value={formData.bio} onChange={handleFormChange} rows="3" placeholder="Briefly describe your style..." />
                         </div>
                     </section>
                 )}
 
                 {activeTab === 'account' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <section className="settings-group-box premium glass">
+                        <section className="settings-group-box premium">
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
                                 <div>
                                     <h3 className="settings-card-title" style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>
@@ -519,7 +527,7 @@ const Settings = () => {
                             </div>
                         </section>
 
-                        <section className="settings-group-box glass">
+                        <section className="settings-group-box">
                             <h3 className="settings-card-title" style={{ fontSize: '1.2rem', marginBottom: '1.5rem' }}>
                                 <Globe size={20} color="var(--accent-primary)" style={{ marginRight: '0.8rem' }} />
                                 Connected Identity
@@ -545,7 +553,7 @@ const Settings = () => {
 
                 {activeTab === 'security' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <section className="settings-group-box glass">
+                        <section className="settings-group-box">
                             <h3 className="settings-card-title" style={{ fontSize: '1.2rem', marginBottom: '1.5rem' }}>
                                 <Shield size={20} color="var(--accent-primary)" style={{ marginRight: '0.8rem' }} />
                                 Login & Access
@@ -564,26 +572,26 @@ const Settings = () => {
                                 </div>
 
                                 {isPasswordExpanded && (
-                                    <div className="inline-password-form" style={{ marginTop: '2rem', padding: '1.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid var(--border-glass)' }}>
+                                    <div className="settings-card" style={{ marginTop: '1.5rem' }}>
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
                                             <div className="form-group">
                                                 <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Current Password</label>
-                                                <input type="password" className="glass" style={{ width: '100%', padding: '1rem' }} value={passwordData.current_password} onChange={e => setPasswordData({...passwordData, current_password: e.target.value})} required />
+                                                <input type="password" className="settings-input" value={passwordData.current_password} onChange={e => setPasswordData({ ...passwordData, current_password: e.target.value })} required />
                                             </div>
                                             <div style={{ visibility: 'hidden' }}></div>
                                             <div className="form-group">
                                                 <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>New Password</label>
-                                                <input type="password" className="glass" style={{ width: '100%', padding: '1rem' }} value={passwordData.new_password} onChange={e => setPasswordData({...passwordData, new_password: e.target.value})} required />
+                                                <input type="password" className="settings-input" value={passwordData.new_password} onChange={e => setPasswordData({ ...passwordData, new_password: e.target.value })} required />
                                             </div>
                                             <div className="form-group">
                                                 <label style={{ display: 'block', marginBottom: '0.8rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>Confirm New Password</label>
-                                                <input type="password" className="glass" style={{ width: '100%', padding: '1rem' }} value={passwordData.confirm_password} onChange={e => setPasswordData({...passwordData, confirm_password: e.target.value})} required />
+                                                <input type="password" className="settings-input" value={passwordData.confirm_password} onChange={e => setPasswordData({ ...passwordData, confirm_password: e.target.value })} required />
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                            <button 
-                                                onClick={handlePasswordSave} 
-                                                className="save-btn" 
+                                            <button
+                                                onClick={handlePasswordSave}
+                                                className="save-btn"
                                                 style={{ padding: '0.8rem 2rem' }}
                                                 disabled={passwordLoading}
                                             >
@@ -595,7 +603,7 @@ const Settings = () => {
                             </div>
                         </section>
 
-                        <section className="settings-group-box glass">
+                        <section className="settings-group-box">
                             <h3 className="settings-card-title" style={{ fontSize: '1.2rem', marginBottom: '1.5rem' }}>
                                 <Shield size={20} color="var(--accent-primary)" style={{ marginRight: '0.8rem' }} />
                                 Two-Factor Authentication
@@ -615,7 +623,7 @@ const Settings = () => {
                             </div>
 
                             {user?.two_factor_enabled && (
-                                <div className="setting-tile" style={{ borderTop: '1px solid var(--border-glass)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                                <div className="setting-tile" style={{ borderTop: '1px solid #1a1a20', paddingTop: '1rem', marginTop: '0.5rem' }}>
                                     <div className="setting-tile-label">
                                         <div className="setting-tile-title">Backup Recovery Codes</div>
                                         <div className="setting-tile-desc">{recoveryCodeCount > 0 ? `${recoveryCodeCount} codes remaining` : 'No backup codes generated'}</div>
@@ -629,7 +637,7 @@ const Settings = () => {
                             )}
                         </section>
 
-                        <section className="settings-group-box glass danger-box" style={{ borderColor: 'rgba(255,68,68,0.2)', background: 'rgba(20,5,5,0.4)' }}>
+                        <section className="settings-group-box danger-box" >
                             <h3 className="settings-card-title" style={{ fontSize: '1.2rem', marginBottom: '1.5rem', color: '#ff4444' }}>
                                 <AlertCircle size={20} color="#ff4444" style={{ marginRight: '0.8rem' }} />
                                 Danger Zone
@@ -657,7 +665,7 @@ const Settings = () => {
                 )}
 
                 <div style={{ marginTop: '3rem' }}>
-                    <DashboardBannerAd 
+                    <DashboardBannerAd
                         title="Secure Your Channel"
                         subtitle="Enable 2FA and hardware keys for maximum legendary protection."
                         cta="UPGRADE SECURITY"
@@ -670,16 +678,16 @@ const Settings = () => {
 
             {show2FAModal && (
                 <div className="modal-overlay" onClick={() => setShow2FAModal(false)}>
-                    <div className="modal-content glass" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', textAlign: 'center' }}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', textAlign: 'center' }}>
                         <h3>Setup Authenticator</h3>
                         <div style={{ background: 'white', padding: '1.5rem', borderRadius: '18px', display: 'inline-block', margin: '2rem 0' }}>
                             <img src={qrCodeData?.qr_code} alt="QR" style={{ width: '180px' }} />
                         </div>
-                        <div className="glass" style={{ padding: '1rem', marginBottom: '2rem', fontFamily: 'monospace', fontSize: '1.1rem', color: 'var(--accent-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem' }}>
+                        <div className="settings-card" style={{ padding: '1rem', marginBottom: '2rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem' }}>
                             {qrCodeData?.secret}
                             <Copy size={18} cursor="pointer" onClick={handleCopyKey} />
                         </div>
-                        <input className="glass" style={{ width: '100%', textAlign: 'center', fontSize: '1.5rem', letterSpacing: '4px', marginBottom: '2rem' }} maxLength={6} placeholder="000000" value={totpCode} onChange={e => setTotpCode(e.target.value)} />
+                        <input className="settings-input" style={{ textAlign: 'center', fontSize: '1.5rem', letterSpacing: '4px', marginBottom: '2rem' }} maxLength={6} placeholder="000000" value={totpCode} onChange={e => setTotpCode(e.target.value)} />
                         <button className="save-btn" style={{ width: '100%' }} onClick={handleVerify2FA} disabled={totpCode.length !== 6}>Enable 2FA</button>
                     </div>
                 </div>
@@ -687,7 +695,7 @@ const Settings = () => {
 
             {showDeactivateModal && (
                 <div className="modal-overlay" onClick={() => setShowDeactivateModal(false)}>
-                    <div className="modal-content glass" style={{ maxWidth: '400px', textAlign: 'center' }}>
+                    <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
                         <AlertCircle size={48} color="#ff8888" style={{ marginBottom: '1.5rem' }} />
                         <h3>Deactivate Account?</h3>
                         <p style={{ color: 'var(--text-muted)', margin: '1rem 0 2rem' }}>This will temporarily hide your profile and videos.</p>
@@ -701,11 +709,11 @@ const Settings = () => {
 
             {showDeleteModal && (
                 <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
-                    <div className="modal-content glass" style={{ maxWidth: '400px', textAlign: 'center' }}>
+                    <div className="modal-content" style={{ maxWidth: '400px', textAlign: 'center' }}>
                         <AlertCircle size={48} color="#ff4444" style={{ marginBottom: '1.5rem' }} />
                         <h3>Permanent Deletion</h3>
                         <p style={{ color: 'var(--text-muted)', margin: '1rem 0 2rem' }}>Type \"DELETE\" to confirm. Action is irreversible.</p>
-                        <input className="glass" style={{ width: '100%', textAlign: 'center', marginBottom: '2rem' }} placeholder="DELETE" value={confirmDeleteText} onChange={e => setConfirmDeleteText(e.target.value.toUpperCase())} />
+                        <input className="settings-input" style={{ textAlign: 'center', marginBottom: '2rem' }} placeholder="DELETE" value={confirmDeleteText} onChange={e => setConfirmDeleteText(e.target.value.toUpperCase())} />
                         <div style={{ display: 'flex', gap: '1rem' }}>
                             <button className="tile-btn-minimal" onClick={() => setShowDeleteModal(false)}>Cancel</button>
                             <button className="save-btn" style={{ background: '#ff4444' }} disabled={confirmDeleteText !== 'DELETE'} onClick={handleDeleteAccount}>Delete Permanently</button>
@@ -716,7 +724,7 @@ const Settings = () => {
 
             {showRecoveryModal && (
                 <div className="modal-overlay" onClick={() => setShowRecoveryModal(false)}>
-                    <div className="modal-content glass" style={{ maxWidth: '480px' }}>
+                    <div className="modal-content" style={{ maxWidth: '480px' }}>
                         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                             <Key size={40} color="var(--accent-primary)" />
                             <h3 style={{ marginTop: '1rem' }}>Recovery Codes</h3>
@@ -735,8 +743,44 @@ const Settings = () => {
                 </div>
             )}
 
+            {activeTab === 'notifications' && (
+                <>
+                    <section className="settings-card">
+                        <div className="settings-card-title">
+                            <Bell size={24} color="#eb0000" />
+                            Push Notifications
+                        </div>
+                        <div className="settings-group-box">
+                            <p style={{ color: '#888', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+                                Control what alerts you receive directly on the platform and mobile apps.
+                            </p>
+                            <ToggleSwitch name="notif_new_follower" label="New Followers" checked={formData.notif_new_follower} onChange={handleFormChange} />
+                            <ToggleSwitch name="notif_likes" label="Video Likes" checked={formData.notif_likes} onChange={handleFormChange} />
+                            <ToggleSwitch name="notif_comments" label="Video Comments" checked={formData.notif_comments} onChange={handleFormChange} />
+                            <ToggleSwitch name="notif_challenge_win" label="Challenge Wins & Trophies" checked={formData.notif_challenge_win} onChange={handleFormChange} />
+                        </div>
+                    </section>
+
+                    <section className="settings-card">
+                        <div className="settings-card-title">
+                            <Mail size={24} color="#eb0000" />
+                            Email Preferences
+                        </div>
+                        <div className="settings-group-box">
+                            <p style={{ color: '#888', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+                                Manage the communications sent to your registered email address.
+                            </p>
+                            <ToggleSwitch name="email_weekly" label="Weekly Performance Summary" checked={formData.email_weekly} onChange={handleFormChange} />
+                            <ToggleSwitch name="email_challenges" label="New Trending Challenges" checked={formData.email_challenges} onChange={handleFormChange} />
+                            <ToggleSwitch name="email_payouts" label="Payout & Wallet Alerts" checked={formData.email_payouts} onChange={handleFormChange} />
+                            <ToggleSwitch name="email_marketing" label="Monteeq News & Offers" checked={formData.email_marketing} onChange={handleFormChange} />
+                        </div>
+                    </section>
+                </>
+            )}
+
             {hasChanges && (
-                <div className="floating-save-bar glass">
+                <div className="floating-save-bar">
                     <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 700 }}>Unsaved Changes</div>
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>You have pending adjustments.</div>

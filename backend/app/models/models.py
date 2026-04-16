@@ -57,6 +57,9 @@ class User(Base):
     email_payouts = Column(Boolean, default=True)
     email_marketing = Column(Boolean, default=False)
     
+    # Showcase content
+    pinned_video_id = Column(Integer, ForeignKey("videos.id"), nullable=True)
+    
     # Account & Security
     payout_method = Column(String, default='stripe')
     two_factor_enabled = Column(Boolean, default=False)
@@ -73,7 +76,8 @@ class User(Base):
     def home_quota_limit(self):
         return HOME_QUOTA_LIMIT
 
-    videos = relationship("Video", back_populates="owner")
+    videos = relationship("Video", back_populates="owner", foreign_keys="[Video.owner_id]")
+    pinned_video = relationship("Video", foreign_keys=[pinned_video_id])
     posts = relationship("Post", back_populates="owner")
     reposts = relationship("Repost", back_populates="user")
     comments = relationship("Comment", back_populates="owner")
@@ -146,7 +150,7 @@ class Video(Base):
     comments_count = Column(Integer, default=0)
     is_exclusive = Column(Boolean, default=False)
 
-    owner = relationship("User", back_populates="videos")
+    owner = relationship("User", back_populates="videos", foreign_keys=[owner_id])
     comments = relationship("Comment", back_populates="video", cascade="all, delete-orphan")
     likes = relationship("Like", back_populates="video", cascade="all, delete-orphan")
 

@@ -7,7 +7,7 @@ celery_app = Celery(
     "monteeq_worker",
     broker=redis_url,
     backend=redis_url,
-    include=["app.tasks.video_tasks"]
+    include=["app.tasks.video_tasks", "app.tasks.email_tasks"]
 )
 
 celery_app.conf.update(

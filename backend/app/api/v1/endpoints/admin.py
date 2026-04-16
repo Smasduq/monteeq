@@ -11,6 +11,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta, datetime
 from typing import List
 from sqlalchemy import cast, Date
+from app.tasks.email_tasks import queue_new_challenge_announcement
 
 router = APIRouter()
 
@@ -186,6 +187,10 @@ def create_challenge(
     db.add(db_challenge)
     db.commit()
     db.refresh(db_challenge)
+    
+    # Dispatch Celery background task for email broadcasting
+    queue_new_challenge_announcement.delay(db_challenge.id)
+    
     return db_challenge
 
 @router.put("/challenges/{challenge_id}", response_model=schemas.Challenge)
