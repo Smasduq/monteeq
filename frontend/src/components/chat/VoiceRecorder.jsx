@@ -1,12 +1,15 @@
 import React, { useState, useRef } from 'react';
-import { Mic, Square, Send, Trash2 } from 'lucide-react';
+import { Mic, Square, Send, Trash2, Play, Pause } from 'lucide-react';
 
 const VoiceRecorder = ({ onSendVoice }) => {
     const [isRecording, setIsRecording] = useState(false);
     const [audioBlob, setAudioBlob] = useState(null);
     const [recordingTime, setRecordingTime] = useState(0);
+    const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+    const [previewUrl, setPreviewUrl] = useState(null);
     const mediaRecorderRef = useRef(null);
     const timerRef = useRef(null);
+    const audioPreviewRef = useRef(null);
 
     const startRecording = async () => {
         try {
@@ -19,6 +22,8 @@ const VoiceRecorder = ({ onSendVoice }) => {
             mediaRecorder.onstop = () => {
                 const blob = new Blob(chunks, { type: 'audio/webm' });
                 setAudioBlob(blob);
+                const url = URL.createObjectURL(blob);
+                setPreviewUrl(url);
                 stream.getTracks().forEach(track => track.stop());
             };
 
@@ -52,37 +57,68 @@ const VoiceRecorder = ({ onSendVoice }) => {
         if (audioBlob) {
             onSendVoice(audioBlob);
             setAudioBlob(null);
+            setPreviewUrl(null);
             setRecordingTime(0);
+            if (audioPreviewRef.current) {
+                audioPreviewRef.current.pause();
+                audioPreviewRef.current = null;
+            }
+            setIsPreviewPlaying(false);
         }
     };
 
     const handleDiscard = () => {
+        if (audioPreviewRef.current) {
+            audioPreviewRef.current.pause();
+            audioPreviewRef.current = null;
+        }
         setAudioBlob(null);
+        setPreviewUrl(null);
         setRecordingTime(0);
+        setIsPreviewPlaying(false);
+    };
+
+    const handlePreviewPlay = () => {
+        if (isPreviewPlaying) {
+            audioPreviewRef.current.pause();
+            setIsPreviewPlaying(false);
+        } else {
+            if (!audioPreviewRef.current) {
+                audioPreviewRef.current = new Audio(previewUrl);
+                audioPreviewRef.current.onended = () => setIsPreviewPlaying(false);
+            }
+            audioPreviewRef.current.play();
+            setIsPreviewPlaying(true);
+        }
     };
 
     return (
         <div className="voice-recorder-overlay">
             {!isRecording && !audioBlob ? (
-                <button className="record-btn" onClick={startRecording}>
-                    <Mic size={20} />
+                <button className="btn-primary-neon" onClick={startRecording}>
+                    <Mic size={24} />
                 </button>
             ) : isRecording ? (
                 <div className="recording-status">
                     <span className="rec-indicator"></span>
                     <span className="time">{formatTime(recordingTime)}</span>
-                    <button className="stop-btn" onClick={stopRecording}>
-                        <Square size={20} fill="white" />
+                    <button className="btn-primary-neon" onClick={stopRecording}>
+                        <Square size={24} fill="white" />
                     </button>
                 </div>
             ) : (
                 <div className="review-status">
-                    <button className="discard-btn" onClick={handleDiscard}>
-                        <Trash2 size={20} />
+                    <button className="actionBtn" onClick={handleDiscard}>
+                        <Trash2 size={24} />
                     </button>
-                    <span className="time">{formatTime(recordingTime)} (Recorded)</span>
-                    <button className="send-voice-btn" onClick={handleSend}>
-                        <Send size={20} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button className="actionBtn" onClick={handlePreviewPlay}>
+                            {isPreviewPlaying ? <Pause size={24} /> : <Play size={24} />}
+                        </button>
+                        <span className="time">{formatTime(recordingTime)} (Review)</span>
+                    </div>
+                    <button className="btn-primary-neon" onClick={handleSend}>
+                        <Send size={24} />
                     </button>
                 </div>
             )}

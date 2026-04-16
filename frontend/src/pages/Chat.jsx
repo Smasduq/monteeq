@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCrypto } from '../hooks/useCrypto';
 import { useGoogleDrive } from '../hooks/useGoogleDrive';
@@ -10,8 +12,10 @@ import {
     uploadPublicKey,
     uploadChatAttachment,
     searchUnified,
+    getFollowing,
     linkGoogleAccount
 } from '../api';
+import { Key, Link, Cloud } from 'lucide-react';
 import ChatList from '../components/chat/ChatList';
 import ChatWindow from '../components/chat/ChatWindow';
 import { useGoogleLogin } from '@react-oauth/google';
@@ -19,6 +23,7 @@ import './Chat.css';
 
 const Chat = () => {
     const { user, token, setUser } = useAuth();
+    const location = useLocation();
     const { 
         generateKeyPair, 
         encryptMessage, 
@@ -27,6 +32,8 @@ const Chat = () => {
         decryptBinary,
         exportPrivateKey,
         importPrivateKey,
+        nukeKeys,
+        getLocalPublicKey,
         hasLocalKey 
     } = useCrypto();
 
@@ -36,7 +43,15 @@ const Chat = () => {
     const [decryptedMessages, setDecryptedMessages] = useState({});
     const [searchTerm, setSearchTerm] = useState('');
     const [isSetup, setIsSetup] = useState(false);
+    const [isDiscoveryMode, setIsDiscoveryMode] = useState(false);
+    const [discoveryUsers, setDiscoveryUsers] = useState([]);
     const [isInitialSync, setIsInitialSync] = useState(true);
+    const [hasKeyMismatch, setHasKeyMismatch] = useState(false);
+    const [showSecurityPortal, setShowSecurityPortal] = useState(false);
+    const decryptionQueueRef = useRef(new Set());
+    const lastHealAttemptRef = useRef(0);
+    const [lastBackupTime, setLastBackupTime] = useState(localStorage.getItem('monteeq_last_backup_time'));
+    const [isConvsLoaded, setIsConvsLoaded] = useState(false);
 
     const drive = useGoogleDrive(async (driveToken) => {
         // Callback when drive authenticates
@@ -60,13 +75,20 @@ const Chat = () => {
     });
 
     const performDriveSync = useCallback(async (driveToken) => {
-        if (!user.google_id) return;
-        const backup = await drive.loadBackup();
-        if (backup && backup.wrappedPrivateKey) {
-            console.log("Found backup on Google Drive, syncing keys...");
-            await importPrivateKey(backup.wrappedPrivateKey);
-            setIsSetup(true);
+        if (!user.google_id) return false;
+        try {
+            const backup = await drive.loadBackup();
+            if (backup && backup.wrappedPrivateKey) {
+                console.log("Found backup on Google Drive, syncing keys...");
+                await importPrivateKey(backup.wrappedPrivateKey);
+                setIsSetup(true);
+                setHasKeyMismatch(false);
+                return true;
+            }
+        } catch (err) {
+            console.error("Auto-heal sync failed", err);
         }
+        return false;
     }, [user.google_id, drive, importPrivateKey]);
 
     useEffect(() => {
@@ -74,22 +96,67 @@ const Chat = () => {
             const hasKey = await hasLocalKey();
             if (hasKey) {
                 setIsSetup(true);
+                const localPub = await getLocalPublicKey();
+                if (localPub && user.public_key && localPub !== user.public_key) {
+                    console.warn("Local key mismatch detected!");
+                    setHasKeyMismatch(true);
+                }
             } else if (user.google_id && drive.isAuthenticated) {
-                await performDriveSync();
+                const synced = await performDriveSync();
+                if (synced) {
+                    setLastBackupTime(new Date().toISOString());
+                    localStorage.setItem('monteeq_last_backup_time', new Date().toISOString());
+                }
             }
             setIsInitialSync(false);
         };
         checkKey();
-    }, [hasLocalKey, user.google_id, drive.isAuthenticated, performDriveSync]);
+    }, [hasLocalKey, getLocalPublicKey, user.public_key, user.google_id, drive.isAuthenticated, performDriveSync]);
+
+    // Automatic Background Backup
+    useEffect(() => {
+        const autoBackup = async () => {
+            if (isSetup && drive.isAuthenticated && user.public_key) {
+                const lastPubKey = localStorage.getItem('monteeq_last_backup_pubkey');
+                if (lastPubKey !== user.public_key) {
+                    console.log("Triggering automatic cloud backup...");
+                    const privKeyB64 = await exportPrivateKey();
+                    if (privKeyB64) {
+                        const now = new Date().toISOString();
+                        await drive.saveBackup({ 
+                            wrappedPrivateKey: privKeyB64, 
+                            publicKey: user.public_key,
+                            syncedAt: now 
+                        });
+                        setLastBackupTime(now);
+                        localStorage.setItem('monteeq_last_backup_time', now);
+                        localStorage.setItem('monteeq_last_backup_pubkey', user.public_key);
+                    }
+                }
+            }
+        };
+        autoBackup();
+    }, [isSetup, drive.isAuthenticated, user.public_key, drive.saveBackup, exportPrivateKey]);
 
     const fetchConversations = useCallback(async () => {
         try {
             const data = await getConversations(token);
             setConversations(data);
+            setIsConvsLoaded(true);
         } catch (error) {
             console.error('Failed to fetch conversations', error);
+            setIsConvsLoaded(true); // Set to true even on error so we can proceed with virtual chat
         }
     }, [token]);
+
+    const fetchDiscoveryUsers = useCallback(async () => {
+        try {
+            const data = await getFollowing(user.username);
+            setDiscoveryUsers(data);
+        } catch (error) {
+            console.error('Failed to fetch discovery users', error);
+        }
+    }, [user.username]);
 
     useEffect(() => {
         if (token && isSetup) {
@@ -99,46 +166,151 @@ const Chat = () => {
         }
     }, [token, isSetup, fetchConversations]);
 
+    // Handle search in discovery mode
+    useEffect(() => {
+        const performSearch = async () => {
+            if (!searchTerm.trim()) {
+                if (isDiscoveryMode) fetchDiscoveryUsers();
+                return;
+            }
+            
+            try {
+                const results = await searchUnified(searchTerm);
+                if (isDiscoveryMode) {
+                    setDiscoveryUsers(results.users || []);
+                }
+            } catch (err) {
+                console.error("Search failed", err);
+            }
+        };
+
+        const timeoutId = setTimeout(performSearch, 300);
+        return () => clearTimeout(timeoutId);
+    }, [searchTerm, isDiscoveryMode, fetchDiscoveryUsers]);
+
+    // Handle deep-linking from profile
+    useEffect(() => {
+        if (location.state?.startChatWith && isConvsLoaded) {
+            const targetUsername = location.state.startChatWith;
+            const existing = conversations.find(c => 
+                (c.user1.username === targetUsername) || (c.user2.username === targetUsername)
+            );
+            
+            if (existing) {
+                setSelectedConv(existing);
+            } else {
+                // Fetch user info to create a "virtual" conversation
+                const setupVirtual = async () => {
+                    try {
+                        const results = await searchUnified(targetUsername);
+                        const targetUser = (results.users || []).find(u => u.username === targetUsername);
+                        if (targetUser) {
+                            setSelectedConv({
+                                id: 'virtual-' + Date.now(),
+                                isVirtual: true,
+                                user1: user,
+                                user2: targetUser,
+                                messages: []
+                            });
+                        }
+                    } catch (err) {
+                        console.error("Failed to setup virtual chat", err);
+                    }
+                };
+                setupVirtual();
+            }
+            // Clear state so we don't re-trigger on every render
+            window.history.replaceState({}, document.title);
+        }
+    }, [location.state, conversations, user]);
+
     const decryptAll = useCallback(async (msgs) => {
+        if (!Array.isArray(msgs) || !user?.id || !isSetup) return;
+        
         for (const msg of msgs) {
-            if (!decryptedMessages[msg.id]) {
+            // Only decrypt if we haven't done it and it's not currently in progress
+            if (!decryptedMessages[msg.id] && !decryptionQueueRef.current.has(msg.id)) {
+                decryptionQueueRef.current.add(msg.id);
+                
                 try {
                     const wrappedKey = String(msg.sender_id) === String(user.id) ? msg.sender_key : msg.recipient_key;
+                    
                     if (msg.message_type === 'text') {
                         const decrypted = await decryptMessage(msg.encrypted_content, msg.iv, wrappedKey);
                         setDecryptedMessages(prev => ({ ...prev, [msg.id]: decrypted }));
                     } else {
-                        // For files/voice, we just return a placeholder or handle on-demand
                         setDecryptedMessages(prev => ({ ...prev, [msg.id]: `[${msg.message_type.toUpperCase()}]` }));
                     }
                 } catch (e) {
+                    console.error(`Message decryption failed for ID ${msg.id}:`, e.message);
                     setDecryptedMessages(prev => ({ ...prev, [msg.id]: '[Secure Message]' }));
+                    
+                    // Proactive detection: if unwrap fails, flag mismatch
+                    if (e.message.includes('UNWRAP_FAILED')) {
+                        setHasKeyMismatch(true);
+                        
+                        // AUTO-HEAL: Try to restore from drive if we haven't tried in the last 30s
+                        const now = Date.now();
+                        if (now - lastHealAttemptRef.current > 30000) {
+                            lastHealAttemptRef.current = now;
+                            console.log("Attempting background auto-heal...");
+                            performDriveSync().then(success => {
+                                if (success) {
+                                    console.log("Auto-heal successful! Retrying decryption...");
+                                    // Clear current conversation's decrypted states to force retry
+                                    setDecryptedMessages({});
+                                }
+                            });
+                        }
+                    }
+                } finally {
+                    decryptionQueueRef.current.delete(msg.id);
                 }
             }
         }
-    }, [user.id, decryptedMessages, decryptMessage]);
+    }, [user.id, isSetup, decryptMessage]); // Removed decryptedMessages from deps to avoid re-runs
 
     const fetchMessages = useCallback(async (convId) => {
+        if (!convId || String(convId).startsWith('virtual-')) return;
         try {
             const data = await getChatMessages(convId, token);
-            setMessages(data);
-            decryptAll(data);
+            if (Array.isArray(data)) {
+                setMessages(data);
+                decryptAll(data);
+            } else {
+                setMessages([]);
+            }
         } catch (error) {
             console.error('Failed to fetch messages', error);
+            setMessages([]);
         }
     }, [token, decryptAll]);
 
     useEffect(() => {
-        if (selectedConv) {
+        if (selectedConv && !selectedConv.isVirtual) {
             fetchMessages(selectedConv.id);
             const interval = setInterval(() => fetchMessages(selectedConv.id), 5000);
             return () => clearInterval(interval);
+        } else if (selectedConv?.isVirtual) {
+            setMessages([]);
         }
     }, [selectedConv, fetchMessages]);
+
+    const handleNukeKeys = async () => {
+        if (window.confirm("WARNING: This will permanently delete your local workspace keys. If you don't have a backup on Google Drive, all your old messages will become unreadable. Proceed?")) {
+            await nukeKeys();
+            setIsSetup(false);
+            setHasKeyMismatch(false);
+            setDecryptedMessages({});
+            window.location.reload(); // Hard reset for clean state
+        }
+    };
 
     const handleSetupKeys = async () => {
         const pubKey = await generateKeyPair();
         await uploadPublicKey(pubKey, token);
+        // Update local user state so we have the public key for sending
+        setUser(prev => ({ ...prev, public_key: pubKey }));
         setIsSetup(true);
         
         // If Google user, backup the private key immediately
@@ -154,6 +326,16 @@ const Chat = () => {
         
         try {
             const recipientKeys = await getUserPublicKey(recipient.username, token);
+            if (!recipientKeys || !recipientKeys.public_key) {
+                alert(`${recipient.username} hasn't initialized their workspace yet. They need to visit the /chat tab once to generate their keys.`);
+                return;
+            }
+
+            if (!user.public_key) {
+                alert("Workspace key missing. Please refresh or regenerate keys.");
+                return;
+            }
+
             const encrypted = await encryptMessage(text, recipientKeys.public_key, user.public_key);
             
             await sendChatMessage({
@@ -162,9 +344,21 @@ const Chat = () => {
                 message_type: 'text'
             }, token);
             
-            fetchMessages(selectedConv.id);
+            if (selectedConv.isVirtual) {
+                // If it was virtual, refresh conversations to get the real ID
+                await fetchConversations();
+                // Find the newly created real conversation
+                const newConvs = await getConversations(token);
+                const real = newConvs.find(c => 
+                    (c.user1.username === recipient.username) || (c.user2.username === recipient.username)
+                );
+                if (real) setSelectedConv(real);
+            } else {
+                fetchMessages(selectedConv.id);
+            }
         } catch (error) {
             console.error('Failed to send message', error);
+            alert('Transmission failed. Check connection or recipient keys.');
         }
     };
 
@@ -210,11 +404,15 @@ const Chat = () => {
             const encryptedBlob = new Blob([base64ToArrayBuffer(encrypted.encrypted_content)], { type: 'application/octet-stream' });
             const uploadRes = await uploadChatAttachment(encryptedBlob, token);
             
+            let message_type = 'file';
+            if (file.type.startsWith('image/')) message_type = 'image';
+            else if (file.type.startsWith('video/')) message_type = 'video';
+
             await sendChatMessage({
                 ...encrypted,
                 encrypted_content: 'ENCRYPTED_FILE',
                 recipient_username: recipient.username,
-                message_type: 'file',
+                message_type: message_type,
                 attachment_url: uploadRes.url,
                 file_metadata: JSON.stringify({ name: file.name, size: file.size, type: file.type })
             }, token);
@@ -273,7 +471,10 @@ const Chat = () => {
                 <div className="glass setup-card">
                     <h2>E2E Encryption Required</h2>
                     <p>To access the Monteeq workspace, you must generate your unique client-side encryption key.</p>
-                    <button className="primary-btn" onClick={handleSetupKeys}>Generate Workspace Key</button>
+                    <button className="primary-btn" onClick={handleSetupKeys} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                        <Key size={20} />
+                        GENERATE WORKSPACE KEY
+                    </button>
                     {user.google_id && !drive.isAuthenticated && (
                         <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                             Logged in with Google? Your keys will be automatically synced.
@@ -284,15 +485,42 @@ const Chat = () => {
         );
     }
 
+    const handleSelectChat = (item, isUser = false) => {
+        if (isUser) {
+            // Initiate virtual conversation
+            setSelectedConv({
+                id: 'virtual-' + Date.now(),
+                isVirtual: true,
+                user1: user,
+                user2: item,
+                messages: []
+            });
+            setIsDiscoveryMode(false);
+            setSearchTerm('');
+        } else {
+            setSelectedConv(item);
+        }
+    };
+
+    const failedCount = Object.values(decryptedMessages).filter(v => v === '[Secure Message]').length;
+
     return (
         <div className="chatWorkspace">
             <ChatList 
                 conversations={conversations} 
+                discoveryUsers={discoveryUsers}
+                isDiscoveryMode={isDiscoveryMode}
+                onToggleDiscovery={(val) => {
+                    setIsDiscoveryMode(val);
+                    if (val) fetchDiscoveryUsers();
+                }}
                 selectedId={selectedConv?.id}
-                onSelect={(conv) => setSelectedConv(conv)}
+                onSelect={handleSelectChat}
                 user={user}
                 searchTerm={searchTerm}
                 onSearch={setSearchTerm}
+                hasKeyMismatch={hasKeyMismatch}
+                onToggleSecurity={() => setShowSecurityPortal(true)}
             />
             <ChatWindow 
                 selectedConv={selectedConv}
@@ -303,7 +531,82 @@ const Chat = () => {
                 onSendVoice={handleSendVoice}
                 onUploadFile={handleUploadFile}
                 onDownloadFile={handleDownloadFile}
+                onBack={() => setSelectedConv(null)}
+                decryptBinary={decryptBinary}
             />
+
+            <AnimatePresence>
+                {showSecurityPortal && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="security-portal-overlay"
+                        onClick={() => setShowSecurityPortal(false)}
+                    >
+                        <motion.div 
+                            initial={{ scale: 0.9, y: 20 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.9, y: 20 }}
+                            className="security-portal-card"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="portal-header">
+                                <ShieldCheck size={32} color={hasKeyMismatch ? "var(--neon-red)" : "#34c759"} />
+                                <h3>Security Portal</h3>
+                            </div>
+                            
+                            <div className="portal-body">
+                                <p className="portal-desc">
+                                    {hasKeyMismatch 
+                                        ? `CRITICAL: ${failedCount} message${failedCount === 1 ? '' : 's'} could not be deciphered because your local keys do not match the cloud profile.`
+                                        : "Your session is fully encrypted and synced with your cloud profile."}
+                                </p>
+
+                                <div className="portal-actions">
+                                    <button 
+                                        className={`portal-btn sync-btn ${hasKeyMismatch && drive.isAuthenticated ? 'suggested' : ''}`} 
+                                        onClick={performDriveSync}
+                                    >
+                                        <Cloud size={18} />
+                                        <span>Restore from Drive</span>
+                                        {hasKeyMismatch && drive.isAuthenticated && <span className="btn-badge">RECOMMENDED</span>}
+                                    </button>
+                                    
+                                    <div className="portal-divider">OR</div>
+
+                                    <button className="portal-btn reset-btn" onClick={handleNukeKeys}>
+                                        <Zap size={18} />
+                                        <span>Emergency Session Reset</span>
+                                    </button>
+                                </div>
+                                
+                                <div className="portal-footer-sync">
+                                    <div className={`sync-dot ${drive.isAuthenticated ? 'active' : ''}`} />
+                                    <span>Cloud Sync: {drive.isAuthenticated ? 'ACTIVE' : 'NOT LINKED'}</span>
+                                    {lastBackupTime && (
+                                        <span className="last-sync-time">
+                                            (Last backup: {new Date(lastBackupTime).toLocaleTimeString()})
+                                        </span>
+                                    )}
+                                </div>
+                                
+                                {hasKeyMismatch && (
+                                    <div className="portal-warning">
+                                        <ShieldAlert size={14} />
+                                        <span>Resetting will make old unreadable messages permanent.</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <button className="portal-close" onClick={() => setShowSecurityPortal(false)}>
+                                CLOSE PORTAL
+                            </button>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             <div className="chatInfo">
                 {selectedConv && (
                    <div className="info-panel-content">
@@ -315,9 +618,15 @@ const Chat = () => {
                                     <span>Sync Status:</span>
                                     {drive.isSyncing ? 'Syncing...' : (drive.isAuthenticated ? 'Protected by Google' : 'Cloud Backup Pending')}
                                     {!user.google_id ? (
-                                        <button className="primary-btn-mini" onClick={() => handleGoogleLink()}>Link Google</button>
+                                        <button className="primary-btn-mini" onClick={() => handleGoogleLink()} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <Link size={14} />
+                                            Link Google
+                                        </button>
                                     ) : (!drive.isAuthenticated && (
-                                        <button className="primary-btn-mini" onClick={() => drive.login()}>Enable Drive Sync</button>
+                                        <button className="primary-btn-mini" onClick={() => drive.login()} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <Cloud size={14} />
+                                            Enable Drive Sync
+                                        </button>
                                     ))}
                                 </>
                             )}

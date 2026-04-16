@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, MoreVertical, Smartphone, Monitor } from 'lucide-react';
+import { Send, Paperclip, MoreVertical, ChevronLeft, Mic, Cpu, Users, Activity, ShieldCheck, Zap } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import MessageBubble from './MessageBubble';
 import VoiceRecorder from './VoiceRecorder';
 
@@ -11,7 +12,9 @@ const ChatWindow = ({
     onSendMessage, 
     onSendVoice, 
     onUploadFile,
-    onDownloadFile
+    onDownloadFile,
+    onBack,
+    decryptBinary
 }) => {
     const [newMessage, setNewMessage] = useState('');
     const messagesEndRef = useRef(null);
@@ -21,7 +24,7 @@ const ChatWindow = ({
     }, [messages]);
 
     const handleSendText = (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         if (newMessage.trim()) {
             onSendMessage(newMessage);
             setNewMessage('');
@@ -31,9 +34,44 @@ const ChatWindow = ({
     if (!selectedConv) {
         return (
             <div className="chatEmptyState">
-                <Monitor size={64} style={{ opacity: 0.1, marginBottom: '1.5rem' }} />
-                <h3>Elite Creator Workspace</h3>
-                <p>Select a contact to begin a secure, encrypted session.</p>
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="hub-home-content"
+                    style={{ zIndex: 10, position: 'relative' }}
+                >
+                    <div style={{ marginBottom: '1rem', color: 'var(--neon-red)' }}>
+                        <Zap size={48} fill="currentColor" />
+                    </div>
+                    <h2 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '0.5rem' }}>Workspace Hub</h2>
+                    <p style={{ color: '#666', fontSize: '1.1rem', marginBottom: '3rem' }}>Elite Creator Collaboration Interface</p>
+
+                    <div className="hub-home-card">
+                        <div className="hub-stat-item">
+                            <Activity size={32} color="var(--neon-red)" />
+                            <h4>Active Sessions</h4>
+                            <div className="val">{messages?.length > 0 ? '1' : '0'}</div>
+                        </div>
+                        <div className="hub-stat-item">
+                            <Users size={32} color="#fff" />
+                            <h4>Collaborators</h4>
+                            <div className="val">{[...new Set(messages?.map(m => m.sender_id))].length || 0}</div>
+                        </div>
+                        <div className="hub-stat-item">
+                            <ShieldCheck size={32} color="#34c759" />
+                            <h4>Encryption</h4>
+                            <div className="val">E2EE</div>
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: '4rem', opacity: 0.5, fontFamily: 'Space Mono', fontSize: '0.8rem' }}>
+                        SYSTEM STATUS: SECURE | CONNECTION: OPTIMIZED
+                    </div>
+                </motion.div>
+                
+                {/* Visual flair for the home screen */}
+                <div style={{ position: 'absolute', top: '20%', left: '10%', opacity: 0.05 }}><Cpu size={120} /></div>
+                <div style={{ position: 'absolute', bottom: '15%', right: '10%', opacity: 0.05 }}><Zap size={100} /></div>
             </div>
         );
     }
@@ -43,35 +81,52 @@ const ChatWindow = ({
     return (
         <div className="chatMain">
             <div className="chatHeader">
-                <div className="avatar-md">
+                <div className="mobile-back-chat" onClick={onBack}>
+                    <ChevronLeft size={28} />
+                </div>
+                <div className="avatar-md" style={{ border: '2px solid rgba(235, 0, 0, 0.2)' }}>
                     {partner.profile_pic ? <img src={partner.profile_pic} alt="" /> : partner.username[0].toUpperCase()}
+                    <div className="status-dot" style={{ width: '10px', height: '10px', bottom: '0', right: '0' }} />
                 </div>
                 <div style={{ flex: 1 }}>
-                    <div className="partner-name">{partner.username}</div>
-                    <div className="partner-status">Active Workspace Session</div>
+                    <div className="partner-name" style={{ fontSize: '1.1rem' }}>{partner.username}</div>
+                    <div className="partner-status" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '6px', height: '6px', background: 'var(--neon-red)', borderRadius: '50%', boxShadow: 'var(--neon-glow)' }}></span>
+                        SECURE SESSION ACTIVE
+                    </div>
                 </div>
-                <div className="headerActions">
-                    <MoreVertical size={20} className="actionBtn" />
-                </div>
+                    <div className="headerActions">
+                        <MoreVertical size={28} className="actionBtn" />
+                    </div>
             </div>
 
             <div className="messagesContainer">
-                {messages.map(msg => (
-                    <MessageBubble 
-                        key={msg.id}
-                        message={msg}
-                        isSent={msg.sender_id === user.id}
-                        decryptedContent={decryptedMessages[msg.id]}
-                        onDownloadFile={onDownloadFile}
-                    />
-                ))}
+                <AnimatePresence initial={false}>
+                    {Array.isArray(messages) && messages.map((msg, i) => (
+                        <motion.div
+                            key={msg.id}
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            transition={{ duration: 0.2 }}
+                        >
+                            <MessageBubble 
+                                message={msg}
+                                isSent={msg.sender_id === user.id}
+                                sender={msg.sender_id === user.id ? user : (selectedConv.user1.id === msg.sender_id ? selectedConv.user1 : selectedConv.user2)}
+                                decryptedContent={decryptedMessages[msg.id]}
+                                onDownloadFile={onDownloadFile}
+                                decryptBinary={decryptBinary}
+                            />
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
                 <div ref={messagesEndRef} />
             </div>
 
             <div className="inputArea">
                 <div className="inputWrapper">
                     <label className="actionBtn">
-                        <Paperclip size={20} />
+                        <Paperclip size={24} />
                         <input 
                             type="file" 
                             style={{ display: 'none' }} 
@@ -81,15 +136,22 @@ const ChatWindow = ({
                     <form onSubmit={handleSendText} style={{ flex: 1, display: 'flex' }}>
                         <input 
                             type="text" 
-                            placeholder="Type a secure message..."
+                            placeholder="TRANSMIT SECURE DATA..."
                             value={newMessage}
                             onChange={(e) => setNewMessage(e.target.value)}
                         />
                     </form>
-                    <VoiceRecorder onSendVoice={onSendVoice} />
-                    <button className="actionBtn" onClick={handleSendText}>
-                        <Send size={20} color="var(--accent-primary)" />
-                    </button>
+                    <div className="inputActions" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <VoiceRecorder onSendVoice={onSendVoice} />
+                        <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="btn-primary-neon" 
+                            onClick={handleSendText}
+                        >
+                            <Send size={24} />
+                        </motion.button>
+                    </div>
                 </div>
             </div>
         </div>

@@ -66,6 +66,11 @@ export const useCrypto = () => {
             const exportedPublic = await window.crypto.subtle.exportKey('spki', keyPair.publicKey);
             const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(exportedPublic)));
 
+            // Store public key locally too for sync verification
+            const db = await getDB();
+            const transaction = db.transaction(STORE_NAME, 'readwrite');
+            transaction.objectStore(STORE_NAME).put(publicKeyBase64, 'ChatPublicKey');
+
             return publicKeyBase64;
         } finally {
             setIsGenerating(false);
@@ -150,30 +155,50 @@ export const useCrypto = () => {
     }, [encryptBinary]);
 
     const decryptBinary = useCallback(async (encryptedContentB64, ivB64, wrappedKeyB64) => {
-        const privateKey = await loadPrivateKey();
-        if (!privateKey) throw new Error('Private key not found locally');
+        try {
+            const privateKey = await loadPrivateKey();
+            if (!privateKey) throw new Error('CRYPTO_KEY_NOT_FOUND');
 
-        const content = base64ToArrayBuffer(encryptedContentB64);
-        const iv = base64ToArrayBuffer(ivB64);
-        const wrappedKey = base64ToArrayBuffer(wrappedKeyB64);
+            if (!encryptedContentB64 || !ivB64 || !wrappedKeyB64) {
+                throw new Error('CRYPTO_INVALID_INPUT');
+            }
 
-        // 1. Unwrap AES Key
-        const aesKey = await window.crypto.subtle.unwrapKey(
-            'raw',
-            wrappedKey,
-            privateKey,
-            { name: 'RSA-OAEP', hash: 'SHA-256' },
-            { name: 'AES-GCM', length: 256 },
-            true,
-            ['decrypt']
-        );
+            const content = base64ToArrayBuffer(encryptedContentB64);
+            const iv = base64ToArrayBuffer(ivB64);
+            const wrappedKey = base64ToArrayBuffer(wrappedKeyB64);
 
-        // 2. Decrypt Content
-        return await window.crypto.subtle.decrypt(
-            { name: 'AES-GCM', iv: new Uint8Array(iv) },
-            aesKey,
-            content
-        );
+            // 1. Unwrap AES Key
+            let aesKey;
+            try {
+                aesKey = await window.crypto.subtle.unwrapKey(
+                    'raw',
+                    wrappedKey,
+                    privateKey,
+                    { name: 'RSA-OAEP', hash: 'SHA-256' },
+                    { name: 'AES-GCM', length: 256 },
+                    true,
+                    ['decrypt']
+                );
+            } catch (unwrapError) {
+                console.error("Key unwrap failed:", unwrapError);
+                throw new Error('CRYPTO_UNWRAP_FAILED');
+            }
+
+            // 2. Decrypt Content
+            try {
+                return await window.crypto.subtle.decrypt(
+                    { name: 'AES-GCM', iv: new Uint8Array(iv) },
+                    aesKey,
+                    content
+                );
+            } catch (decryptError) {
+                console.error("AES Decryption failed:", decryptError);
+                throw new Error('CRYPTO_DECRYPT_FAILED');
+            }
+        } catch (globalError) {
+            console.error("decryptBinary global failure:", globalError.message);
+            throw globalError;
+        }
     }, [loadPrivateKey]);
 
     const decryptMessage = useCallback(async (encryptedContentB64, ivB64, wrappedKeyB64) => {
@@ -199,7 +224,26 @@ export const useCrypto = () => {
             ['decrypt', 'unwrapKey']
         );
         await savePrivateKey(privateKey);
+
+        // Try to derive public key for sync check (simplified for now: we'll use a placeholder or better: the user should regenerate if truly lost)
+        // Actually, in the sync flow from drive, we should probably have stored the public key too.
     }, [savePrivateKey]);
+
+    const nukeKeys = useCallback(async () => {
+        const db = await getDB();
+        const transaction = db.transaction(STORE_NAME, 'readwrite');
+        transaction.objectStore(STORE_NAME).clear();
+    }, [getDB]);
+
+    const getLocalPublicKey = useCallback(async () => {
+        const db = await getDB();
+        return new Promise((resolve) => {
+            const transaction = db.transaction(STORE_NAME, 'readonly');
+            const request = transaction.objectStore(STORE_NAME).get('ChatPublicKey');
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => resolve(null);
+        });
+    }, [getDB]);
 
     return {
         generateKeyPair,
@@ -209,6 +253,8 @@ export const useCrypto = () => {
         decryptBinary,
         exportPrivateKey,
         importPrivateKey,
+        nukeKeys,
+        getLocalPublicKey,
         isGenerating,
         hasLocalKey: async () => !!(await loadPrivateKey()),
     };

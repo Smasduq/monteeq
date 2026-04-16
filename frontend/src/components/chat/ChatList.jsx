@@ -1,29 +1,84 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, MessageSquare, ShieldCheck } from 'lucide-react';
+import { Search, MessageSquare, ShieldCheck, ShieldAlert, Zap, UserPlus, ArrowLeft, Home as HomeIcon } from 'lucide-react';
 
-const ChatList = ({ conversations, selectedId, onSelect, user, onSearch, searchTerm }) => {
+const ChatList = ({
+    conversations,
+    discoveryUsers,
+    isDiscoveryMode,
+    onToggleDiscovery,
+    selectedId,
+    onSelect,
+    user,
+    onSearch,
+    searchTerm,
+    hasKeyMismatch,
+    onToggleSecurity
+}) => {
     return (
-        <motion.div 
+        <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             className="chatSidebar"
         >
             <div className="sidebarHeader">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <h2 style={{ fontSize: '1.4rem', fontWeight: 700 }}>Chats</h2>
-                    <motion.div
-                        animate={{ scale: [1, 1.1, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                    >
-                        <ShieldCheck size={20} color="var(--accent-primary)" />
-                    </motion.div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <HomeIcon 
+                            size={28} 
+                            style={{ cursor: 'pointer', color: !selectedId && !isDiscoveryMode ? 'var(--neon-red)' : undefined }}
+                            onClick={() => onSelect(null)}
+                            className={`actionBtn ${!selectedId && !isDiscoveryMode ? 'neon-btn' : ''}`}
+                        />
+                        <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            Sessions
+                            {hasKeyMismatch ? (
+                                <motion.div
+                                    animate={{ scale: [1, 1.2, 1], opacity: [0.7, 1, 0.7] }}
+                                    transition={{ duration: 1.5, repeat: Infinity }}
+                                    onClick={onToggleSecurity}
+                                    style={{ cursor: 'pointer', color: 'var(--neon-red)', display: 'flex' }}
+                                >
+                                    <ShieldAlert size={18} />
+                                </motion.div>
+                            ) : (
+                                <ShieldCheck 
+                                    size={18} 
+                                    style={{ color: '#34c759', opacity: 0.6, cursor: 'pointer' }}
+                                    onClick={onToggleSecurity}
+                                />
+                            )}
+                        </h2>
+                    </div>
+                    <div className="headerActions" style={{ display: 'flex', gap: '10px' }}>
+                        {isDiscoveryMode ? (
+                            <ArrowLeft 
+                                size={28} 
+                                onClick={() => onToggleDiscovery(false)} 
+                                className="actionBtn neon-btn"
+                            />
+                        ) : (
+                            <UserPlus 
+                                size={28} 
+                                onClick={() => onToggleDiscovery(true)} 
+                                className="actionBtn neon-btn"
+                            />
+                        )}
+                        
+                        <motion.div
+                            animate={{ opacity: [0.4, 1, 0.4] }}
+                            transition={{ duration: 4, repeat: Infinity }}
+                        >
+                            <Zap size={24} color="var(--neon-red)" style={{ filter: 'drop-shadow(0 0 8px var(--neon-red))' }} />
+                        </motion.div>
+                    </div>
                 </div>
+                
                 <div className="searchBox">
-                    <Search size={18} color="rgba(255,255,255,0.3)" />
+                    <Search size={22} className="search-icon" />
                     <input 
                         type="text" 
-                        placeholder="Search workspace..." 
+                        placeholder={isDiscoveryMode ? "FIND CREATORS..." : "SEARCH SESSIONS..."}
                         value={searchTerm}
                         onChange={(e) => onSearch(e.target.value)}
                     />
@@ -31,56 +86,92 @@ const ChatList = ({ conversations, selectedId, onSelect, user, onSearch, searchT
             </div>
 
             <div className="conversation-list" style={{ flex: 1, overflowY: 'auto' }}>
-                <AnimatePresence>
-                    {conversations.length === 0 ? (
-                        <motion.div 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="empty-chat-list"
-                        >
-                            <MessageSquare size={48} style={{ opacity: 0.1, marginBottom: '1rem' }} />
-                            <p>No active workspace conversations.</p>
-                        </motion.div>
-                    ) : (
-                        conversations.map((conv, i) => {
-                            const partner = conv.user1.username === user.username ? conv.user2 : conv.user1;
-                            const isActive = selectedId === conv.id;
-
-                            return (
+                <AnimatePresence mode="popLayout">
+                    {isDiscoveryMode ? (
+                        discoveryUsers.length === 0 ? (
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="empty-chat-list">
+                                <p style={{ opacity: 0.4, fontSize: '0.8rem' }}>NO CREATORS FOUND</p>
+                            </motion.div>
+                        ) : (
+                            discoveryUsers.map((u, i) => (
                                 <motion.div
-                                    key={conv.id}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: i * 0.05 }}
-                                    whileHover={{ backgroundColor: "rgba(255, 255, 255, 0.05)" }}
+                                    key={u.id}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
                                     whileTap={{ scale: 0.98 }}
-                                    className={`conversation-item-v2 ${isActive ? 'active' : ''}`}
-                                    onClick={() => onSelect(conv)}
+                                    className="conversation-item-v2"
+                                    onClick={() => onSelect(u, true)}
                                 >
-                                    <div className="avatar-wrapper">
-                                        <div className="avatar-lg">
-                                            {partner.profile_pic ? (
-                                                <img src={partner.profile_pic} alt="" />
-                                            ) : (
-                                                partner.username[0].toUpperCase()
-                                            )}
-                                        </div>
-                                        <motion.span 
-                                            animate={{ opacity: [0.5, 1, 0.5] }}
-                                            transition={{ duration: 2, repeat: Infinity }}
-                                            className="status-dot online"
-                                        />
+                                    <div className="avatar-lg">
+                                        {u.profile_pic ? <img src={u.profile_pic} alt="" /> : u.username[0].toUpperCase()}
                                     </div>
                                     <div className="conv-details">
                                         <div className="conv-header">
-                                            <span className="partner-name">{partner.username}</span>
-                                            <span className="last-seen">12:30 PM</span>
+                                            <span className="partner-name">{u.username}</span>
                                         </div>
-                                        <p className="last-message">Secure workspace session active</p>
+                                        <p className="last-message">@{u.username}</p>
                                     </div>
                                 </motion.div>
-                            );
-                        })
+                            ))
+                        )
+                    ) : (
+                        conversations.length === 0 ? (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="empty-chat-list"
+                            >
+                                <MessageSquare size={48} style={{ opacity: 0.1, marginBottom: '1rem' }} />
+                                <p style={{ opacity: 0.4, fontSize: '0.8rem' }}>NO ACTIVE SESSIONS</p>
+                            </motion.div>
+                        ) : (
+                            conversations.map((conv, i) => {
+                                const partner = conv.user1.username === user.username ? conv.user2 : conv.user1;
+                                const isActive = selectedId === conv.id;
+
+                                return (
+                                    <motion.div
+                                        key={conv.id}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: -10 }}
+                                        transition={{ delay: i * 0.03 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        className={`conversation-item-v2 ${isActive ? 'active' : ''}`}
+                                        onClick={() => onSelect(conv)}
+                                    >
+                                        <div className="avatar-wrapper">
+                                            <div className="avatar-lg">
+                                                {partner.profile_pic ? (
+                                                    <img src={partner.profile_pic} alt="" />
+                                                ) : (
+                                                    partner.username[0].toUpperCase()
+                                                )}
+                                            </div>
+                                            <motion.span
+                                                animate={{ scale: [1, 1.2, 1], opacity: [0.6, 1, 0.6] }}
+                                                transition={{ duration: 2, repeat: Infinity }}
+                                                className="status-dot"
+                                            />
+                                        </div>
+                                        <div className="conv-details">
+                                            <div className="conv-header">
+                                                <span className="partner-name">{partner.username}</span>
+                                                <span className="last-seen">12:30 PM</span>
+                                            </div>
+                                            <p className="last-message">Secure workspace session active</p>
+                                        </div>
+                                        {isActive && (
+                                            <motion.div
+                                                layoutId="active-indicator"
+                                                style={{ position: 'absolute', right: 0, width: '4px', height: '60%', background: 'var(--neon-red)', borderRadius: '2px 0 0 2px' }}
+                                            />
+                                        )}
+                                    </motion.div>
+                                );
+                            })
+                        )
                     )}
                 </AnimatePresence>
             </div>

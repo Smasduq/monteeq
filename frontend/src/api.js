@@ -386,6 +386,12 @@ export const sendChatMessage = async (messageData, token) => {
         },
         body: JSON.stringify(messageData)
     });
+    
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to send message');
+    }
+    
     return response.json();
 };
 
