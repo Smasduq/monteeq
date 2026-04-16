@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, MessageSquare, ShieldCheck, ShieldAlert, Zap, UserPlus, ArrowLeft, Home as HomeIcon } from 'lucide-react';
+import { Search } from 'lucide-react';
 
 const ChatList = ({
     conversations,
@@ -12,8 +12,6 @@ const ChatList = ({
     user,
     onSearch,
     searchTerm,
-    hasKeyMismatch,
-    onToggleSecurity
 }) => {
     return (
         <motion.div
@@ -22,58 +20,10 @@ const ChatList = ({
             className="chatSidebar"
         >
             <div className="sidebarHeader">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <HomeIcon 
-                            size={28} 
-                            style={{ cursor: 'pointer', color: !selectedId && !isDiscoveryMode ? 'var(--neon-red)' : undefined }}
-                            onClick={() => onSelect(null)}
-                            className={`actionBtn ${!selectedId && !isDiscoveryMode ? 'neon-btn' : ''}`}
-                        />
-                        <h2 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            Sessions
-                            {hasKeyMismatch ? (
-                                <motion.div
-                                    animate={{ scale: [1, 1.2, 1], opacity: [0.7, 1, 0.7] }}
-                                    transition={{ duration: 1.5, repeat: Infinity }}
-                                    onClick={onToggleSecurity}
-                                    style={{ cursor: 'pointer', color: 'var(--neon-red)', display: 'flex' }}
-                                >
-                                    <ShieldAlert size={18} />
-                                </motion.div>
-                            ) : (
-                                <ShieldCheck 
-                                    size={18} 
-                                    style={{ color: '#34c759', opacity: 0.6, cursor: 'pointer' }}
-                                    onClick={onToggleSecurity}
-                                />
-                            )}
-                        </h2>
-                    </div>
-                    <div className="headerActions" style={{ display: 'flex', gap: '10px' }}>
-                        {isDiscoveryMode ? (
-                            <ArrowLeft 
-                                size={28} 
-                                onClick={() => onToggleDiscovery(false)} 
-                                className="actionBtn neon-btn"
-                            />
-                        ) : (
-                            <UserPlus 
-                                size={28} 
-                                onClick={() => onToggleDiscovery(true)} 
-                                className="actionBtn neon-btn"
-                            />
-                        )}
-                        
-                        <motion.div
-                            animate={{ opacity: [0.4, 1, 0.4] }}
-                            transition={{ duration: 4, repeat: Infinity }}
-                        >
-                            <Zap size={24} color="var(--neon-red)" style={{ filter: 'drop-shadow(0 0 8px var(--neon-red))' }} />
-                        </motion.div>
-                    </div>
-                </div>
-                
+                <h2 style={{ marginBottom: '1.2rem' }}>
+                    {isDiscoveryMode ? 'Discover' : 'Sessions'}
+                </h2>
+
                 <div className="searchBox">
                     <Search size={22} className="search-icon" />
                     <input 

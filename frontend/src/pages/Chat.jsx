@@ -15,7 +15,7 @@ import {
     getFollowing,
     linkGoogleAccount
 } from '../api';
-import { Key, Link, Cloud } from 'lucide-react';
+import { Key, Link, Cloud, Home, MessageSquare, UserPlus, Zap, ShieldCheck, ShieldAlert } from 'lucide-react';
 import ChatList from '../components/chat/ChatList';
 import ChatWindow from '../components/chat/ChatWindow';
 import { useGoogleLogin } from '@react-oauth/google';
@@ -506,6 +506,57 @@ const Chat = () => {
 
     return (
         <div className="chatWorkspace">
+            {/* Primary Navigation Rail */}
+            <div className="nav-rail">
+                <div className="nav-rail-top">
+                    <div className="nav-rail-logo">
+                        <div className="nav-rail-logo-mark">M</div>
+                        <span className="nav-rail-logo-text">Monteeq</span>
+                    </div>
+
+                    <button
+                        className={`nav-rail-btn ${!isDiscoveryMode ? 'active' : ''}`}
+                        onClick={() => { setIsDiscoveryMode(false); setSelectedConv(null); }}
+                    >
+                        <MessageSquare size={20} />
+                        Sessions
+                    </button>
+
+                    <button
+                        className={`nav-rail-btn ${isDiscoveryMode ? 'active' : ''}`}
+                        onClick={() => { setIsDiscoveryMode(true); fetchDiscoveryUsers(); }}
+                    >
+                        <UserPlus size={20} />
+                        Discover
+                    </button>
+
+                    <div className="nav-rail-divider" />
+
+                    <button
+                        className={`nav-rail-btn ${hasKeyMismatch ? 'security-alert' : 'security-ok'}`}
+                        onClick={() => setShowSecurityPortal(true)}
+                    >
+                        {hasKeyMismatch ? <ShieldAlert size={20} /> : <ShieldCheck size={20} />}
+                        {hasKeyMismatch ? 'Key Desync' : 'Encrypted'}
+                    </button>
+                </div>
+
+                <div className="nav-rail-bottom">
+                    <div className="nav-rail-avatar-row">
+                        <div className="nav-rail-avatar">
+                            {user.profile_pic 
+                                ? <img src={user.profile_pic} alt="avatar" />
+                                : (user.name || user.username || 'U')[0].toUpperCase()
+                            }
+                        </div>
+                        <div className="nav-rail-user-info">
+                            <div className="nav-rail-username">{user.username || user.name}</div>
+                            <div className="nav-rail-role">Creator</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <ChatList 
                 conversations={conversations} 
                 discoveryUsers={discoveryUsers}
@@ -519,8 +570,6 @@ const Chat = () => {
                 user={user}
                 searchTerm={searchTerm}
                 onSearch={setSearchTerm}
-                hasKeyMismatch={hasKeyMismatch}
-                onToggleSecurity={() => setShowSecurityPortal(true)}
             />
             <ChatWindow 
                 selectedConv={selectedConv}
