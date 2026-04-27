@@ -457,6 +457,46 @@ const Performance = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* New: Geographic Performance Section */}
+                        <div className="breakdown-card glass" style={{ gridColumn: 'span 2' }}>
+                            <h3 className="card-title">
+                                <Sparkles size={18} color="#FFD60A" />
+                                Geographic Performance
+                            </h3>
+                            <div style={{ 
+                                display: 'grid', 
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                                gap: '2rem',
+                                padding: '1rem 0'
+                            }}>
+                                {insightsData?.top_countries?.length > 0 ? (
+                                    insightsData.top_countries.map((c, i) => (
+                                        <div key={i} className="geo-stat">
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                                <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{c.country}</span>
+                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{c.count.toLocaleString()} views</span>
+                                            </div>
+                                            <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                                                <motion.div 
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${(c.count / (insightsData?.total_views || 1)) * 100}%` }}
+                                                    style={{ 
+                                                        height: '100%', 
+                                                        background: i === 0 ? '#FF3B30' : i === 1 ? '#00E5FF' : '#FFD60A',
+                                                        boxShadow: `0 0 10px ${i === 0 ? 'rgba(255,59,48,0.4)' : i === 1 ? 'rgba(0,229,255,0.4)' : 'rgba(255,214,10,0.4)'}`
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div style={{ gridColumn: 'span 3', textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                                        Regional audience data is still being analyzed...
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
 

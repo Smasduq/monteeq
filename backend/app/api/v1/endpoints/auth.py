@@ -1,5 +1,5 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from google.oauth2 import id_token
@@ -20,7 +20,11 @@ async def login_for_access_token(
     db: Session = Depends(get_db), 
     form_data: OAuth2PasswordRequestForm = Depends()
 ):
+    # Support login by username OR email
     user = crud_user.get_user_by_username(db, username=form_data.username)
+    if not user:
+        user = crud_user.get_user_by_email(db, email=form_data.username)
+        
     if not user or not security.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -54,7 +58,7 @@ async def login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer", "username": user.username}
 
 @router.post("/register", response_model=schemas.VerificationResponse)
-def register_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
+def register_user(request: Request, user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = crud_user.get_user_by_email(db, email=user_in.email)
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -63,9 +67,18 @@ def register_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="Username already taken")
     
-    user = crud_user.create_user(db, user=user_in, is_onboarded=True)
-    user.is_verified = True
+    user = crud_user.create_user(db, user=user_in, is_onboarded=True, ip_address=request.client.host)
+    user.is_verified = False # Mandatory verification
     db.commit()
+    
+    # Generate and send verification code
+    code = crud_user.create_verification_code(db, email=user.email)
+    try:
+        send_verification_email(user.email, code)
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        # We don't fail registration if email sending fails in dev, but in prod we might
+    
     db.refresh(user)
     
     return {
@@ -107,7 +120,7 @@ def resend_verification(data: schemas.ResendVerification, db: Session = Depends(
     }
 
 @router.post("/google", response_model=schemas.Token)
-async def google_auth(auth_data: schemas.UserGoogleAuth, db: Session = Depends(get_db)):
+async def google_auth(request: Request, auth_data: schemas.UserGoogleAuth, db: Session = Depends(get_db)):
     try:
         idinfo = id_token.verify_oauth2_token(
             auth_data.credential, requests.Request(), config.GOOGLE_CLIENT_ID
@@ -137,13 +150,22 @@ async def google_auth(auth_data: schemas.UserGoogleAuth, db: Session = Depends(g
                 password=None # Google auth users don't have passwords
             )
             # Google users are auto-verified
-            user = crud_user.create_user(db, user=user_create, google_id=google_id, is_onboarded=False)
+            user = crud_user.create_user(db, user=user_create, google_id=google_id, is_onboarded=False, ip_address=request.client.host)
             user.is_verified = True
             db.commit()
             db.refresh(user)
         else:
+            # If user exists but is trying to 'sign up' with Google, we might want to distinguish.
+            # But the requirement is: "if the email was registered, tell him to login"
+            # If they are using the Google auth flow, they ARE logging in.
+            # However, if they don't have a google_id, they originally signed up with a password.
             if not user.google_id:
-                user.google_id = google_id
+                # This matches "tell him to login" (using his password)
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Email already registered with password. Please log in with your credentials."
+                )
+            
             if picture and not user.profile_pic:
                 user.profile_pic = picture
             
@@ -234,7 +256,61 @@ def verify_login_2fa(
     
     return {"access_token": access_token, "token_type": "bearer", "username": user.username}
 
+@router.post("/forgot-password")
+def forgot_password(data: schemas.ResendVerification, db: Session = Depends(get_db)):
+    """Send a secure reset link."""
+    user = crud_user.get_user_by_email(db, email=data.email)
+    if not user:
+        raise HTTPException(status_code=404, detail="Email not found")
+    
+    import secrets
+    from datetime import datetime, timedelta
+    from app.models.models import VerificationCode
+    
+    token = secrets.token_urlsafe(32)
+    # Delete existing tokens for this email
+    db.query(VerificationCode).filter(VerificationCode.email == user.email).delete()
+    
+    # Store token in VerificationCode table (it's a String column)
+    # Reset links usually last longer than OTPs (e.g., 1 hour)
+    expires_at = datetime.now() + timedelta(hours=1)
+    db_code = VerificationCode(email=user.email, code=token, expires_at=expires_at)
+    db.add(db_code)
+    db.commit()
+
+    try:
+        from app.services.email_service import send_password_reset_email
+        send_password_reset_email(user.email, token)
+    except Exception:
+        pass
+    
+    return {"message": "A secure reset link has been sent to your email."}
+
+@router.post("/reset-password")
+def reset_password(data: schemas.PasswordReset, db: Session = Depends(get_db)):
+    """Verify link token and update password."""
+    # We reuse verify_code logic which checks code (token) and expiry
+    if crud_user.verify_code(db, email=data.email, code=data.code):
+        user = crud_user.get_user_by_email(db, email=data.email)
+        if user:
+            user.hashed_password = security.get_password_hash(data.new_password)
+            db.commit()
+            return {"message": "Password updated successfully. You can now log in."}
+    
+    raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
 @router.get("/check-username")
 def check_username(username: str, db: Session = Depends(get_db)):
     user = crud_user.get_user_by_username(db, username=username)
     return {"available": user is None}
+
+@router.get("/check-email")
+def check_email(email: str, db: Session = Depends(get_db)):
+    user = crud_user.get_user_by_email(db, email=email)
+    return {"available": user is None}
+
+@router.get("/check-email-exists")
+def check_email_exists(email: str, db: Session = Depends(get_db)):
+    """Check if an email is registered."""
+    user = crud_user.get_user_by_email(db, email=email)
+    return {"exists": user is not None}

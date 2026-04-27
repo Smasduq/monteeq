@@ -333,18 +333,18 @@ async def upload_video(
         if video_type == "home" and current_user.home_uploads >= HOME_QUOTA_LIMIT:
             raise HTTPException(status_code=403, detail=f"Home quota exceeded ({HOME_QUOTA_LIMIT} max)")
 
-    uploads_dir = os.path.join(config.STATIC_DIR, "uploads")
-    os.makedirs(uploads_dir, exist_ok=True)
-    temp_dir = tempfile.mkdtemp(dir=uploads_dir)
-    temp_file_path = os.path.join(temp_dir, file.filename)
+    import uuid
+    import time
+    task_id = str(uuid.uuid4())
+    safe_filename = file.filename.replace(" ", "_")
+    source_key = f"uploads/{task_id}/{safe_filename}"
     
-    logger.info(f"Saving uploaded file to temporary path: {temp_file_path}")
+    logger.info(f"Streaming uploaded file directly to GCS: {source_key}")
     try:
-        with open(temp_file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        storage.upload_file_obj(file.file, source_key)
     except Exception as e:
-        logger.error(f"Failed to save uploaded file: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to save video file on server")
+        logger.error(f"Failed to upload video file to GCS: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to upload video file to storage")
 
     # Initial DB record
     video_create_data = schemas.VideoCreate(
@@ -354,24 +354,18 @@ async def upload_video(
         video_type=video_type,
         video_url="", 
         thumbnail_url="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=60",
-        processing_key=os.path.basename(temp_dir)
+        processing_key=task_id
     )
     
     if thumbnail:
-        safe_filename = thumbnail.filename.replace(" ", "_")
-        timestamp = int(os.path.getmtime(temp_file_path))
-        s3_key = f"thumbs/custom_{timestamp}_{safe_filename}"
-        
-        # Save to temp first to use storage.upload_file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(thumbnail.filename)[1]) as tmp:
-            shutil.copyfileobj(thumbnail.file, tmp)
-            tmp_path = tmp.name
+        safe_thumb_name = thumbnail.filename.replace(" ", "_")
+        timestamp = int(time.time())
+        thumb_key = f"thumbs/custom_{timestamp}_{safe_thumb_name}"
         
         try:
-            video_create_data.thumbnail_url = storage.upload_file(tmp_path, s3_key)
-        finally:
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+            video_create_data.thumbnail_url = storage.upload_file_obj(thumbnail.file, thumb_key)
+        except Exception as e:
+            logger.error(f"Failed to upload thumbnail to GCS: {str(e)}")
 
     # Update quota
     if video_type == "flash":
@@ -387,7 +381,7 @@ async def upload_video(
     try:
         from app.tasks.video_tasks import process_video_task
         process_video_task.delay(
-            temp_file_path,
+            source_key,
             video_type,
             title,
             db_video.id,
@@ -430,26 +424,29 @@ async def reupload_video(
         if video.video_type == "home" and current_user.home_uploads >= HOME_QUOTA_LIMIT:
             raise HTTPException(status_code=403, detail=f"Home quota exceeded ({HOME_QUOTA_LIMIT} max)")
             
-    uploads_dir = os.path.join(config.STATIC_DIR, "uploads")
-    os.makedirs(uploads_dir, exist_ok=True)
-    temp_dir = tempfile.mkdtemp(dir=uploads_dir)
-    temp_file_path = os.path.join(temp_dir, file.filename)
-    with open(temp_file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    import uuid
+    task_id = str(uuid.uuid4())
+    safe_filename = file.filename.replace(" ", "_")
+    source_key = f"uploads/{task_id}/{safe_filename}"
+    
+    try:
+        storage.upload_file_obj(file.file, source_key)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to reupload video file to storage")
         
     if video.video_type == "flash":
         current_user.flash_uploads = (current_user.flash_uploads or 0) + 1
     else:
         current_user.home_uploads = (current_user.home_uploads or 0) + 1
         
-    video.processing_key = os.path.basename(temp_dir)
+    video.processing_key = task_id
     video.status = "pending"
     video.failed_at = None
     db.commit()
     
     from app.tasks.video_tasks import process_video_task
     process_video_task.delay(
-        temp_file_path,
+        source_key,
         video.video_type,
         video.title,
         video.id,

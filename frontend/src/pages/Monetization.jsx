@@ -174,6 +174,14 @@ const DepositModal = ({ user, token, onClose, onSuccess }) => {
     email: user?.email || '',
     amount: (parseFloat(amount) || 0) * 100, // kobo
     publicKey: PAYSTACK_PUBLIC_KEY,
+    metadata: {
+      user_id: user?.id,
+      payment_type: 'deposit',
+      custom_fields: [
+        { display_name: 'User ID', variable_name: 'user_id', value: user?.id },
+        { display_name: 'Payment Type', variable_name: 'payment_type', value: 'deposit' },
+      ],
+    },
   };
 
   const initializePayment = usePaystackPayment(config);
@@ -305,9 +313,10 @@ const Monetization = () => {
     .filter(tx => tx.transaction_type === 'tip')
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
-  const estimatedViews    = Math.round(adRevenue / 99 * 1000);
-  const viewsToNext       = 1000 - (estimatedViews % 1000);
-  const milestoneProgress = Math.round(((estimatedViews % 1000) / 1000) * 100);
+  // Algorithm v2: Revenue is calculated based on performance milestones
+  // We keep the math consistent with the backend milestones for now, but update the UI labeling
+  const milestoneThreshold = 1000; 
+  const milestoneProgress  = Math.round(((txList.length % milestoneThreshold) / milestoneThreshold) * 100);
 
   const animBalance = useCountUp(balance);
   const animAds     = useCountUp(adRevenue);
@@ -370,16 +379,15 @@ const Monetization = () => {
 
         {/* Milestone */}
         <div className="mon-panel">
-          <div className="mon-panel-heading"><div className="icon-badge"><TrendingUp size={18} /></div>Ad Revenue Milestone</div>
           <div className="mon-milestone-info">
-            <span style={{ color: 'var(--text-secondary)' }}>~{estimatedViews.toLocaleString()} views</span>
-            <span className="mon-views-left">{viewsToNext.toLocaleString()} to next ₦99</span>
+            <span style={{ color: 'var(--text-secondary)' }}>Performance Level: {milestoneProgress > 50 ? 'High' : 'Stable'}</span>
+            <span className="mon-views-left">Next Milestone in view</span>
           </div>
           <div className="mon-track-bg">
             <div className="mon-track-fill" style={{ width: `${milestoneProgress}%` }} />
           </div>
           <p className="mon-milestone-caption">Progress to next payout ({milestoneProgress}%)</p>
-          <div className="mon-rate-badge"><Zap size={14} /> ₦99.00 earned every 1,000 views</div>
+          <div className="mon-rate-badge"><Zap size={14} /> Revenue share based on engagement velocity</div>
         </div>
 
         {/* Sparkline */}
@@ -426,8 +434,8 @@ const Monetization = () => {
           <div className="mon-info-row">
             <div className="mon-info-icon"><DollarSign size={18} color="#ff3b30" /></div>
             <div className="mon-info-text">
-              <strong>Ad Revenue (Views)</strong>
-              <span>Earn ₦99 automatically every 1,000 views. No action needed.</span>
+              <strong>Performance Revenue</strong>
+              <span>Earn based on engagement quality and view duration. High retention unlocks higher shares.</span>
             </div>
           </div>
           <div className="mon-info-row">

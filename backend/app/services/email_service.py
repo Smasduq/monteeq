@@ -5,178 +5,152 @@ Uses Brevo (Sendinblue) HTTP API bypassing SMTP port blocks.
 import logging
 import os
 import requests
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from app.core import config
 from app.core.config import SMTP_FROM, SMTP_FROM_NAME
 
 logger = logging.getLogger(__name__)
-
 BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 
 def send_verification_email(to_email: str, code: str) -> bool:
     """
-    Send a verification code email using Brevo HTTP API.
-    Returns True on success, False on failure.
+    Send a verification code email.
+    Tries SMTP first (for Hostinger/Custom), then falls back to Brevo API if configured.
     """
-    if not BREVO_API_KEY:
-        logger.warning(
-            "BREVO_API_KEY not configured — skipping email send. "
-            f"VERIFICATION CODE FOR {to_email}: {code}"
-        )
-        return False
-
-    plain_text = f"""
-Welcome to Monteeq!
-
-Your email verification code is: {code}
-
-This code expires in 10 minutes. Do not share it with anyone.
-
-If you did not create a Monteeq account, please ignore this email.
-
-— The Monteeq Team
-"""
+    plain_text = f"Welcome to Monteeq!\n\nYour verification code is: {code}\nExpires in 10 mins."
     html = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Verify your Monteeq account</title>
-</head>
-<body style="margin:0;padding:0;background:#000000;font-family:'Inter','Segoe UI',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#000000;padding:60px 0;">
-    <tr>
-      <td align="center">
-        <!-- Main Card Container -->
-        <table width="560" cellpadding="0" cellspacing="0"
-               style="background:#0a0a0a;
-                      border-radius:24px;
-                      border:1px solid rgba(255,255,255,0.08);
-                      box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-                      overflow:hidden;">
+    <!DOCTYPE html>
+    <html lang="en">
+    <body style="margin:0;padding:0;background:#000;font-family:sans-serif;color:#fff;">
+      <div style="padding:40px;text-align:center;">
+        <h1 style="color:#FF3B30;">MONTEEQ</h1>
+        <p style="font-size:18px;">Your verification code is:</p>
+        <div style="font-size:48px;font-weight:900;letter-spacing:10px;margin:20px 0;">{code}</div>
+        <p style="color:#888;">Expires in 10 minutes.</p>
+      </div>
+    </body>
+    </html>
+    """
 
-          <!-- Header Section -->
-          <tr>
-            <td style="padding:48px 48px 32px; text-align:center;">
-               <div style="display:inline-block; margin-bottom:12px;">
-                 <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/play-square.svg" width="48" height="48" alt="Logo" style="filter: invert(1); opacity: 0.9;" />
-               </div>
-               <h1 style="margin:0;font-family:'Outfit','Segoe UI',sans-serif;font-size:32px;font-weight:900;letter-spacing:4px;color:#FF3B30;">
-                 MONTEEQ
-               </h1>
-               <div style="height:2px; width:40px; background:#FF3B30; margin:16px auto; opacity:0.6;"></div>
-            </td>
-          </tr>
+    # --- Try SMTP (Hostinger / Custom) ---
+    if config.SMTP_HOST and config.SMTP_USER and config.SMTP_PASS:
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = f"{code} is your Monteeq code"
+            msg["From"] = f"{config.SMTP_FROM_NAME} <{config.SMTP_FROM}>"
+            msg["To"] = to_email
 
-          <!-- Body Content -->
-          <tr>
-            <td style="padding:0 60px 44px;">
-              <p style="margin:0 0 12px;font-family:'Outfit',sans-serif;font-size:26px;font-weight:800;color:#ffffff;text-align:center;">
-                Confirm Your Email
-              </p>
-              <p style="margin:0 0 36px;font-size:16px;color:#8e8e93;line-height:1.6;text-align:center;">
-                Enter the secret code below to unlock your <br/>
-                <span style="color:#ffffff;">Monteeq Creator Experience</span>.
-              </p>
+            msg.attach(MIMEText(plain_text, "plain"))
+            msg.attach(MIMEText(html, "html"))
 
-              <!-- Verification Code Box -->
-              <div style="background:rgba(255,59,48,0.04);
-                          border:1px solid rgba(255,59,48,0.25);
-                          border-radius:20px;
-                          padding:40px 20px;
-                          text-align:center;
-                          margin-bottom:36px;
-                          position:relative;
-                          overflow:hidden;">
-                <!-- Decorative Sheen -->
-                <div style="position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg, transparent, rgba(255,59,48,0.3), transparent);"></div>
-                
-                <p style="margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:3px;
-                           color:#FF3B30;text-transform:uppercase;opacity:0.8;">
-                  Security Token
-                </p>
-                <p style="margin:0;font-family:'Courier New',monospace;font-size:54px;font-weight:900;letter-spacing:14px;
-                           color:#ffffff; text-shadow: 0 0 20px rgba(255,59,48,0.3);">
-                  {code}
-                </p>
-              </div>
+            # Use Port 465 for SSL or 587 for TLS
+            if config.SMTP_PORT == 465:
+                server = smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT)
+            else:
+                server = smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT)
+                server.starttls()
 
-              <div style="background:rgba(255,255,255,0.03); border-radius:12px; padding:16px; text-align:center;">
-                <p style="margin:0;font-size:14px;color:#8e8e93;">
-                  This code expires in <span style="color:#FF3B30;font-weight:700;">10 minutes</span>.
-                </p>
-              </div>
-
-              <p style="margin:40px 0 0;font-size:13px;color:rgba(255,255,255,0.25);line-height:1.6;text-align:center;">
-                If you didn't initiate this request, you can safely ignore this email.
-                For your security, never share this code with anyone.
-              </p>
-            </td>
-          </tr>
-
-          <!-- Footer Section -->
-          <tr>
-            <td style="padding:32px 48px;
-                       background:rgba(0,0,0,0.5);
-                       border-top:1px solid rgba(255,255,255,0.05);
-                       text-align:center;">
-              <p style="margin:0 0 12px; font-size:11px; font-weight:700; color:rgba(255,255,255,0.15); letter-spacing:1px; text-transform:uppercase;">
-                Monteeq · High-Performance Creator Ecosystem
-              </p>
-              <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.15);">
-                © 2025 Monteeq Platform · Gombe, Nigeria
-              </p>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-"""
-
-    url = "https://api.brevo.com/v3/smtp/email"
-    headers = {
-        "api-key": BREVO_API_KEY,
-        "accept": "application/json",
-        "content-type": "application/json",
-    }
-
-    # Use the official configured from email.
-    sender_email = SMTP_FROM or "smasduqacc@gmail.com"
-    sender_name = SMTP_FROM_NAME or "Monteeq"
-
-    payload = {
-        "sender": {
-            "name": sender_name,
-            "email": sender_email
-        },
-        "to": [
-            {
-                "email": to_email
-            }
-        ],
-        "subject": f"{code} is your Monteeq verification code",
-        "htmlContent": html,
-        "textContent": plain_text
-    }
-
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=10)
-        
-        if response.status_code in (200, 201, 202):
-            logger.info(f"Verification email sent to {to_email}")
+            server.login(config.SMTP_USER, config.SMTP_PASS)
+            server.sendmail(config.SMTP_FROM, to_email, msg.as_string())
+            server.quit()
+            logger.info(f"SMTP: Email sent to {to_email}")
             return True
-        else:
-            logger.error(f"Brevo API error: {response.text}")
-            print(f"[EMAIL FALLBACK] VERIFICATION CODE FOR {to_email}: {code}")
-            return False
+        except Exception as e:
+            logger.error(f"SMTP Failed: {e}")
+            # Fall through to Brevo if SMTP fails
 
-    except Exception as exc:
-        logger.error(f"Failed to send email to {to_email}: {exc}")
-        print(f"[EMAIL FALLBACK] VERIFICATION CODE FOR {to_email}: {code}")
-        return False
+    # --- Fallback to Brevo API ---
+    if BREVO_API_KEY:
+        url = "https://api.brevo.com/v3/smtp/email"
+        headers = {
+            "api-key": BREVO_API_KEY,
+            "accept": "application/json",
+            "content-type": "application/json",
+        }
+        payload = {
+            "sender": {"name": config.SMTP_FROM_NAME, "email": config.SMTP_FROM},
+            "to": [{"email": to_email}],
+            "subject": f"{code} is your Monteeq code",
+            "htmlContent": html,
+            "textContent": plain_text
+        }
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=10)
+            if resp.status_code in (200, 201, 202):
+                logger.info(f"Brevo: Email sent to {to_email}")
+                return True
+        except Exception as e:
+            logger.error(f"Brevo Failed: {e}")
+
+    # --- Absolute Fallback (Print to Console) ---
+    logger.warning(f"NO EMAIL SERVICE ACTIVE. Code for {to_email}: {code}")
+    print(f"\n[DEV LOG] CODE FOR {to_email}: {code}\n")
+    return False
+
+def send_password_reset_email(to_email: str, token: str) -> bool:
+    """
+    Send a secure password reset link.
+    """
+    reset_link = f"{config.FRONTEND_URL}/reset-password?token={token}&email={to_email}"
+    
+    plain_text = f"Reset your Monteeq password:\n\nClick here: {reset_link}\n\nThis link expires in 1 hour."
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <body style="margin:0;padding:0;background:#000;font-family:sans-serif;color:#fff;text-align:center;">
+      <div style="padding:60px 20px;">
+        <h1 style="color:#eb0000;font-size:32px;letter-spacing:4px;">MONTEEQ</h1>
+        <h2 style="margin-top:40px;font-size:24px;">Reset your password</h2>
+        <p style="color:#888;margin:20px 0 40px;">Click the button below to set a new password for your account.</p>
+        <a href="{reset_link}" style="background:#eb0000;color:#fff;padding:16px 32px;text-decoration:none;border-radius:8px;font-weight:800;display:inline-block;">RESET PASSWORD</a>
+        <p style="color:#444;font-size:12px;margin-top:60px;">This link will expire in 1 hour. If you didn't request this, ignore this email.</p>
+      </div>
+    </body>
+    </html>
+    """
+
+    if config.SMTP_HOST and config.SMTP_USER and config.SMTP_PASS:
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = "Reset your Monteeq password"
+            msg["From"] = f"{config.SMTP_FROM_NAME} <{config.SMTP_FROM}>"
+            msg["To"] = to_email
+            msg.attach(MIMEText(plain_text, "plain"))
+            msg.attach(MIMEText(html, "html"))
+
+            if config.SMTP_PORT == 465:
+                server = smtplib.SMTP_SSL(config.SMTP_HOST, config.SMTP_PORT)
+            else:
+                server = smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT)
+                server.starttls()
+
+            server.login(config.SMTP_USER, config.SMTP_PASS)
+            server.sendmail(config.SMTP_FROM, to_email, msg.as_string())
+            server.quit()
+            return True
+        except Exception:
+            pass
+
+    if BREVO_API_KEY:
+        url = "https://api.brevo.com/v3/smtp/email"
+        headers = {"api-key": BREVO_API_KEY, "accept": "application/json", "content-type": "application/json"}
+        payload = {
+            "sender": {"name": config.SMTP_FROM_NAME, "email": config.SMTP_FROM},
+            "to": [{"email": to_email}],
+            "subject": "Reset your Monteeq password",
+            "htmlContent": html,
+            "textContent": plain_text
+        }
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=10)
+            return resp.status_code in (200, 201, 202)
+        except Exception:
+            pass
+            
+    print(f"\n[DEV LOG] RESET LINK FOR {to_email}: {reset_link}\n")
+    return False
 
 def send_challenge_announcement_batch(bcc_emails: list, title: str, prize: str, end_date: str) -> bool:
     """
@@ -257,7 +231,7 @@ def send_challenge_announcement_batch(bcc_emails: list, title: str, prize: str, 
         "content-type": "application/json",
     }
 
-    sender_email = SMTP_FROM or "smasduqacc@gmail.com"
+    sender_email = SMTP_FROM or "hello@monteeq.com"
     sender_name = SMTP_FROM_NAME or "Monteeq"
 
     bcc_list = [{"email": e} for e in bcc_emails]
@@ -280,4 +254,212 @@ def send_challenge_announcement_batch(bcc_emails: list, title: str, prize: str, 
             return False
     except Exception as exc:
         logger.error(f"Failed to mass broadcast challenge emails: {exc}")
+        return False
+
+def send_pro_upgrade_email(to_email: str, username: str) -> bool:
+    """
+    Sends a congratulatory email when a user is promoted to Pro.
+    """
+    if not BREVO_API_KEY:
+        logger.warning(f"BREVO_API_KEY missing - skipping PRO email to {to_email}.")
+        return False
+        
+    html = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head>
+<body style="margin:0;padding:0;background:#050505;font-family:'Inter','Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#050505;padding:60px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0"
+               style="background:#0a0a0a;
+                      border-radius:12px;
+                      border:1px solid #1a1a20;
+                      border-top:1px solid #eb0000;
+                      box-shadow: 0 20px 50px rgba(0,0,0,0.9), 0 0 20px rgba(235,0,0,0.1);
+                      overflow:hidden;">
+                      
+          <tr>
+            <td style="padding:48px 48px 32px; text-align:center;">
+               <h1 style="margin:0;font-family:'Space Mono','Courier New',monospace;font-size:32px;font-weight:900;letter-spacing:4px;color:#eb0000;">
+                 MONTEEQ PRO
+               </h1>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:0 60px 44px;">
+              <p style="margin:0 0 12px;font-family:'Outfit',sans-serif;font-size:26px;font-weight:800;color:#ffffff;text-align:center;">
+                Congratulations, {username}!
+              </p>
+              
+              <p style="margin:0 0 36px;font-size:16px;color:#8e8e93;line-height:1.6;text-align:center;">
+                Your account has been officially upgraded to <span style="color:#eb0000;font-weight:700;">Monteeq Pro</span> status.
+              </p>
+              
+              <div style="background:#050505;
+                          border:1px solid #222;
+                          border-left:4px solid #eb0000;
+                          border-radius:8px;
+                          padding:30px 20px;
+                          text-align:center;
+                          margin:24px 0;">
+                <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:3px;color:#555;text-transform:uppercase;">
+                  NEW BENEFITS UNLOCKED
+                </p>
+                <p style="margin:0;font-size:16px;font-weight:600;color:#fff;">
+                  ✓ 4K Video Uploads<br/>
+                  ✓ Priority Transcoding Queue<br/>
+                  ✓ Advanced Analytics
+                </p>
+              </div>
+
+              <div style="text-align:center; margin-top:32px;">
+                 <a href="https://monteeq.com" style="display:inline-block; padding:16px 36px; background:#eb0000; color:#fff; text-decoration:none; font-weight:800; border-radius:4px; text-transform:uppercase; letter-spacing:2px;">START CREATING</a>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    """
+    
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "api-key": BREVO_API_KEY,
+        "accept": "application/json",
+        "content-type": "application/json",
+    }
+
+    sender_email = SMTP_FROM or "hello@monteeq.com"
+    sender_name = SMTP_FROM_NAME or "Monteeq"
+
+    payload = {
+        "sender": {"name": sender_name, "email": sender_email},
+        "to": [{"email": to_email}],
+        "subject": "🎉 Welcome to Monteeq Pro!",
+        "htmlContent": html,
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        if response.status_code in (200, 201, 202):
+            logger.info(f"Pro upgrade email sent successfully to {to_email}.")
+            return True
+        else:
+            logger.error(f"Brevo API error: {response.text}")
+            return False
+    except Exception as exc:
+        logger.error(f"Failed to send pro upgrade email: {exc}")
+        return False
+
+def send_new_video_admin_alert_batch(bcc_emails: list, video_title: str, uploader_username: str, video_id: int) -> bool:
+    """
+    Sends an alert email to all admins when a new video is uploaded.
+    """
+    if not BREVO_API_KEY:
+        logger.warning(f"BREVO_API_KEY missing - skipping admin alert for video {video_id}.")
+        return False
+        
+    if not bcc_emails:
+        return True
+        
+    html = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head>
+<body style="margin:0;padding:0;background:#050505;font-family:'Inter','Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#050505;padding:60px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0"
+               style="background:#0a0a0a;
+                      border-radius:12px;
+                      border:1px solid #1a1a20;
+                      border-top:1px solid #eb0000;
+                      box-shadow: 0 20px 50px rgba(0,0,0,0.9), 0 0 20px rgba(235,0,0,0.1);
+                      overflow:hidden;">
+                      
+          <tr>
+            <td style="padding:48px 48px 32px; text-align:center;">
+               <h1 style="margin:0;font-family:'Space Mono','Courier New',monospace;font-size:26px;font-weight:900;letter-spacing:2px;color:#eb0000;">
+                 ADMIN ALERT: NEW UPLOAD
+               </h1>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:0 60px 44px;">
+              <p style="margin:0 0 12px;font-family:'Outfit',sans-serif;font-size:22px;font-weight:800;color:#ffffff;text-align:center;">
+                {video_title}
+              </p>
+              
+              <div style="background:#050505;
+                          border:1px solid #222;
+                          border-left:4px solid #eb0000;
+                          border-radius:8px;
+                          padding:20px;
+                          text-align:center;
+                          margin:24px 0;">
+                <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:2px;color:#555;text-transform:uppercase;">
+                  UPLOADER
+                </p>
+                <p style="margin:0;font-size:18px;font-weight:600;color:#fff;">
+                  @{uploader_username}
+                </p>
+              </div>
+
+              <div style="text-align:center; margin-top:32px;">
+                 <a href="https://monteeq.com/admin/approvals" style="display:inline-block; padding:16px 36px; background:#eb0000; color:#fff; text-decoration:none; font-weight:800; border-radius:4px; text-transform:uppercase; letter-spacing:2px;">REVIEW IN QUEUE</a>
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    """
+    
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "api-key": BREVO_API_KEY,
+        "accept": "application/json",
+        "content-type": "application/json",
+    }
+
+    sender_email = SMTP_FROM or "hello@monteeq.com"
+    sender_name = SMTP_FROM_NAME or "Monteeq Admin"
+
+    bcc_list = [{"email": e} for e in bcc_emails]
+
+    payload = {
+        "sender": {"name": sender_name, "email": sender_email},
+        "to": [{"email": sender_email}],
+        "bcc": bcc_list,
+        "subject": f"⚠️ New Upload: {video_title} by @{uploader_username}",
+        "htmlContent": html,
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        if response.status_code in (200, 201, 202):
+            logger.info(f"Admin alert email sent successfully to {len(bcc_emails)} admins.")
+            return True
+        else:
+            logger.error(f"Brevo API error: {response.text}")
+            return False
+    except Exception as exc:
+        logger.error(f"Failed to send admin alert email: {exc}")
         return False

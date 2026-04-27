@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { API_BASE_URL } from '../api';
-import { Mail, Lock, User, Zap, Loader2, Eye, EyeOff } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Mail, Lock, User, Zap, Loader2, Eye, EyeOff, ArrowRight, ShieldCheck, Check } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE_URL } from '../api';
 
 const Signup = () => {
     const [username, setUsername] = useState('');
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
+    const [isEmailAvailable, setIsEmailAvailable] = useState(null);
+    const [isEmailChecking, setIsEmailChecking] = useState(false);
     const [password, setPassword] = useState('');
     const [isAvailable, setIsAvailable] = useState(null);
     const [isChecking, setIsChecking] = useState(false);
@@ -32,6 +35,10 @@ const Signup = () => {
 
     const isPasswordValid = passwordRequirements.every(req => req.met);
 
+    // Debounced Checks
+    const [usernameTimer, setUsernameTimer] = useState(null);
+    const [emailTimer, setEmailTimer] = useState(null);
+
     const checkUsernameAvailability = async (val) => {
         if (val.length < 3) {
             setIsAvailable(null);
@@ -49,10 +56,39 @@ const Signup = () => {
         }
     };
 
+    const checkEmailAvailability = async (val) => {
+        if (!val.includes('@') || val.length < 5) {
+            setIsEmailAvailable(null);
+            return;
+        }
+        setIsEmailChecking(true);
+        try {
+            const response = await fetch(`${API_BASE_URL}/auth/check-email?email=${encodeURIComponent(val)}`);
+            const data = await response.json();
+            setIsEmailAvailable(data.available);
+        } catch (err) {
+            console.error("Email check failed", err);
+        } finally {
+            setIsEmailChecking(false);
+        }
+    };
+
     const handleUsernameChange = (e) => {
         const val = e.target.value.toLowerCase().replace(/\s/g, '');
         setUsername(val);
-        checkUsernameAvailability(val);
+        
+        if (usernameTimer) clearTimeout(usernameTimer);
+        const timer = setTimeout(() => checkUsernameAvailability(val), 400);
+        setUsernameTimer(timer);
+    };
+
+    const handleEmailChange = (e) => {
+        const val = e.target.value.toLowerCase();
+        setEmail(val);
+
+        if (emailTimer) clearTimeout(emailTimer);
+        const timer = setTimeout(() => checkEmailAvailability(val), 400);
+        setEmailTimer(timer);
     };
 
     const handleSubmit = async (e) => {
@@ -62,6 +98,11 @@ const Signup = () => {
 
         if (isAvailable === false) {
             setError('Username is already taken');
+            return;
+        }
+
+        if (isEmailAvailable === false) {
+            setError('Email is already registered. Please login.');
             return;
         }
 
@@ -78,8 +119,7 @@ const Signup = () => {
         setIsLoading(true);
         try {
             await signup({ username, full_name: fullName, email, password });
-            await login({ username, password });
-            navigate('/');
+            setIsVerifying(true);
         } catch (err) {
             setError(err.response?.data?.detail || 'Failed to sign up');
         } finally {
@@ -101,13 +141,8 @@ const Signup = () => {
             const data = await response.json();
             if (!response.ok) throw new Error(data.detail || 'Verification failed');
 
-            // Login after verification
-            const user = await login({ username, password });
-            if (user && !user.is_onboarded) {
-                navigate('/onboarding');
-            } else {
-                navigate('/');
-            }
+            await login({ username, password });
+            navigate('/');
         } catch (err) {
             setError(err.message || 'Verification failed');
         } finally {
@@ -120,14 +155,12 @@ const Signup = () => {
         setError('');
         setIsResending(true);
         try {
-            const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+            await fetch(`${API_BASE_URL}/auth/resend-verification`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email })
             });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.detail || 'Failed to resend code');
-            setError(''); // clear any previous error
+            setError(''); 
         } catch (err) {
             setError(err.message || 'Failed to resend code');
         } finally {
@@ -135,346 +168,160 @@ const Signup = () => {
         }
     };
 
-    if (isVerifying) {
-        return (
-            <div className="auth-container">
-                <div className="auth-card glass" style={{ position: 'relative', overflow: 'hidden' }}>
-                    {isLoading && (
-                        <div className="auth-loading-overlay">
-                            <Loader2 size={48} className="spin accent-text" style={{ animation: 'spin 1s linear infinite' }} />
-                            <span className="auth-loading-text">VERIFYING...</span>
-                        </div>
-                    )}
-                    <div className="auth-header">
-                        <div className="logo-section" style={{ justifyContent: 'center', marginBottom: '1rem' }}>
-                            <Zap size={40} fill="currentColor" />
-                            <span>MONTEEQ</span>
-                        </div>
-                        <h1>Verify Email</h1>
-                        <p>We've sent a 6-digit code to <strong>{email}</strong></p>
-                    </div>
+    const containerVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: { opacity: 1, y: 0, transition: { duration: 0.6, staggerChildren: 0.1 } }
+    };
 
-                    {error && (
-                        <div style={{
-                            color: 'var(--accent-primary)',
-                            background: 'rgba(255, 60, 60, 0.1)',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            marginBottom: '1rem',
-                            fontSize: '0.9rem',
-                            textAlign: 'center',
-                            border: '1px solid rgba(255, 60, 60, 0.2)'
-                        }}>
-                            {error}
-                        </div>
-                    )}
-
-                    <form className="auth-form" onSubmit={handleVerifyCode}>
-                        <div className="input-group">
-                            <label>Verification Code</label>
-                            <input
-                                type="text"
-                                maxLength="6"
-                                placeholder="123456"
-                                value={verificationCode}
-                                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                                style={{ textAlign: 'center', fontSize: '1.5rem', letterSpacing: '0.5rem', fontWeight: 'bold' }}
-                                required
-                                disabled={isLoading}
-                                autoFocus
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            className="auth-button"
-                            disabled={isLoading || verificationCode.length < 6}
-                            style={{
-                                opacity: (isLoading || verificationCode.length < 6) ? 0.7 : 1,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '8px'
-                            }}
-                        >
-                            {isLoading ? (
-                                <><Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} /> Verifying…</>
-                            ) : 'Verify & Continue'}
-                        </button>
-                    </form>
-
-                    <div className="auth-footer" style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
-                        <button
-                            onClick={handleResendCode}
-                            className="auth-link"
-                            disabled={isResending}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                padding: 0,
-                                font: 'inherit',
-                                cursor: isResending ? 'not-allowed' : 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                opacity: isResending ? 0.6 : 1
-                            }}
-                        >
-                            {isResending ? (
-                                <><Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> Sending…</>
-                            ) : 'Resend Code'}
-                        </button>
-                        <button
-                            onClick={() => setIsVerifying(false)}
-                            className="auth-link"
-                            disabled={isLoading}
-                            style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: 'pointer' }}
-                        >
-                            Go Back
-                        </button>
-                    </div>
-                </div>
-
-                <style>{`
-                    @keyframes spin {
-                        from { transform: rotate(0deg); }
-                        to { transform: rotate(360deg); }
-                    }
-                `}</style>
-            </div>
-        );
-    }
+    const itemVariants = {
+        hidden: { opacity: 0, y: 10 },
+        visible: { opacity: 1, y: 0 }
+    };
 
     return (
-        <div className="auth-container">
-            <div className="auth-card glass" style={{ position: 'relative', overflow: 'hidden' }}>
-                {isLoading && (
-                    <div className="auth-loading-overlay">
-                        <Loader2 size={48} className="spin accent-text" style={{ animation: 'spin 1s linear infinite' }} />
-                        <span className="auth-loading-text">CREATING ACCOUNT...</span>
-                    </div>
-                )}
-                <div className="auth-header">
-                    <div className="logo-section" style={{ justifyContent: 'center', marginBottom: '1rem' }}>
-                        <Zap size={40} fill="currentColor" />
-                        <span>MONTEEQ</span>
-                    </div>
-                    <h1>Create Account</h1>
-                    <p>Start your journey with Monteeq</p>
-                </div>
+        <div className="auth-v4-page">
+            <div className="auth-v4-bg" />
+            
+            <div className="auth-v4-container">
+                <AnimatePresence mode="wait">
+                    {isVerifying ? (
+                        <motion.div 
+                            key="verify"
+                            className="auth-v4-card"
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 1.05 }}
+                        >
+                            <div className="auth-v4-header">
+                                <Zap size={32} fill="#eb0000" color="#eb0000" className="auth-v4-icon" />
+                                <h1 className="auth-v4-title">Verify <br /><span className="auth-v4-outline">Email.</span></h1>
+                                <p>Enter the 6-digit code sent to <strong>{email}</strong></p>
+                            </div>
 
-                {error && (
-                    <div style={{
-                        color: 'var(--accent-primary)',
-                        background: 'rgba(255, 60, 60, 0.1)',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        marginBottom: '1rem',
-                        fontSize: '0.9rem',
-                        border: '1px solid rgba(255, 60, 60, 0.2)'
-                    }}>
-                        {error}
-                    </div>
-                )}
+                            {error && <div className="auth-v4-error">{error}</div>}
 
-                <form className="auth-form" onSubmit={handleSubmit}>
-                    <div className="input-group">
-                        <label>Full Name</label>
-                        <input
-                            type="text"
-                            placeholder="John Doe"
-                            value={fullName}
-                            onChange={(e) => setFullName(e.target.value)}
-                            required
-                            disabled={isLoading}
-                        />
-                    </div>
-                    <div className="input-group">
-                        <label>Username</label>
-                        <div style={{ position: 'relative' }}>
-                            <input
-                                type="text"
-                                placeholder="choose_username"
-                                value={username}
-                                onChange={handleUsernameChange}
-                                style={{
-                                    paddingRight: '2.5rem',
-                                    borderColor: isAvailable === false ? 'var(--accent-primary)' : isAvailable === true ? '#4ade80' : ''
-                                }}
-                                required
-                                disabled={isLoading}
-                            />
-                            {isAvailable !== null && (
-                                <div style={{
-                                    position: 'absolute',
-                                    right: '10px',
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    color: isAvailable ? '#4ade80' : 'var(--accent-primary)'
-                                }}>
-                                    {isChecking ? '...' : isAvailable ? '✓' : '✗'}
+                            <form className="auth-v4-form" onSubmit={handleVerifyCode}>
+                                <div className="auth-v4-group">
+                                    <input
+                                        type="text"
+                                        maxLength="6"
+                                        placeholder="000000"
+                                        value={verificationCode}
+                                        onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                                        className="auth-v4-code-input"
+                                        required
+                                        autoFocus
+                                    />
                                 </div>
-                            )}
-                        </div>
-                    </div>
-                    <div className="input-group">
-                        <label>Email Address</label>
-                        <input
-                            type="email"
-                            placeholder="you@example.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            disabled={isLoading}
-                        />
-                    </div>
-                    <div className="input-group">
-                        <label>Password</label>
-                        <div style={{ position: 'relative' }}>
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                disabled={isLoading}
-                                style={{ paddingRight: '2.5rem' }}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                style={{
-                                    position: 'absolute',
-                                    right: '10px',
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    background: 'none',
-                                    border: 'none',
-                                    color: 'var(--text-muted)',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    padding: '4px'
-                                }}
-                            >
-                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                            </button>
-                        </div>
-                        <div className="password-requirements" style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(2, 1fr)',
-                            gap: '8px',
-                            marginTop: '0.8rem',
-                            padding: '10px',
-                            background: 'rgba(255,255,255,0.05)',
-                            borderRadius: '8px',
-                            border: '1px solid rgba(255,255,255,0.1)'
-                        }}>
-                            {passwordRequirements.map((req, idx) => (
-                                <div key={idx} style={{
-                                    color: req.met ? '#4ade80' : 'rgba(255,255,255,0.4)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: req.met ? '600' : '400',
-                                    transition: 'all 0.2s ease'
-                                }}>
-                                    <div style={{
-                                        width: '6px',
-                                        height: '6px',
-                                        borderRadius: '50%',
-                                        background: req.met ? '#4ade80' : 'rgba(255,255,255,0.2)',
-                                        boxShadow: req.met ? '0 0 8px #4ade80' : 'none'
-                                    }} />
-                                    {req.label}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    
-                    <div className="auth-terms-container" onClick={() => setAcceptedTerms(!acceptedTerms)}>
-                        <input 
-                            type="checkbox" 
-                            checked={acceptedTerms}
-                            onChange={(e) => setAcceptedTerms(e.target.checked)}
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                        <div className="auth-terms-text">
-                            I agree to the <Link to="/terms" onClick={(e) => e.stopPropagation()}>Terms of Service</Link> and <Link to="/privacy" onClick={(e) => e.stopPropagation()}>Privacy Policy</Link>
-                        </div>
-                    </div>
+                                <button type="submit" className="auth-v4-btn" disabled={isLoading || verificationCode.length < 6}>
+                                    {isLoading ? <Loader2 className="spin" /> : 'Complete Verification'}
+                                </button>
+                            </form>
 
-                    <button
-                        type="submit"
-                        className="auth-button"
-                        disabled={isLoading || !isPasswordValid || isAvailable === false}
-                        style={{
-                            marginTop: '1.5rem',
-                            opacity: (isLoading || !isPasswordValid || isAvailable === false) ? 0.5 : 1,
-                            transform: (!isPasswordValid || isAvailable === false) ? 'none' : 'scale(1)',
-                            boxShadow: isPasswordValid && isAvailable !== false ? '0 4px 15px rgba(255, 60, 60, 0.3)' : 'none',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '8px'
-                        }}
-                    >
-                        {isLoading ? (
-                            <><Loader2 size={18} style={{ animation: 'spin 0.8s linear infinite' }} /> Creating Account…</>
-                        ) : 'Create Account'}
-                    </button>
-                </form>
+                            <div className="auth-v4-footer">
+                                <button onClick={handleResendCode} disabled={isResending} className="auth-v4-link-btn">
+                                    {isResending ? 'Sending...' : 'Resend Code'}
+                                </button>
+                                <button onClick={() => setIsVerifying(false)} className="auth-v4-link-btn">Go Back</button>
+                            </div>
+                        </motion.div>
+                    ) : (
+                        <motion.div 
+                            key="signup"
+                            className="auth-v4-card"
+                            variants={containerVariants}
+                            initial="hidden"
+                            animate="visible"
+                        >
+                            <motion.div variants={itemVariants} className="auth-v4-header">
+                                <Zap size={32} fill="#eb0000" color="#eb0000" className="auth-v4-icon" />
+                                <h1 className="auth-v4-title">Create <br /><span className="auth-v4-outline">Account.</span></h1>
+                                <p>Join the elite network of creative editors.</p>
+                            </motion.div>
 
-                <div className="auth-divider">OR</div>
+                            {error && <motion.div variants={itemVariants} className="auth-v4-error">{error}</motion.div>}
 
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <GoogleLogin
-                        onSuccess={credentialResponse => {
-                            setIsLoading(true);
-                            googleLogin(credentialResponse.credential)
-                                .then((res) => {
-                                    if (res?.two_factor_required) {
-                                        navigate('/login', { 
-                                            state: { 
-                                                authStep: 'methods', 
-                                                tempUsername: res.username,
-                                                methods: res.methods 
-                                            } 
-                                        });
-                                        return;
-                                    }
-                                    const user = res;
-                                    if (user && !user.is_onboarded) {
-                                        navigate('/onboarding');
-                                    } else {
-                                        navigate('/');
-                                    }
-                                })
-                                .catch(err => setError(err.response?.data?.detail || 'Google Login Failed'))
-                                .finally(() => setIsLoading(false));
-                        }}
-                        onError={() => {
-                            setError('Google Login Failed');
-                            setIsLoading(false);
-                        }}
-                        theme="filled_black"
-                        shape="pill"
-                        text="signup_with"
-                    />
-                </div>
+                            <form className="auth-v4-form" onSubmit={handleSubmit}>
+                                <motion.div variants={itemVariants} className="auth-v4-group">
+                                    <label>Full Name</label>
+                                    <input type="text" placeholder="Sadiqul Masduq" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+                                </motion.div>
 
-                <div className="auth-footer">
-                    Already have an account? <Link to="/login" className="auth-link">Log In</Link>
-                </div>
+                                <motion.div variants={itemVariants} className="auth-v4-group">
+                                    <label>Username</label>
+                                    <div className="auth-v4-input-wrap">
+                                        <input type="text" placeholder="username" value={username} onChange={handleUsernameChange} className={isAvailable === false ? 'error' : isAvailable === true ? 'success' : ''} required />
+                                        {isAvailable !== null && <span className={`auth-v4-status ${isAvailable ? 'success' : 'error'}`}>{isChecking ? '...' : isAvailable ? <Check size={14} /> : '!'}</span>}
+                                    </div>
+                                </motion.div>
+
+                                <motion.div variants={itemVariants} className="auth-v4-group">
+                                    <label>Email Address</label>
+                                    <div className="auth-v4-input-wrap">
+                                        <input type="email" placeholder="you@example.com" value={email} onChange={handleEmailChange} className={isEmailAvailable === false ? 'error' : isEmailAvailable === true ? 'success' : ''} required />
+                                        {isEmailAvailable !== null && <span className={`auth-v4-status ${isEmailAvailable ? 'success' : 'error'}`}>{isEmailChecking ? '...' : isEmailAvailable ? <Check size={14} /> : '!'}</span>}
+                                    </div>
+                                </motion.div>
+
+                                <motion.div variants={itemVariants} className="auth-v4-group">
+                                    <label>Password</label>
+                                    <div className="auth-v4-input-wrap">
+                                        <input type={showPassword ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                                        <button type="button" className="auth-v4-toggle" onClick={() => setShowPassword(!showPassword)}>
+                                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
+                                    <div className="auth-v4-pass-check">
+                                        {passwordRequirements.map((req, i) => (
+                                            <span key={i} className={req.met ? 'met' : ''}>{req.label}</span>
+                                        ))}
+                                    </div>
+                                </motion.div>
+
+                                <motion.div variants={itemVariants} className="auth-v4-terms" onClick={() => setAcceptedTerms(!acceptedTerms)}>
+                                    <div className={`auth-v4-checkbox ${acceptedTerms ? 'checked' : ''}`} />
+                                    <span>I agree to the <Link to="/terms">Terms</Link> and <Link to="/privacy">Privacy</Link></span>
+                                </motion.div>
+
+                                <motion.button variants={itemVariants} type="submit" className="auth-v4-btn" disabled={isLoading || !isPasswordValid || isAvailable === false}>
+                                    {isLoading ? <Loader2 className="spin" /> : <>Join Now <ArrowRight size={18} /></>}
+                                </motion.button>
+                            </form>
+
+                            <motion.div variants={itemVariants} className="auth-v4-divider">OR</motion.div>
+
+                            <motion.div variants={itemVariants} className="auth-v4-social">
+                                {isLoading ? (
+                                    <div className="auth-v4-social-loading">
+                                        <Loader2 className="spin" />
+                                        <span>Connecting to Google...</span>
+                                    </div>
+                                ) : (
+                                    <GoogleLogin
+                                        onSuccess={res => {
+                                            setIsLoading(true);
+                                            googleLogin(res.credential)
+                                                .then(() => navigate('/'))
+                                                .catch(err => {
+                                                    setError(err.response?.data?.detail || 'Google Signup Failed');
+                                                    setIsLoading(false);
+                                                });
+                                        }}
+                                        onError={() => setError('Google Auth Failed')}
+                                        theme="filled_black"
+                                        shape="pill"
+                                        text="signup_with"
+                                    />
+                                )}
+                            </motion.div>
+
+                            <motion.div variants={itemVariants} className="auth-v4-footer">
+                                Already in? <Link to="/login">Log In</Link>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
-
-            <style>{`
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-            `}</style>
         </div>
     );
 };

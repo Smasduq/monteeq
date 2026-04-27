@@ -15,6 +15,8 @@ const Chat = React.lazy(() => import('./pages/Chat'));
 
 const Login = React.lazy(() => import('./pages/Login'));
 const Signup = React.lazy(() => import('./pages/Signup'));
+const ForgotPassword = React.lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
 const Watch = React.lazy(() => import('./pages/Watch'));
 const Verify = React.lazy(() => import('./pages/Verify'));
 
@@ -36,10 +38,13 @@ const JoinPro = React.lazy(() => import('./pages/JoinProV2'));
 const AdminPortal = React.lazy(() => import('./pages/AdminPortal'));
 const Privacy = React.lazy(() => import('./pages/Privacy'));
 const Terms = React.lazy(() => import('./pages/Terms'));
+const PaymentCallback = React.lazy(() => import('./pages/PaymentCallback'));
 
 import NotificationManager from './components/NotificationManager';
 import Sidebar from './components/Sidebar';
 import ModernHeader from './components/ModernHeader';
+import Footer from './components/Footer';
+import MeshBackground from './components/MeshBackground';
 import './index.css';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -63,12 +68,18 @@ function AppContent() {
   const navigate = useNavigate();
   const isFlashPage = location.pathname === '/flash';
   const isOnboardingPage = location.pathname === '/onboarding';
-  const isLandingPage = !token && location.pathname === '/';
+  const isLandingPage = location.pathname === '/' && !token;
   
   // Hide sidebar/header on auth pages, landing page, and marketing pages
-  const isAuthPage = ['/login', '/signup', '/verify'].includes(location.pathname);
+  const isAuthPage = ['/login', '/signup', '/verify', '/forgot-password', '/reset-password'].includes(location.pathname);
   const isMarketingPage = ['/about', '/partner', '/pro', '/privacy', '/terms'].includes(location.pathname);
-  const hideNavigation = isLandingPage || isAuthPage || isMarketingPage || isFlashPage;
+  const isPaymentPage = location.pathname === '/payment';
+  
+  // Immersive pages hide everything
+  const isImmersive = isAuthPage || isFlashPage || isPaymentPage;
+  const hideSidebar = isLandingPage || isImmersive || isMarketingPage;
+  const hideHeader = isImmersive || isLandingPage;
+  const hideNavigation = hideHeader; 
 
   // Redirection guard (Onboarding & Verification)
   React.useEffect(() => {
@@ -83,31 +94,35 @@ function AppContent() {
 
   return (
     <div className="app-container">
-      {!hideNavigation && (
+      <MeshBackground />
+      {!hideHeader && (
         <ModernHeader
           onMenuToggle={() => setIsMenuOpen(!isMenuOpen)}
           isMenuOpen={isMenuOpen}
         />
       )}
-      <div className={hideNavigation ? "app-layout-fullscreen" : "app-layout"}>
-        {!hideNavigation && <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />}
-        <main className={hideNavigation ? "landing-page-main" : `main-stage ${isFlashPage ? 'no-padding' : ''}`}>
-          <div className={hideNavigation ? "content-wrapper-fullscreen" : "content-wrapper"} style={hideNavigation ? { minHeight: '100%', display: 'flex' } : {
+      <div className={hideSidebar ? "app-layout-fullscreen" : "app-layout"}>
+        {!hideSidebar && <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />}
+        <main className={hideSidebar ? "landing-page-main" : `main-stage ${isFlashPage ? 'no-padding' : ''}`}>
+          <div className={hideSidebar ? "content-wrapper-fullscreen" : "content-wrapper"} style={hideSidebar ? { minHeight: '100%', display: 'flex' } : {
             display: 'flex',
             gap: '2rem',
             width: '100%',
             flexWrap: 'wrap'
           }}>
-            <div style={hideNavigation ? { width: '100%', minHeight: '100%' } : { flex: 1, minWidth: '300px' }}>
+            <div style={hideSidebar ? { width: '100%', minHeight: '100%' } : { flex: 1, minWidth: '300px' }}>
               <React.Suspense fallback={<PageSkeleton />}>
                 <Routes>
                   {/* Public Routes */}
                   <Route path="/" element={token ? <Home /> : <Landing />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/signup" element={<Signup />} />
+                  <Route path="/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/privacy" element={<Privacy />} />
                   <Route path="/terms" element={<Terms />} />
+                  <Route path="/payment" element={<PaymentCallback />} />
                   
                   {/* Protected App Routes */}
                   <Route path="/flash" element={<ProtectedRoute><Flash /></ProtectedRoute>} />
@@ -132,11 +147,12 @@ function AppContent() {
                   <Route path="/challenges" element={<ProtectedRoute><Challenges /></ProtectedRoute>} />
                   <Route path="/monetization" element={<ProtectedRoute><Monetization /></ProtectedRoute>} />
                   <Route path="/monetization/transactions" element={<ProtectedRoute><Transactions /></ProtectedRoute>} />
-                  <Route path="/pro" element={<ProtectedRoute><JoinPro /></ProtectedRoute>} />
+                  <Route path="/pro" element={<JoinPro />} />
                   
                   {/* Admin Routes */}
                   <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminPortal /></ProtectedRoute>} />
                 </Routes>
+                {!isImmersive && <Footer />}
               </React.Suspense>
             </div>
           </div>

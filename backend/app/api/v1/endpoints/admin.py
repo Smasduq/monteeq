@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.db.session import get_db
@@ -12,6 +12,7 @@ from datetime import timedelta, datetime
 from typing import List
 from sqlalchemy import cast, Date
 from app.tasks.email_tasks import queue_new_challenge_announcement
+from app.services.email_service import send_pro_upgrade_email
 
 router = APIRouter()
 
@@ -69,18 +70,31 @@ def read_stats(
     # Pending Payouts (Liabilities)
     pending_payouts_sum = db.query(func.sum(PayoutRequest.amount)).filter(PayoutRequest.status == 'pending').scalar() or 0
 
+    # Top Countries Breakdown
+    top_signup_countries_query = (
+        db.query(User.country, func.count(User.id).label("count"))
+        .filter(User.country != None)
+        .group_by(User.country)
+        .order_by(func.count(User.id).desc())
+        .limit(5)
+        .all()
+    )
+    top_signup_countries = [{"country": c, "count": cnt} for c, cnt in top_signup_countries_query]
+
     return {
         "users": user_count,
         "videos": video_count,
         "premium_users": premium_count,
         "total_views": total_views_sum,
         "total_revenue": float(total_rev),
-        "pending_payouts": float(pending_payouts_sum)
+        "pending_payouts": float(pending_payouts_sum),
+        "top_signup_countries": top_signup_countries
     }
 
 @router.post("/promote/{user_id}")
 def promote_user(
     user_id: int,
+    background_tasks: BackgroundTasks,
     is_premium: bool = True,
     db: Session = Depends(get_db),
     current_user: dict = Depends(admin_only)
@@ -89,9 +103,13 @@ def promote_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
+    was_premium = user.is_premium
     user.is_premium = is_premium
     db.commit()
     db.refresh(user)
+    
+    if is_premium and not was_premium and user.email:
+        background_tasks.add_task(send_pro_upgrade_email, user.email, user.username)
     
     return {"message": f"User {user.username} premium status set to {is_premium}"}
 

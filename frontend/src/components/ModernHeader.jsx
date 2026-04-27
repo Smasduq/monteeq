@@ -177,13 +177,20 @@ const ModernHeader = ({ onMenuToggle, isMenuOpen }) => {
                     </button>
 
                     <div className={s.profileMenu} ref={profileRef}>
-                        <button className={s.avatarLink} onClick={() => setShowProfileMenu(true)}>
-                            {user?.profile_pic ? (
-                                <img src={user.profile_pic} alt="" />
-                            ) : (
-                                <div className={s.fallbackAvatar}>{user?.username?.charAt(0).toUpperCase()}</div>
-                            )}
-                        </button>
+                        {token ? (
+                            <button className={s.avatarLink} onClick={() => setShowProfileMenu(true)}>
+                                {user?.profile_pic ? (
+                                    <img src={user.profile_pic} alt="" />
+                                ) : (
+                                    <div className={s.fallbackAvatar}>{user?.username?.charAt(0).toUpperCase() || 'U'}</div>
+                                )}
+                            </button>
+                        ) : (
+                            <Link to="/login" className={s.signInBtn}>
+                                <User size={20} />
+                                <span>Sign In</span>
+                            </Link>
+                        )}
                     </div>
                 </div>
             </div>

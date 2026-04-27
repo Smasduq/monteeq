@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     TrendingUp, Users, Heart, DollarSign, Share2, Video,
     Zap, ArrowLeft, BarChart3, Trophy, CheckCircle2,
-    ChevronRight, Sparkles, X, Layout
+    ChevronRight, Sparkles, X, Layout, Globe, Map
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getUserInsights } from '../api';
@@ -130,6 +130,39 @@ const Insights = () => {
                         </div>
                     </div>
                 ))}
+
+                {/* Top Countries Card */}
+                <div className="glass hover-scale" style={{
+                    padding: '2rem', borderRadius: '24px', position: 'relative', overflow: 'hidden',
+                    display: 'flex', flexDirection: 'column', gap: '1rem'
+                }}>
+                    <div style={{
+                        width: '50px', height: '50px', borderRadius: '16px',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#3b82f6', boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)'
+                    }}>
+                        <Globe size={24} />
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>Top Audience Locations</div>
+                        {stats?.top_countries?.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {stats.top_countries.map((c, i) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
+                                        <Map size={14} opacity={0.6} />
+                                        <span style={{ fontWeight: 600, flex: 1 }}>{c.country}</span>
+                                        <span style={{ color: 'var(--text-muted)' }}>{((c.count / totalViews) * 100).toFixed(1)}%</span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                Gathering geo-data...
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
 
             <div className="content-breakdown" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' }}>

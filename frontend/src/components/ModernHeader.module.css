@@ -3,7 +3,7 @@
     top: 0;
     width: 100%;
     height: 72px;
-    background: rgba(10, 10, 10, 0.85);
+    background: rgba(5, 5, 5, 0.95);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -263,11 +263,12 @@
     padding: 0;
     display: flex;
     border-radius: 50%;
-    transition: transform 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
-    width: 40px;
-    height: 40px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    width: 52px;
+    height: 52px;
+    border: 2px solid #eb0000;
+    box-shadow: 0 0 20px rgba(235, 0, 0, 0.25);
 }
 
 .avatarLink:hover {
@@ -369,6 +370,37 @@
     cursor: pointer;
 }
 
+.signInBtn {
+    background: #eb0000;
+    color: #fff;
+    padding: 0.6rem 1.25rem;
+    border-radius: 50px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.2s;
+    box-shadow: 0 4px 15px rgba(235, 0, 0, 0.3);
+}
+
+.signInBtn:hover {
+    background: #ff4b4b;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(235, 0, 0, 0.4);
+}
+
+.signInBtn span {
+    display: none;
+}
+
+@media (min-width: 480px) {
+    .signInBtn span {
+        display: block;
+    }
+}
+
 @media (min-width: 768px) {
     .mobileOnlySearch {
         display: none;
@@ -416,11 +448,11 @@
     bottom: 0;
     width: 380px;
     max-width: 100%;
-    background: rgba(10, 10, 10, 0.85); /* Slightly more transparent to see bg */
-    background-image: linear-gradient(rgba(10, 10, 10, 0.9), rgba(10, 10, 10, 0.8)), url('/drawer-bg.png');
+    background: rgba(10, 10, 10, 0.98); 
+    background-image: linear-gradient(rgba(10, 10, 10, 0.95), rgba(10, 10, 10, 0.92)), url('/drawer-bg.png');
     background-size: cover;
     background-position: center;
-    backdrop-filter: blur(40px);
+    backdrop-filter: blur(20px);
     border-left: 1px solid rgba(255, 255, 255, 0.08);
     z-index: 2001;
     display: flex;
@@ -472,8 +504,8 @@
     width: 100px;
     height: 100px;
     border-radius: 50%;
-    padding: 4px;
-    background: linear-gradient(135deg, #eb0000, #ff4b4b);
+    padding: 0;
+    border: 3px solid #eb0000;
     box-shadow: 0 10px 30px rgba(235, 0, 0, 0.3);
     margin-bottom: 1.5rem;
     overflow: hidden;
@@ -484,7 +516,6 @@
     height: 100%;
     border-radius: 50%;
     object-fit: cover;
-    border: 3px solid #0a0a0a;
 }
 
 .fallbackAvatarLarge {

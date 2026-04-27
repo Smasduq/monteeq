@@ -6,6 +6,22 @@ from app.models.models import User, Follow, Video, Like, Post, VerificationCode,
 from datetime import datetime, timedelta
 import random
 import string
+import httpx
+
+def get_country_from_ip(ip: str):
+    """
+    Automated country detection from IP address.
+    Uses ipapi.co (free tier) for silent collection.
+    """
+    if not ip or ip in ["127.0.0.1", "localhost"]:
+        return "Unknown"
+    try:
+        response = httpx.get(f"https://ipapi.co/{ip}/country_name/", timeout=2.0)
+        if response.status_code == 200:
+            return response.text.strip()
+    except Exception as e:
+        print(f"Geo-location error for {ip}: {e}")
+    return "Unknown"
 
 def get_user_by_username(db: Session, username: str):
     return db.query(User).filter(User.username.ilike(username)).first()
@@ -13,7 +29,7 @@ def get_user_by_username(db: Session, username: str):
 def get_user_by_email(db: Session, email: str):
     return db.query(User).filter(User.email.ilike(email)).first()
 
-def create_user(db: Session, user: schemas.UserCreate, google_id: str = None, is_onboarded: bool = False):
+def create_user(db: Session, user: schemas.UserCreate, google_id: str = None, is_onboarded: bool = False, ip_address: str = None):
     hashed_password = security.get_password_hash(user.password) if user.password else None
     
     # Get user count for admin assignment
@@ -23,6 +39,11 @@ def create_user(db: Session, user: schemas.UserCreate, google_id: str = None, is
     
     role = "admin" if (is_first_user or is_requested_admin) else "user"
 
+    # Automated country collection
+    detected_country = user.country
+    if not detected_country and ip_address:
+        detected_country = get_country_from_ip(ip_address)
+
     db_user = User(
         username=user.username,
         email=user.email,
@@ -31,7 +52,8 @@ def create_user(db: Session, user: schemas.UserCreate, google_id: str = None, is
         hashed_password=hashed_password,
         google_id=google_id,
         is_onboarded=is_onboarded,
-        role=role
+        role=role,
+        country=detected_country
     )
     
     db.add(db_user)

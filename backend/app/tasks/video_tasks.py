@@ -1,9 +1,6 @@
 import os
-import shutil
 import time
 import requests
-import subprocess
-import json
 from celery import shared_task
 from sqlalchemy import func
 
@@ -17,19 +14,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 @shared_task(bind=True, name="video_tasks.process_video", max_retries=3)
-def process_video_task(self, temp_file_path: str, video_type: str, title: str, video_id: int, thumbnail_provided: bool, task_id: str):
+def process_video_task(self, source_key: str, video_type: str, title: str, video_id: int, thumbnail_provided: bool, task_id: str):
     logger.info(f"Starting Celery task: video_id={video_id}, task_id={task_id}")
     db = SessionLocal()
     try:
         # Phase 1: Communication with Rust Service
         try:
-            # Upload source to GCS so Rust can download it (Independence!)
-            source_filename = os.path.basename(temp_file_path)
-            source_key = f"uploads/{task_id}/{source_filename}"
-            logger.info(f"Uploading source video to GCS: {source_key}")
-            storage.upload_file(temp_file_path, source_key)
-
-            logger.info(f"Phase 1: POST to Rust service at {config.RUST_SERVICE_URL}/process")
+            logger.info(f"Phase 1: POST to Rust service at {config.RUST_SERVICE_URL}/process with source {source_key}")
             rust_response = requests.post(
                 f"{config.RUST_SERVICE_URL}/process",
                 json={
@@ -85,7 +76,6 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
             video = db.query(Video).filter(Video.id == video_id).first()
             if video:
                 video.status = "failed"
-                
                 video.failed_at = func.now()
                 owner = db.query(User).filter(User.id == video.owner_id).first()
                 if owner:
@@ -94,7 +84,10 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
                     else:
                         owner.home_uploads = max(0, (owner.home_uploads or 1) - 1)
                 db.commit()
-            raise self.retry(exc=e, countdown=60)
+            # Only retry if we haven't hit the max — avoid infinite retry loops
+            if self.request.retries < self.max_retries:
+                raise self.retry(exc=e, countdown=60)
+            raise e
 
         # Phase 2: Post-processing (Updating DB URLs)
         # Note: Rust service now handles the upload of HLS files to GCS.
@@ -106,22 +99,16 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
         url_480p = f"{gcs_base}/480p.m3u8"
         url_720p = f"{gcs_base}/720p.m3u8"
         url_1080p = f"{gcs_base}/1080p.m3u8"
-        
+        url_2k = f"{gcs_base}/2k.m3u8"
+        url_4k = f"{gcs_base}/4k.m3u8"
         # In Rust, thumb_key = format!("thumbnails/{}.jpg", video_id);
         # Since we send source_key as video_id, it would be thumbnails/uploads/...
         # I will fix Rust to use task_id for thumbnails too.
         thumbnail_url = f"https://storage.googleapis.com/{config.GCS_BUCKET}/thumbnails/{task_id}.jpg"
 
+        # Duration is not available from the Rust service response yet;
+        # keep as 0 — can be backfilled later via a separate metadata job.
         duration = 0
-        try:
-            probe_cmd = [
-                "ffprobe", "-v", "error", "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1", temp_file_path
-            ]
-            duration_str = subprocess.check_output(probe_cmd).decode('utf-8').strip()
-            duration = int(float(duration_str))
-        except Exception as e:
-            print(f"Failed to get duration: {e}")
 
         video = db.query(Video).filter(Video.id == video_id).first()
         if video:
@@ -132,30 +119,13 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
             video.url_2k = url_2k
             video.url_4k = url_4k
             video.duration = duration
-            video.failed_at = None 
-            
+            video.failed_at = None
+            # *** BUG FIX: Mark video as approved so it appears in feeds ***
+            video.status = "approved"
+            video.processing_message = "Transcoding complete"
+
             if thumbnail_url:
                 video.thumbnail_url = thumbnail_url
-            
-            # Automated Video Recognition
-            try:
-                import sys
-                backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-                recognition_script = os.path.join(backend_dir, "..", "video-service", "scripts", "video_recognition.py")
-                
-                if os.path.exists(recognition_script):
-                    rec_result = subprocess.run(
-                        [sys.executable, recognition_script, temp_file_path],
-                        capture_output=True, text=True, timeout=60
-                    )
-                    if rec_result.returncode == 0:
-                        auto_tags = json.loads(rec_result.stdout)
-                        if auto_tags:
-                            existing_tags = [t.strip() for t in (video.tags or "").split(",") if t.strip()]
-                            all_tags = list(set(existing_tags + auto_tags))
-                            video.tags = ",".join(all_tags)
-            except Exception as e:
-                print(f"Video recognition failed: {e}")
 
             db.commit()
             
@@ -170,6 +140,13 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
                     n_type="status_change"
                 )
             except: pass
+            
+            # Notify admins of the newly processed video
+            try:
+                from app.tasks.email_tasks import queue_new_video_admin_alert
+                queue_new_video_admin_alert.delay(video_id)
+            except Exception as e:
+                logger.error(f"Failed to queue admin alert: {e}")
             
             return {"status": "success", "video_id": video_id}
 
@@ -192,12 +169,6 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
         raise e
     finally:
         db.close()
-        temp_dir = os.path.dirname(temp_file_path)
-        if os.path.exists(temp_dir):
-            try:
-                shutil.rmtree(temp_dir)
-            except Exception as e:
-                print(f"Error cleaning up temp dir {temp_dir}: {e}")
 
 @shared_task(name="video_tasks.update_discovery_score")
 def update_discovery_score_task(video_id: int = None, post_id: int = None):

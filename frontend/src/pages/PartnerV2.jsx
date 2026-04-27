@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, Check, Network, TrendingUp, Users, Target, Megaphone, Loader2 } from 'lucide-react';
 import './PartnerV2.css';
+import Footer from '../components/Footer';
 
 /* ── Content ─────────────────────────────────────────────── */
 const WHAT_WE_DO = [
@@ -177,7 +178,6 @@ const PartnerV2 = () => {
           )}
         </div>
       </section>
-
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { getPendingVideos, updateVideoStatus } from './api';
+import { getPendingVideos, updateVideoStatus, API_BASE_URL } from './api';
 import Hls from 'hls.js';
 import { ShieldCheck, LogOut, CheckCircle, XCircle, ChevronLeft, Play, X, Info, Sun, Moon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -52,7 +52,12 @@ const VideoApprovals = ({ token, setToken, theme, toggleTheme }) => {
         if (!previewVideo || !videoRef.current || !previewVideo.video_url) return;
 
         const video = videoRef.current;
-        const src = previewVideo.video_url;
+        let src = previewVideo.video_url;
+        
+        // Route through proxy to bypass GCS CORS for HLS/Stream
+        if (src.startsWith('http')) {
+            src = `${API_BASE_URL}/videos/${previewVideo.id}/stream`;
+        }
 
         if (Hls.isSupported() && src.endsWith('.m3u8')) {
             const hls = new Hls({

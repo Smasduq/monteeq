@@ -154,81 +154,96 @@ async fn transcode_tiered(
     has_audio: bool,
     tier: &UserTier
 ) -> Result<()> {
-    let mut args = vec![
-        "-i", input,
-        "-preset", &config.preset,
-        "-crf", &config.crf,
-    ];
-
-    if has_audio {
-        args.extend_from_slice(&["-c:a", "aac", "-b:a", "128k"]);
-    }
-
-    args.extend_from_slice(&[
-        "-f", "hls",
-        "-hls_time", "6",
-        "-hls_playlist_type", "vod",
-        "-master_pl_name", "master.m3u8",
-    ]);
-
     println!("Transcoding tiered levels for {} -> {}", input, output_dir);
 
     let source_height = get_video_height(input).await?;
     let target_height = source_height.min(config.max_height);
 
-    // Build adaptive stream map based on tier
-    let (filter, stream_map) = if format == "flash" {
-        // Single quality for flash (Vertical)
-        (
-            format!("[0:v]scale=w=-2:h={}[vout]", target_height),
-            if has_audio { "v:0,a:0,name:720p".to_string() } else { "v:0,name:720p".to_string() }
-        )
+    // ── 1. Determine variants ────────────────────────────────────────────────
+    // num_variants = how many video streams (and therefore audio streams) we produce.
+    // stream_map uses unique a:N per variant — sharing a:0 across variants is the
+    // root cause of FFmpeg error "Same elementary stream found more than once".
+    let (filter, stream_map, num_variants): (String, String, usize) = if format == "flash" {
+        // Single quality for flash (Vertical short-form)
+        let sm = if has_audio { "v:0,a:0,name:720p".to_string() } else { "v:0,name:720p".to_string() };
+        (format!("[0:v]scale=w=-2:h={}[vout]", target_height), sm, 1)
     } else if config.max_height <= 720 {
-        // Free tier multi-bitrate (capped)
+        // Free tier — two quality levels, capped at 720p
+        let sm = if has_audio {
+            "v:0,a:0,name:720p v:1,a:1,name:480p".to_string()   // ← unique a:0 / a:1
+        } else {
+            "v:0,name:720p v:1,name:480p".to_string()
+        };
         (
             "[0:v]split=2[v1][v2]; [v1]scale=w=-2:h=720[v1out]; [v2]scale=w=-2:h=480[v2out]".to_string(),
-            if has_audio { "v:0,a:0,name:720p v:1,a:0,name:480p".to_string() } else { "v:0,name:720p v:1,name:480p".to_string() }
+            sm, 2
         )
     } else {
-        // Pro tier full multi-bitrate
+        // Pro tier — three quality levels up to 1080p
+        let sm = if has_audio {
+            "v:0,a:0,name:1080p v:1,a:1,name:720p v:2,a:2,name:480p".to_string()  // ← unique a:0/a:1/a:2
+        } else {
+            "v:0,name:1080p v:1,name:720p v:2,name:480p".to_string()
+        };
         (
             "[0:v]split=3[v1][v2][v3]; [v1]scale=w=-2:h=1080[v1out]; [v2]scale=w=-2:h=720[v2out]; [v3]scale=w=-2:h=480[v3out]".to_string(),
-            if has_audio { "v:0,a:0,name:1080p v:1,a:0,name:720p v:2,a:0,name:480p".to_string() } else { "v:0,name:1080p v:1,name:720p v:2,name:480p".to_string() }
+            sm, 3
         )
     };
 
-    // Add filter complex and mapping
-    args.extend_from_slice(&["-filter_complex", &filter]);
-    
-    // Simplification for the example: mapping outputs based on split
+    // ── 2. Build args as Vec<String> so we can push dynamic per-stream options ─
+    let mut args: Vec<String> = vec![
+        "-i".into(), input.into(),
+        // NOTE: Do NOT add global -c:a here — it conflicts with per-stream -c:a:N below
+        "-preset".into(), config.preset.clone(),
+        "-crf".into(), config.crf.clone(),
+        "-f".into(), "hls".into(),
+        "-hls_time".into(), "6".into(),
+        "-hls_playlist_type".into(), "vod".into(),
+        "-master_pl_name".into(), "master.m3u8".into(),
+        "-filter_complex".into(), filter.clone(),
+    ];
+
+    // ── 3. Video stream mappings ─────────────────────────────────────────────
     if filter.contains("split=3") {
-         args.extend_from_slice(&[
-            "-map", "[v1out]", "-c:v:0", "libx264", "-b:v:0", "5000k",
-            "-map", "[v2out]", "-c:v:1", "libx264", "-b:v:1", "2800k",
-            "-map", "[v3out]", "-c:v:2", "libx264", "-b:v:2", "1200k",
-        ]);
+        args.extend(["-map","[v1out]","-c:v:0","libx264","-b:v:0","5000k",
+                      "-map","[v2out]","-c:v:1","libx264","-b:v:1","2800k",
+                      "-map","[v3out]","-c:v:2","libx264","-b:v:2","1200k"]
+            .iter().map(|s| s.to_string()));
     } else if filter.contains("split=2") {
-        args.extend_from_slice(&[
-            "-map", "[v1out]", "-c:v:0", "libx264", "-b:v:0", "2800k",
-            "-map", "[v2out]", "-c:v:1", "libx264", "-b:v:1", "1200k",
-        ]);
+        args.extend(["-map","[v1out]","-c:v:0","libx264","-b:v:0","2800k",
+                     "-map","[v2out]","-c:v:1","libx264","-b:v:1","1200k"]
+            .iter().map(|s| s.to_string()));
     } else {
-        args.extend_from_slice(&[
-            "-map", "[vout]", "-c:v:0", "libx264", "-b:v:0", "2800k",
-        ]);
+        args.extend(["-map","[vout]","-c:v:0","libx264","-b:v:0","2800k"]
+            .iter().map(|s| s.to_string()));
     }
 
+    // ── 4. Audio stream mappings ─────────────────────────────────────────────
+    // Each HLS variant needs its OWN audio output stream.  We map the single
+    // source audio track N times (once per variant) so the muxer can write
+    // independent AAC streams into the separate .ts segment files.
     if has_audio {
-        args.extend_from_slice(&["-map", "0:a?", "-c:a:0", "aac", "-b:a:0", "128k"]);
+        for _ in 0..num_variants {
+            args.push("-map".into());
+            args.push("0:a?".into());
+        }
+        for i in 0..num_variants {
+            args.push(format!("-c:a:{}", i));
+            args.push("aac".into());
+            args.push(format!("-b:a:{}", i));
+            args.push("128k".into());
+        }
     }
 
+    // ── 5. HLS output options ────────────────────────────────────────────────
     let segment_filename = format!("{}/%v_%03d.ts", output_dir);
-    let output_pattern = format!("{}/%v.m3u8", output_dir);
+    let output_pattern   = format!("{}/%v.m3u8",    output_dir);
 
-    args.extend_from_slice(&[
-        "-hls_segment_filename", &segment_filename,
-        "-var_stream_map", &stream_map,
-        &output_pattern,
+    args.extend([
+        "-hls_segment_filename".to_string(), segment_filename,
+        "-var_stream_map".to_string(),        stream_map,
+        output_pattern,
     ]);
 
     if let Some(ref map) = status_map {
@@ -246,6 +261,7 @@ async fn transcode_tiered(
         return Err(anyhow!("FFmpeg failed: {}", err));
     }
     Ok(())
+
 }
 
 async fn get_video_height(input: &str) -> Result<i32> {

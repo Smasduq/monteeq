@@ -11,7 +11,8 @@ const Dashboard = ({ token, setToken, theme, toggleTheme }) => {
         premium_users: 0, 
         total_views: 0,
         total_revenue: 0,
-        pending_payouts: 0 
+        pending_payouts: 0,
+        top_signup_countries: []
     });
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -191,6 +192,47 @@ const Dashboard = ({ token, setToken, theme, toggleTheme }) => {
                                 color="#ef4444"
                                 onClick={() => navigate('/payouts')}
                             />
+                        </div>
+
+                        {/* Signup Geography Section */}
+                        <div className="card" style={{ padding: '24px', marginBottom: '48px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                                <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '8px', borderRadius: '10px' }}>
+                                    <Cloud size={20} color="#3b82f6" />
+                                </div>
+                                <div>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Signup Geography</h3>
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Top regions where your members are joining from.</p>
+                                </div>
+                            </div>
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '32px' }}>
+                                {stats.top_signup_countries?.length > 0 ? (
+                                    stats.top_signup_countries.map((c, i) => (
+                                        <div key={i}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.85rem' }}>
+                                                <span style={{ fontWeight: 600 }}>{c.country}</span>
+                                                <span style={{ color: 'var(--text-muted)' }}>{c.count} members</span>
+                                            </div>
+                                            <div style={{ height: '8px', background: 'var(--bg-raised)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                <div style={{ 
+                                                    height: '100%', 
+                                                    width: `${(c.count / stats.users) * 100}%`, 
+                                                    background: 'linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)',
+                                                    borderRadius: '4px'
+                                                }}></div>
+                                            </div>
+                                            <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-muted)', textAlign: 'right' }}>
+                                                {((c.count / stats.users) * 100).toFixed(1)}% of total
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div style={{ gridColumn: '1 / -1', padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                        No geographic data available yet.
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                 {/* Operations Section */}

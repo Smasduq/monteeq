@@ -12,6 +12,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "2880
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 BASE_URL = os.getenv("BASE_URL")
 RUST_SERVICE_URL = os.getenv("RUST_SERVICE_URL")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "static")
 
 # Database Configuration

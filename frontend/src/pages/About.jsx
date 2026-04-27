@@ -5,7 +5,7 @@ import './About.css';
 
 /* ── Content ─────────────────────────────────────────────── */
 const VALUES = [
-  { icon: <DollarSign size={24} />, title: 'Direct Monetization', desc: 'You earn ₦99 for every 1K views. No hidden fees.' },
+  { icon: <DollarSign size={24} />, title: 'Direct Monetization', desc: 'Earn based on your creative performance and engagement. No platform tax.' },
   { icon: <Zap size={24} />, title: 'Insane Speed', desc: 'Fast video processing that instantly renders your highest-quality uploads.' },
   { icon: <Fingerprint size={24} />, title: 'Pure Independence', desc: 'You don’t need to find a single client to start making a living off your editing skills.' },
 ];
@@ -120,17 +120,7 @@ const About = () => {
         </Link>
       </section>
 
-      {/* ═══ APP FOOTER LOGIC ASSUMED OUTSIDE OR SIMPLE FOOTER INCLUDED ═══ */}
-      <footer className="ab-footer" style={{ padding: '3rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', maxWidth: '1200px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontFamily: 'Outfit, sans-serif', fontWeight: 800 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: 'var(--ab-red)', color: 'white', borderRadius: '8px', fontSize: '1rem' }}>M</div>
-          <span>Monteeq</span>
-        </div>
-        <div style={{ display: 'flex', gap: '1.5rem' }}>
-          <Link to="/" style={{ color: 'var(--ab-text-muted)', textDecoration: 'none', fontSize: '0.9rem' }}>Home</Link>
-          <Link to="/partner" style={{ color: 'var(--ab-text-muted)', textDecoration: 'none', fontSize: '0.9rem' }}>Partner</Link>
-        </div>
-      </footer>
+      {/* ═══ APP FOOTER ═══ */}
     </div>
   );
 };

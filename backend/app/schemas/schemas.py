@@ -10,6 +10,7 @@ class UserBase(BaseModel):
     interests: Optional[str] = None
     referral_source: Optional[str] = None
     goals: Optional[str] = None
+    country: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -275,6 +276,7 @@ class UserInsights(BaseModel):
     next_milestone: int = 0
     new_milestone_reached: Optional[str] = None
     achievements: List[str] = []
+    top_countries: List[dict] = [] # [{"country": "USA", "count": 100}, ...]
 
     @field_validator('total_views', 'total_likes', 'total_shares', 'home_videos', 'flash_videos', 'posts_count', 'followers', 'following', 'next_milestone', mode='before')
     @classmethod
@@ -457,6 +459,26 @@ class GrowthIntelligence(BaseModel):
 class AttachmentResponse(BaseModel):
     url: str
     filename: Optional[str] = None
+
+class PasswordReset(BaseModel):
+    email: str
+    code: str
+    new_password: str
+
+    @field_validator('new_password')
+    @classmethod
+    def password_complexity_reset(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        if not any(c.isupper() for c in v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not any(c.islower() for c in v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('Password must contain at least one digit')
+        if not any(c in "!@#$%^&*()_+-=[]{}|;:'\",.<>/?`~" for c in v):
+            raise ValueError('Password must contain at least one special character')
+        return v
 
 class GoogleLinkRequest(BaseModel):
     id_token: str

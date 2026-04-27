@@ -32,6 +32,7 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     is_onboarded = Column(Boolean, default=False)
     profile_pic = Column(String, nullable=True) # Will use dynamic UI-Avatars if null
+    country = Column(String, nullable=True, index=True) # Automated tracking (ISO code or Name)
     
     # Personalization data
     interests = Column(Text, nullable=True) # Comma-separated tags or JSON

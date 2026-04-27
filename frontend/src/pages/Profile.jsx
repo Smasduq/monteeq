@@ -13,6 +13,7 @@ import TrophyBar from '../components/profile/TrophyBar';
 import ProfileTabs from '../components/profile/ProfileTabs';
 import FeaturedVideo from '../components/profile/FeaturedVideo';
 import FollowListModal from '../components/profile/FollowListModal';
+import Footer from '../components/Footer';
 
 import styles from './Profile.module.css';
 

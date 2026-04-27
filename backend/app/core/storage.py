@@ -93,11 +93,55 @@ class Storage:
             raise ValueError("GCS bucket is not initialized.")
         try:
             blob = self.gcs_bucket.blob(s3_key)
-            blob.upload_from_filename(local_path)
+            # Use 5MB chunks for better stability on large files
+            blob.chunk_size = 5 * 1024 * 1024 
+            # Increase timeout to 10 minutes (600 seconds) for slow networks/large videos
+            blob.upload_from_filename(local_path, timeout=600)
             return self.get_url(s3_key, mode="gcs")
         except Exception as e:
             logger.error(f"GCS Upload failed for {s3_key}: {e}", exc_info=True)
             raise
+
+    def upload_file_obj(self, file_obj, s3_key: str) -> str:
+        """
+        Uploads a file-like object directly to storage (avoids local disk).
+        """
+        current_mode = self.mode
+        
+        if current_mode == "local":
+            dest_path = os.path.join(config.STATIC_DIR, s3_key)
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            with open(dest_path, "wb") as buffer:
+                import shutil
+                shutil.copyfileobj(file_obj, buffer)
+            url_key = s3_key.replace(os.sep, "/")
+            return f"{config.BASE_URL}/static/{url_key}"
+        else:
+            if not self.gcs_bucket:
+                raise ValueError("GCS bucket is not initialized.")
+            try:
+                # Detect content type from the key extension so GCS stores it correctly
+                ext = os.path.splitext(s3_key)[1].lower()
+                content_type_map = {
+                    ".mp4": "video/mp4",
+                    ".mov": "video/quicktime",
+                    ".avi": "video/x-msvideo",
+                    ".mkv": "video/x-matroska",
+                    ".webm": "video/webm",
+                    ".m3u8": "application/x-mpegURL",
+                    ".ts": "video/MP2T",
+                    ".jpg": "image/jpeg",
+                    ".jpeg": "image/jpeg",
+                    ".png": "image/png",
+                }
+                content_type = content_type_map.get(ext, "application/octet-stream")
+                blob = self.gcs_bucket.blob(s3_key)
+                blob.chunk_size = 5 * 1024 * 1024 
+                blob.upload_from_file(file_obj, timeout=600, content_type=content_type)
+                return self.get_url(s3_key, mode="gcs")
+            except Exception as e:
+                logger.error(f"GCS Object Upload failed for {s3_key}: {e}", exc_info=True)
+                raise
 
     def get_url(self, s3_key: str, mode: Optional[str] = None) -> str:
         """

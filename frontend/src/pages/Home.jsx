@@ -7,6 +7,7 @@ import { useNotification } from '../context/NotificationContext';
 import VideoPreviewCard from '../components/VideoPreviewCard';
 import NativeFeedAd from '../components/ads/NativeFeedAd';
 import { VideoSkeleton, FlashSkeleton, HomeSkeleton } from '../components/Skeleton';
+import Footer from '../components/Footer';
 
 const CATEGORIES = ["All", "Gaming", "Music", "Live", "Comedy", "Vlogs", "Recently uploaded", "News", "Sports", "Learning"];
 
@@ -178,98 +179,47 @@ const Home = () => {
                 ))}
             </div>
 
-            {/* Trending Long Form */}
-            <div style={{ padding: '0 0 2rem' }}>
-                <div className="section-title" style={{ display: 'none' }}>
-                    <TrendingUp size={28} color="var(--accent-primary)" />
-                    <h2 style={{ margin: 0 }}>Trending Now</h2>
-                </div>
-
+            {/* Trending Long Form - Part 1 */}
+            <div style={{ padding: '0 0 1rem' }}>
                 <div className="video-grid">
-                    {loading && (
-                        <>
-                            {[...Array(8)].map((_, i) => (
-                                <VideoSkeleton key={`skel-${i}`} />
-                            ))}
-                        </>
-                    )}
                     {error && <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--accent-primary)' }}>{error}</div>}
-
-                    {!loading && !error && videos.length === 0 && (
-                        <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                            No videos found. Upload some to see them here!
-                        </div>
-                    )}
-
-                    {videos.map((video, index) => (
-                        <React.Fragment key={video.id}>
-                            <VideoPreviewCard
-                                video={video}
-                                variant="grid"
-                                onClick={() => handleVideoClick(video.id)}
-                                ref={index === videos.length - 1 ? lastVideoElementRef : null}
-                            />
-                            {/* Inject ad every 6 videos */}
-                            {(index + 1) % 6 === 0 && (
-                                <NativeFeedAd />
-                            )}
-                        </React.Fragment>
+                    {videos.slice(0, 8).map((video, index) => (
+                        <VideoPreviewCard
+                            key={video.id}
+                            video={video}
+                            variant="grid"
+                            onClick={() => handleVideoClick(video.id)}
+                        />
                     ))}
                 </div>
             </div>
 
-            {/* Flash Section (YouTube Shorts style) */}
+            {/* Flash Section (3 Rows) */}
             {flashVideos.length > 0 && (
-                <div className="flash-shelf-container" style={{ margin: '2rem 0', padding: '2rem 0', borderTop: '1px solid var(--border-glass)', borderBottom: '1px solid var(--border-glass)' }}>
+                <div className="flash-shelf-container" style={{ margin: '1rem 0', padding: '1.5rem 0', borderTop: '1px solid var(--border-glass)', borderBottom: '1px solid var(--border-glass)' }}>
                     <div className="section-title" style={{ justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                            <div style={{ color: 'var(--accent-primary)', display: 'flex', alignItems: 'center' }}><Zap size={28} fill="currentColor" /></div>
-                            <h2 style={{ margin: 0 }}>Flash</h2>
+                            <div style={{ color: 'var(--accent-primary)', display: 'flex', alignItems: 'center' }}><Zap size={24} fill="currentColor" /></div>
+                            <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Flash</h2>
                         </div>
                         <button
                             onClick={() => navigate('/flash')}
-                            style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontWeight: 700, cursor: 'pointer', fontSize: '1rem' }}
+                            style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem' }}
                         >
                             VIEW ALL
                         </button>
                     </div>
 
-                    <div className="flash-shelf-grid" style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-                        gap: '1rem',
-                        marginTop: '1.2rem'
-                    }}>
-                        {loading && (
-                            <>
-                                {[...Array(6)].map((_, i) => (
-                                    <FlashSkeleton key={`flash-skel-${i}`} />
-                                ))}
-                            </>
-                        )}
-                        {!loading && flashVideos.slice(0, 18).map(flash => (
-                            <div key={flash.id} className="flash-shelf-item hover-scale" onClick={handleFlashClick} style={{ cursor: 'pointer', textAlign: 'left' }}>
-                                <div style={{
-                                    aspectRatio: '9/16',
-                                    borderRadius: '12px',
-                                    overflow: 'hidden',
-                                    position: 'relative',
-                                    background: 'var(--bg-surface)',
-                                    boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
-                                }}>
-                                    <img src={flash.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" decoding="async" />
-                                    <div style={{
-                                        position: 'absolute',
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        padding: '2rem 0.8rem 0.8rem',
-                                        background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)'
-                                    }}>
-                                        <div style={{ color: 'white', fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.2rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    <div className="flash-shelf-grid">
+                        {flashVideos.slice(0, window.innerWidth < 768 ? 6 : 18).map(flash => (
+                            <div key={flash.id} className="flash-shelf-item hover-scale" onClick={handleFlashClick}>
+                                <div className="flash-thumbnail-container">
+                                    <img src={flash.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                                    <div className="flash-overlay-info">
+                                        <div className="flash-item-title">
                                             {flash.title}
                                         </div>
-                                        <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem', fontWeight: 600 }}>
+                                        <div className="flash-item-views">
                                             {formatViews(flash.views)} views
                                         </div>
                                     </div>
@@ -279,6 +229,25 @@ const Home = () => {
                     </div>
                 </div>
             )}
+
+            {/* Trending Long Form - Part 2 (Infinite Scroll) */}
+            <div style={{ padding: '1rem 0 2rem' }}>
+                <div className="video-grid">
+                    {videos.slice(8).map((video, index) => (
+                        <React.Fragment key={video.id}>
+                            <VideoPreviewCard
+                                video={video}
+                                variant="grid"
+                                onClick={() => handleVideoClick(video.id)}
+                                ref={index === videos.slice(8).length - 1 ? lastVideoElementRef : null}
+                            />
+                            {(index + 1) % 6 === 0 && (
+                                <NativeFeedAd />
+                            )}
+                        </React.Fragment>
+                    ))}
+                </div>
+            </div>
 
             {/* Loading More State */}
             {loadingMore && (

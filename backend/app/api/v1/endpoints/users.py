@@ -218,6 +218,20 @@ def get_user_insights(
     # Reload achievements to include any newly created ones
     existing_achievements = db.query(Achievement).filter(Achievement.user_id == user_id).all()
     
+    # Top Countries Breakdown
+    from app.models.models import View
+    top_countries_query = (
+        db.query(User.country, func.count(View.id).label("count"))
+        .join(View, View.user_id == User.id)
+        .join(Video, Video.id == View.video_id)
+        .filter(Video.owner_id == user_id, User.country != None)
+        .group_by(User.country)
+        .order_by(func.count(View.id).desc())
+        .limit(3)
+        .all()
+    )
+    top_countries = [{"country": c, "count": cnt} for c, cnt in top_countries_query]
+
     result = {
         "total_views": total_views,
         "total_likes": total_likes,
@@ -230,7 +244,8 @@ def get_user_insights(
         "following": following_count,
         "next_milestone": next_milestone,
         "new_milestone_reached": new_milestone_reached,
-        "achievements": [a.milestone_name for a in existing_achievements]
+        "achievements": [a.milestone_name for a in existing_achievements],
+        "top_countries": top_countries
     }
     if r:
         try:
