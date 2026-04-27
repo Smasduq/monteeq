@@ -234,6 +234,11 @@ def delete_video_files(video: Video):
             parts = url.split(f"{config.S3_BUCKET_NAME}/")
             if len(parts) > 1:
                 s3_key = parts[1]
+        elif current_mode == "gcs" and "storage.googleapis.com" in url:
+            # Format: https://storage.googleapis.com/[bucket]/[key]
+            parts = url.split(f"/{config.GCS_BUCKET}/")
+            if len(parts) > 1:
+                s3_key = parts[1]
         
         if s3_key:
             storage.delete_file(s3_key)

@@ -30,7 +30,7 @@ impl TranscodingConfig {
 }
 
 pub async fn process(
-    video_id: String, // Platform ID
+    _video_id: String, // Platform ID
     video_path: &str, // Local filesystem path
     format: &str, 
     tier: UserTier,
@@ -83,29 +83,34 @@ pub async fn process(
     thumb_res?;
 
     // 4. Upload to Storage
-    if let Ok(storage) = StorageManager::new().await {
-        let s3_prefix = format!("videos/{}", task_id);
-        if let Some(ref map) = status_map {
-            map.insert(task_id.clone(), TaskStatus {
-                progress: 98,
-                status: "uploading".to_string(),
-                message: "Uploading to cloud storage...".to_string(),
-            });
-        }
-        storage.upload_hls_dir(&output_dir, &s3_prefix).await?;
-        
-        // Upload thumbnail too
-        if !skip_thumbnail {
-            let thumb_path = format!("{}.jpg", video_path);
-            let thumb_key = format!("thumbnails/{}.jpg", video_id);
-            storage.upload_file(Path::new(&thumb_path), &thumb_key).await?;
+    match StorageManager::new().await {
+        Ok(storage) => {
+            let s3_prefix = format!("videos/{}", task_id);
+            if let Some(ref map) = status_map {
+                map.insert(task_id.clone(), TaskStatus {
+                    progress: 98,
+                    status: "uploading".to_string(),
+                    message: "Uploading to cloud storage...".to_string(),
+                });
+            }
+            storage.upload_hls_dir(&output_dir, &s3_prefix).await?;
+            
+            // Upload thumbnail too
+            if !skip_thumbnail {
+                let thumb_path = format!("{}.jpg", video_path);
+                let thumb_key = format!("thumbnails/{}.jpg", task_id);
+                storage.upload_file(Path::new(&thumb_path), &thumb_key).await?;
+            }
+        },
+        Err(e) => {
+            eprintln!("Storage Manager initialization failed: {}. Skipping upload.", e);
+            return Err(anyhow!("Storage initialization failed: {}", e));
         }
     }
-
     Ok(())
 }
 
-async fn get_video_metadata(video_path: &str) -> Result<(f32, f32, bool)> {
+async fn get_video_metadata(video_path: &str) -> Result<(i32, i32, bool)> {
     let output = Command::new("ffprobe")
         .args(&[
             "-v", "error", "-select_streams", "v:0",
@@ -114,12 +119,7 @@ async fn get_video_metadata(video_path: &str) -> Result<(f32, f32, bool)> {
             video_path,
         ])
         .output().await?;
-
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow!("ffprobe failed for {}: {}", video_path, err));
-    }
-
+    
     let s = String::from_utf8(output.stdout)?;
     let parts: Vec<&str> = s.trim().split('x').collect();
     if parts.len() != 2 {

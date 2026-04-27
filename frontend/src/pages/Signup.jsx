@@ -18,6 +18,7 @@ const Signup = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isResending, setIsResending] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
     const { signup, login, googleLogin } = useAuth();
     const navigate = useNavigate();
 
@@ -66,6 +67,11 @@ const Signup = () => {
 
         if (!isPasswordValid) {
             setError('Please meet all password requirements');
+            return;
+        }
+
+        if (!acceptedTerms) {
+            setError('Please accept the Terms of Service and Privacy Policy');
             return;
         }
 
@@ -132,7 +138,13 @@ const Signup = () => {
     if (isVerifying) {
         return (
             <div className="auth-container">
-                <div className="auth-card glass">
+                <div className="auth-card glass" style={{ position: 'relative', overflow: 'hidden' }}>
+                    {isLoading && (
+                        <div className="auth-loading-overlay">
+                            <Loader2 size={48} className="spin accent-text" style={{ animation: 'spin 1s linear infinite' }} />
+                            <span className="auth-loading-text">VERIFYING...</span>
+                        </div>
+                    )}
                     <div className="auth-header">
                         <div className="logo-section" style={{ justifyContent: 'center', marginBottom: '1rem' }}>
                             <Zap size={40} fill="currentColor" />
@@ -234,7 +246,13 @@ const Signup = () => {
 
     return (
         <div className="auth-container">
-            <div className="auth-card glass">
+            <div className="auth-card glass" style={{ position: 'relative', overflow: 'hidden' }}>
+                {isLoading && (
+                    <div className="auth-loading-overlay">
+                        <Loader2 size={48} className="spin accent-text" style={{ animation: 'spin 1s linear infinite' }} />
+                        <span className="auth-loading-text">CREATING ACCOUNT...</span>
+                    </div>
+                )}
                 <div className="auth-header">
                     <div className="logo-section" style={{ justifyContent: 'center', marginBottom: '1rem' }}>
                         <Zap size={40} fill="currentColor" />
@@ -374,6 +392,19 @@ const Signup = () => {
                             ))}
                         </div>
                     </div>
+                    
+                    <div className="auth-terms-container" onClick={() => setAcceptedTerms(!acceptedTerms)}>
+                        <input 
+                            type="checkbox" 
+                            checked={acceptedTerms}
+                            onChange={(e) => setAcceptedTerms(e.target.checked)}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="auth-terms-text">
+                            I agree to the <Link to="/terms" onClick={(e) => e.stopPropagation()}>Terms of Service</Link> and <Link to="/privacy" onClick={(e) => e.stopPropagation()}>Privacy Policy</Link>
+                        </div>
+                    </div>
+
                     <button
                         type="submit"
                         className="auth-button"
@@ -400,6 +431,7 @@ const Signup = () => {
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                     <GoogleLogin
                         onSuccess={credentialResponse => {
+                            setIsLoading(true);
                             googleLogin(credentialResponse.credential)
                                 .then((res) => {
                                     if (res?.two_factor_required) {
@@ -419,10 +451,12 @@ const Signup = () => {
                                         navigate('/');
                                     }
                                 })
-                                .catch(err => setError(err.response?.data?.detail || 'Google Login Failed'));
+                                .catch(err => setError(err.response?.data?.detail || 'Google Login Failed'))
+                                .finally(() => setIsLoading(false));
                         }}
                         onError={() => {
                             setError('Google Login Failed');
+                            setIsLoading(false);
                         }}
                         theme="filled_black"
                         shape="pill"

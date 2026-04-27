@@ -23,11 +23,17 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
     try:
         # Phase 1: Communication with Rust Service
         try:
+            # Upload source to GCS so Rust can download it (Independence!)
+            source_filename = os.path.basename(temp_file_path)
+            source_key = f"uploads/{task_id}/{source_filename}"
+            logger.info(f"Uploading source video to GCS: {source_key}")
+            storage.upload_file(temp_file_path, source_key)
+
             logger.info(f"Phase 1: POST to Rust service at {config.RUST_SERVICE_URL}/process")
             rust_response = requests.post(
                 f"{config.RUST_SERVICE_URL}/process",
                 json={
-                    "video_id": temp_file_path,
+                    "video_id": source_key, # Send the GCS key instead of local path
                     "target_format": video_type,
                     "skip_thumbnail": thumbnail_provided,
                     "task_id": task_id
@@ -90,56 +96,21 @@ def process_video_task(self, temp_file_path: str, video_type: str, title: str, v
                 db.commit()
             raise self.retry(exc=e, countdown=60)
 
-        # Phase 2: Post-processing (Moving files and updating DB)
-        logger.info(f"Phase 2: Starting post-processing for video_id={video_id}")
-        clean_title = "".join([c if c.isalnum() else "_" for c in title])
-        timestamp = int(os.path.getmtime(temp_file_path))
-        base_filename = f"{clean_title}_{timestamp}"
-        hls_dir = f"{temp_file_path}_hls"
-        video_url = ""
-        url_480p = None
-        url_720p = None
-        url_1080p = None
-        url_2k = None
-        url_4k = None
+        # Phase 2: Post-processing (Updating DB URLs)
+        # Note: Rust service now handles the upload of HLS files to GCS.
+        logger.info(f"Phase 2: Updating DB with GCS URLs for video_id={video_id}")
         
-        # Secure HLS directory discovery
-        if os.path.isdir(hls_dir):
-            logger.info(f"HLS directory found: {hls_dir}. Starting cloud upload.")
-            # Update DB to show upload stage
-            db_video = db.query(Video).filter(Video.id == video_id).first()
-            if db_video:
-                db_video.processing_message = "Optimizing for streaming..."
-                db.commit()
-
-            for root, _, files in os.walk(hls_dir):
-                for file in files:
-                    local_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(local_path, hls_dir)
-                    s3_key = f"videos/{base_filename}_hls/{rel_path}".replace("\\", "/")
-                    
-                    try:
-                        url = storage.upload_file(local_path, s3_key)
-                        if file == "master.m3u8":
-                            video_url = url
-                        elif file == "480p.m3u8":
-                            url_480p = url
-                        elif file == "720p.m3u8":
-                            url_720p = url
-                        elif file == "1080p.m3u8":
-                            url_1080p = url
-                    except Exception as e:
-                        logger.error(f"Error uploading HLS segment {file}: {e}")
-        else:
-            logger.error(f"Critical Error: HLS directory {hls_dir} not found after processing task {task_id}")
-            if os.path.exists(temp_file_path):
-                 logger.info(f"Fallback: Original file exists at {temp_file_path}")
-
-        temp_thumb_path = f"{temp_file_path}.jpg"
-        thumbnail_url = None
-        if not thumbnail_provided and os.path.exists(temp_thumb_path):
-            s3_key = f"thumbs/{base_filename}.jpg"
-            thumbnail_url = storage.upload_file(temp_thumb_path, s3_key)
+        gcs_base = f"https://storage.googleapis.com/{config.GCS_BUCKET}/videos/{task_id}"
+        
+        video_url = f"{gcs_base}/master.m3u8"
+        url_480p = f"{gcs_base}/480p.m3u8"
+        url_720p = f"{gcs_base}/720p.m3u8"
+        url_1080p = f"{gcs_base}/1080p.m3u8"
+        
+        # In Rust, thumb_key = format!("thumbnails/{}.jpg", video_id);
+        # Since we send source_key as video_id, it would be thumbnails/uploads/...
+        # I will fix Rust to use task_id for thumbnails too.
+        thumbnail_url = f"https://storage.googleapis.com/{config.GCS_BUCKET}/thumbnails/{task_id}.jpg"
 
         duration = 0
         try:

@@ -95,7 +95,14 @@ const Login = () => {
 
     return (
         <div className="auth-container">
-            <div className="auth-card glass">
+            <div className="auth-card glass" style={{ position: 'relative', overflow: 'hidden' }}>
+                {isLoading && (
+                    <div className="auth-loading-overlay">
+                        <Loader2 size={48} className="spin accent-text" style={{ animation: 'spin 1s linear infinite' }} />
+                        <span className="auth-loading-text">AUTHENTICATING...</span>
+                    </div>
+                )}
+                
                 <div className="auth-header">
                     <div className="logo-section" style={{ justifyContent: 'center', marginBottom: '1rem' }}>
                         <Zap size={40} className="glow-icon" fill="currentColor" />
@@ -201,6 +208,7 @@ const Login = () => {
                         <div style={{ display: 'flex', justifyContent: 'center' }}>
                             <GoogleLogin
                                 onSuccess={credentialResponse => {
+                                    setIsLoading(true);
                                     googleLogin(credentialResponse.credential)
                                         .then((res) => {
                                             if (res?.two_factor_required) {
@@ -221,9 +229,13 @@ const Login = () => {
                                                 navigate('/');
                                             }
                                         })
-                                        .catch(err => setError(err.response?.data?.detail || 'Google Login Failed'));
+                                        .catch(err => setError(err.response?.data?.detail || 'Google Login Failed'))
+                                        .finally(() => setIsLoading(false));
                                 }}
-                                onError={() => setError('Google Login Failed')}
+                                onError={() => {
+                                    setError('Google Login Failed');
+                                    setIsLoading(false);
+                                }}
                                 theme="filled_black"
                                 shape="pill"
                             />

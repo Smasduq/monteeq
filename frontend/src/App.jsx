@@ -34,6 +34,8 @@ const Challenges = React.lazy(() => import('./pages/Challenges'));
 const About = React.lazy(() => import('./pages/About'));
 const JoinPro = React.lazy(() => import('./pages/JoinProV2'));
 const AdminPortal = React.lazy(() => import('./pages/AdminPortal'));
+const Privacy = React.lazy(() => import('./pages/Privacy'));
+const Terms = React.lazy(() => import('./pages/Terms'));
 
 import NotificationManager from './components/NotificationManager';
 import Sidebar from './components/Sidebar';
@@ -65,7 +67,7 @@ function AppContent() {
   
   // Hide sidebar/header on auth pages, landing page, and marketing pages
   const isAuthPage = ['/login', '/signup', '/verify'].includes(location.pathname);
-  const isMarketingPage = ['/about', '/partner', '/pro'].includes(location.pathname);
+  const isMarketingPage = ['/about', '/partner', '/pro', '/privacy', '/terms'].includes(location.pathname);
   const hideNavigation = isLandingPage || isAuthPage || isMarketingPage || isFlashPage;
 
   // Redirection guard (Onboarding & Verification)
@@ -90,13 +92,13 @@ function AppContent() {
       <div className={hideNavigation ? "app-layout-fullscreen" : "app-layout"}>
         {!hideNavigation && <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />}
         <main className={hideNavigation ? "landing-page-main" : `main-stage ${isFlashPage ? 'no-padding' : ''}`}>
-          <div className={hideNavigation ? "content-wrapper-fullscreen" : "content-wrapper"} style={hideNavigation ? { height: '100%', display: 'flex' } : {
+          <div className={hideNavigation ? "content-wrapper-fullscreen" : "content-wrapper"} style={hideNavigation ? { minHeight: '100%', display: 'flex' } : {
             display: 'flex',
             gap: '2rem',
             width: '100%',
             flexWrap: 'wrap'
           }}>
-            <div style={hideNavigation ? { width: '100%', height: '100%' } : { flex: 1, minWidth: '300px' }}>
+            <div style={hideNavigation ? { width: '100%', minHeight: '100%' } : { flex: 1, minWidth: '300px' }}>
               <React.Suspense fallback={<PageSkeleton />}>
                 <Routes>
                   {/* Public Routes */}
@@ -104,6 +106,8 @@ function AppContent() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/signup" element={<Signup />} />
                   <Route path="/about" element={<About />} />
+                  <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/terms" element={<Terms />} />
                   
                   {/* Protected App Routes */}
                   <Route path="/flash" element={<ProtectedRoute><Flash /></ProtectedRoute>} />

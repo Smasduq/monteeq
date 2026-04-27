@@ -39,18 +39,47 @@ impl WorkerPool {
                     tokio::spawn(async move {
                         let _permit = permit; // Hold permit until done
                         let task_id = task.task_id.clone();
-                        let video_id = task.video_id.clone();
-                        let video_path = task.video_id.clone();
+                        let gcs_key = task.video_id.clone(); 
                         let tier = task.tier.clone();
                         let target_format = task.target_format.clone();
                         let skip_thumbnail = task.skip_thumbnail;
 
+                        // Phase 0: Download from GCS
+                        let storage = match crate::storage::StorageManager::new().await {
+                            Ok(s) => s,
+                            Err(e) => {
+                                eprintln!("Failed to initialize StorageManager for task {}: {}", task_id, e);
+                                return;
+                            }
+                        };
+
+                        let temp_file = match tempfile::NamedTempFile::new() {
+                            Ok(f) => f,
+                            Err(e) => {
+                                eprintln!("Failed to create temp file for task {}: {}", task_id, e);
+                                return;
+                            }
+                        };
+                        let temp_path = temp_file.path().to_str().unwrap().to_string();
+
+                        println!("Downloading {} from GCS to {}", gcs_key, temp_path);
+                        if let Err(e) = storage.download_file(&gcs_key, temp_file.path()).await {
+                            eprintln!("Download failed for task {}: {}", task_id, e);
+                            smap.insert(task_id.clone(), TaskStatus {
+                                progress: 0,
+                                status: "error".to_string(),
+                                message: format!("Download failed: {}", e),
+                            });
+                            return; 
+                        }
+
+                        // Phase 1: Processing with retries
                         for attempt in 1..=3 {
                             if attempt > 1 { println!("Retrying {} (Attempt {})", task_id, attempt); }
 
                             let res = transcoder::process(
-                                video_id.clone(),
-                                &video_path, 
+                                task_id.clone(),
+                                &temp_path, 
                                 &target_format, 
                                 tier.clone(), 
                                 skip_thumbnail, 

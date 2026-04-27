@@ -20,5 +20,7 @@ sysinfo = "0.29"
 async-trait = "0.1"
 aws-config = "1.1"
 aws-sdk-s3 = "1.1"
+google-cloud-storage = "0.14"
+google-cloud-auth = "0.13"
 [profile.release]
 opt-level = 3

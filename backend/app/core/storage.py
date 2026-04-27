@@ -6,6 +6,7 @@ from supabase import create_client, Client
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.models.models import Setting
+from google.cloud import storage as gcs_storage
 
 class Storage:
     def __init__(self):
@@ -33,6 +34,22 @@ class Storage:
         self.sb_url = sb_url
         self.supabase: Client = create_client(sb_url, config.SUPABASE_KEY)
         self.supabase_bucket = config.SUPABASE_BUCKET_NAME or config.S3_BUCKET_NAME
+
+        # GCS Client
+        self.gcs_client = None
+        if config.GCS_BUCKET:
+            try:
+                if config.GCS_CREDENTIALS_PATH and os.path.exists(config.GCS_CREDENTIALS_PATH):
+                    self.gcs_client = gcs_storage.Client.from_service_account_json(
+                        config.GCS_CREDENTIALS_PATH,
+                        project=config.GCS_PROJECT_ID
+                    )
+                else:
+                    self.gcs_client = gcs_storage.Client(project=config.GCS_PROJECT_ID)
+                
+                self.gcs_bucket = self.gcs_client.bucket(config.GCS_BUCKET)
+            except Exception as e:
+                print(f"Failed to initialize GCS client: {e}")
 
     @property
     def mode(self) -> str:
@@ -79,7 +96,15 @@ class Storage:
             except Exception as e:
                 print(f"Supabase Upload failed: {e}")
                 raise e
-        
+        elif current_mode == "gcs":
+            try:
+                blob = self.gcs_bucket.blob(s3_key)
+                blob.upload_from_filename(local_path)
+                return self.get_url(s3_key, mode="gcs")
+            except Exception as e:
+                print(f"GCS Upload failed: {e}")
+                raise e
+
         else: # Default/S3
             try:
                 self.s3_client.upload_file(local_path, self.bucket_name, s3_key)
@@ -104,6 +129,8 @@ class Storage:
             if isinstance(res, str):
                 return res
             return getattr(res, 'public_url', res) if not isinstance(res, dict) else res.get('publicURL', res.get('public_url', res))
+        elif current_mode == "gcs":
+            return f"https://storage.googleapis.com/{config.GCS_BUCKET}/{url_key}"
         else:
             # Backblaze B2 S3-Compatible URLs: {endpoint}/{bucket}/{key}
             endpoint = config.S3_ENDPOINT.rstrip('/')
@@ -129,6 +156,13 @@ class Storage:
                 print(f"Deleted Supabase object: {s3_key}")
             except Exception as e:
                 print(f"Failed to delete Supabase object {s3_key}: {e}")
+        elif current_mode == "gcs":
+            try:
+                blob = self.gcs_bucket.blob(s3_key)
+                blob.delete()
+                print(f"Deleted GCS object: {s3_key}")
+            except Exception as e:
+                print(f"Failed to delete GCS object {s3_key}: {e}")
         else:
             try:
                 self.s3_client.delete_object(Bucket=self.bucket_name, Key=s3_key)
