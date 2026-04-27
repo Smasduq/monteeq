@@ -11,9 +11,7 @@ google-auth
 httpx
 psycopg2-binary
 sqlalchemy
-boto3
 pywebpush
-supabase
 alembic
 aiofiles
 pyotp

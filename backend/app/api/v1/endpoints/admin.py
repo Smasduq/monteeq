@@ -109,7 +109,7 @@ def update_storage_mode(
     db: Session = Depends(get_db),
     current_user: dict = Depends(admin_only)
 ):
-    if mode not in ["s3", "supabase", "local"]:
+    if mode not in ["gcs", "local"]:
         raise HTTPException(status_code=400, detail="Invalid storage mode")
     
     crud_setting.update_setting(db, "storage_mode", mode)

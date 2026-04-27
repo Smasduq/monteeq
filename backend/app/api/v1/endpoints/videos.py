@@ -205,7 +205,7 @@ def read_video(video_id: int, db: Session = Depends(get_db), current_user: Optio
 # Processing logic migrated to Celery workers in app/tasks/video_tasks.py
 
 def delete_video_files(video: Video):
-    """Utility to delete all files (local, S3/B2, or Supabase) associated with a video."""
+    """Utility to delete all files (local or GCS) associated with a video."""
     urls = [
         video.video_url,
         video.url_480p,
@@ -225,15 +225,6 @@ def delete_video_files(video: Video):
         s3_key = None
         if current_mode == "local" and url.startswith(f"{config.BASE_URL}/static/"):
             s3_key = url.replace(f"{config.BASE_URL}/static/", "")
-        elif current_mode == "supabase" and "/storage/v1/object/public/" in url:
-            # Format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[key]
-            parts = url.split(f"/{storage.supabase_bucket}/")
-            if len(parts) > 1:
-                s3_key = parts[1]
-        elif current_mode == "s3" and config.S3_BUCKET_NAME in url:
-            parts = url.split(f"{config.S3_BUCKET_NAME}/")
-            if len(parts) > 1:
-                s3_key = parts[1]
         elif current_mode == "gcs" and "storage.googleapis.com" in url:
             # Format: https://storage.googleapis.com/[bucket]/[key]
             parts = url.split(f"/{config.GCS_BUCKET}/")

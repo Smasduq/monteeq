@@ -118,40 +118,7 @@ const Dashboard = ({ token, setToken, theme, toggleTheme }) => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                        {/* Storage Controller */}
-                        <div style={{ 
-                            display: 'flex', background: 'var(--bg-raised)', padding: '4px',
-                            borderRadius: '10px', border: '1px solid var(--border-subtle)'
-                        }}>
-                             <button
-                                onClick={() => handleStorageToggle('s3')}
-                                disabled={switching}
-                                style={{
-                                    border: 'none', borderRadius: '6px', cursor: 'pointer', outline: 'none',
-                                    padding: '6px 14px', fontSize: '12px', fontWeight: 700, 
-                                    background: storageMode === 's3' ? 'var(--accent)' : 'transparent',
-                                    color: storageMode === 's3' ? '#fff' : 'var(--text-muted)',
-                                    boxShadow: storageMode === 's3' ? 'var(--shadow-sm)' : 'none',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                <Cloud size={14} style={{ verticalAlign: 'middle', marginRight: '6px' }} /> S3 Cloud
-                            </button>
-                            <button
-                                onClick={() => handleStorageToggle('supabase')}
-                                disabled={switching}
-                                style={{
-                                    border: 'none', borderRadius: '6px', cursor: 'pointer', outline: 'none',
-                                    padding: '6px 14px', fontSize: '12px', fontWeight: 700, 
-                                    background: storageMode === 'supabase' ? 'var(--success)' : 'transparent',
-                                    color: storageMode === 'supabase' ? '#fff' : 'var(--text-muted)',
-                                    boxShadow: storageMode === 'supabase' ? 'var(--shadow-sm)' : 'none',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                <Database size={14} style={{ verticalAlign: 'middle', marginRight: '6px' }} /> Supabase
-                            </button>
-                        </div>
+
 
                         {/* Theme Toggle */}
                         <button onClick={toggleTheme} className="btn btn-ghost" style={{ padding: '8px' }}>
