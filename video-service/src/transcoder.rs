@@ -157,7 +157,7 @@ async fn transcode_tiered(
     println!("Transcoding tiered levels for {} -> {}", input, output_dir);
 
     let source_height = get_video_height(input).await?;
-    let target_height = source_height.min(config.max_height);
+    let _target_height = source_height.min(config.max_height);
 
     // ── 1. Determine variants ────────────────────────────────────────────────
     // num_variants = how many video streams (and therefore audio streams) we produce.
