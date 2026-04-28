@@ -3,17 +3,80 @@ const API_URL = import.meta.env.VITE_API_URL || '';
 // In development, we use the Vite proxy (relative paths). In production, we use the full URL if provided.
 export const API_BASE_URL = API_URL ? `${API_URL}/api/v1` : '/api/v1';
 
+// ── Typed API Error ──────────────────────────────────────────────────────────
+/**
+ * ApiError — thrown by apiFetch() for any non-2xx response.
+ *
+ * Properties:
+ *   .status  {number}  HTTP status code
+ *   .code    {string}  Backend error_code (e.g. "VIDEO_NOT_FOUND")
+ *   .message {string}  Human-readable detail string
+ *   .fields  {Array}   Validation field errors (422 only)
+ *   .traceId {string}  Server trace_id (500 only)
+ */
+export class ApiError extends Error {
+  constructor({ status, code, message, fields = [], traceId = null }) {
+    super(message);
+    this.name = 'ApiError';
+    this.status   = status;
+    this.code     = code;
+    this.fields   = fields;
+    this.traceId  = traceId;
+  }
+}
+
+// ── Central Fetch Wrapper ────────────────────────────────────────────────────
+/**
+ * apiFetch — drop-in wrapper around fetch() with:
+ *   - Structured error parsing (reads { detail, error_code, fields, trace_id })
+ *   - Auto-dispatch of 'monteeq:session-expired' on 401 (triggers logout)
+ *   - Throws ApiError on non-2xx responses
+ *
+ * Usage:
+ *   const data = await apiFetch('/videos/123', { headers: { Authorization: `Bearer ${token}` } });
+ */
+export async function apiFetch(path, options = {}) {
+  const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+  const response = await fetch(url, options);
+
+  if (response.ok) {
+    // 204 No Content — return null
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  // Parse structured error body
+  let body = {};
+  try { body = await response.json(); } catch (_) { /* ignore parse errors */ }
+
+  const error = new ApiError({
+    status:  response.status,
+    code:    body.error_code || 'HTTP_ERROR',
+    message: body.detail     || `Request failed with status ${response.status}`,
+    fields:  body.fields     || [],
+    traceId: body.trace_id   || null,
+  });
+
+  // Auto-logout on 401
+  if (response.status === 401) {
+    window.dispatchEvent(new CustomEvent('monteeq:session-expired', { detail: error }));
+  }
+
+  throw error;
+}
+
+
 export const login = async (username, password) => {
     const formData = new FormData();
     formData.append('username', username);
     formData.append('password', password);
 
-    const response = await fetch(`${API_BASE_URL}/token`, {
+    return apiFetch('/token', {
         method: 'POST',
         body: formData,
     });
-    return response.json();
 };
+
 
 export const getVideos = async (type, token = null, skip = 0, limit = 20, mood = '', feedMode = '') => {
     const headers = {};
@@ -22,9 +85,9 @@ export const getVideos = async (type, token = null, skip = 0, limit = 20, mood =
     }
     const moodQuery = mood ? `&mood=${mood}` : '';
     const feedModeQuery = feedMode ? `&feed_mode=${feedMode}` : '';
-    const response = await fetch(`${API_BASE_URL}/videos/?video_type=${type}&skip=${skip}&limit=${limit}${moodQuery}${feedModeQuery}`, { headers });
-    return response.json();
+    return apiFetch(`/videos/?video_type=${type}&skip=${skip}&limit=${limit}${moodQuery}${feedModeQuery}`, { headers });
 };
+
 
 /**
  * Fetch a personalised ranked feed from the recommendation engine.
@@ -67,10 +130,9 @@ export const getVideoById = async (id, token = null) => {
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
     }
-    const response = await fetch(`${API_BASE_URL}/videos/${id}`, { headers });
-    if (!response.ok) throw new Error('Video not found');
-    return response.json();
+    return apiFetch(`/videos/${id}`, { headers });
 };
+
 
 export const getComments = async (videoId = null, postId = null) => {
     const endpoint = videoId

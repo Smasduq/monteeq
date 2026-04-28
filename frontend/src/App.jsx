@@ -39,13 +39,18 @@ const AdminPortal = React.lazy(() => import('./pages/AdminPortal'));
 const Privacy = React.lazy(() => import('./pages/Privacy'));
 const Terms = React.lazy(() => import('./pages/Terms'));
 const PaymentCallback = React.lazy(() => import('./pages/PaymentCallback'));
+const NotFound = React.lazy(() => import('./pages/NotFound'));
+
 
 import NotificationManager from './components/NotificationManager';
 import Sidebar from './components/Sidebar';
 import ModernHeader from './components/ModernHeader';
 import Footer from './components/Footer';
 import MeshBackground from './components/MeshBackground';
+import ErrorBoundary from './components/ErrorBoundary';
+import { ErrorProvider } from './context/ErrorContext';
 import './index.css';
+
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -70,16 +75,34 @@ function AppContent() {
   const isOnboardingPage = location.pathname === '/onboarding';
   const isLandingPage = location.pathname === '/' && !token;
   
-  // Hide sidebar/header on auth pages, landing page, and marketing pages
+  // Immersive pages hide everything (Auth, Flash, Onboarding, Payment, 404)
   const isAuthPage = ['/login', '/signup', '/verify', '/forgot-password', '/reset-password'].includes(location.pathname);
   const isMarketingPage = ['/about', '/partner', '/pro', '/privacy', '/terms'].includes(location.pathname);
   const isPaymentPage = location.pathname === '/payment';
   
-  // Immersive pages hide everything
-  const isImmersive = isAuthPage || isFlashPage || isPaymentPage;
+  // Detect if current path is a 404 (not in our defined list)
+  const knownPaths = [
+    '/', '/login', '/signup', '/verify', '/forgot-password', '/reset-password',
+    '/about', '/partner', '/pro', '/privacy', '/terms', '/payment',
+    '/flash', '/search', '/settings', '/posts', '/upload', '/chat',
+    '/manage', '/manage-videos', '/achievements', '/notifications',
+    '/insights', '/performance', '/onboarding', '/challenges',
+    '/monetization', '/monetization/transactions', '/admin'
+  ];
+  const isDynamicPath = location.pathname.startsWith('/watch/') || location.pathname.startsWith('/profile/');
+  const isNotFound = !knownPaths.includes(location.pathname) && !isDynamicPath;
+
+  const isImmersive = isAuthPage || isFlashPage || isPaymentPage || isNotFound;
   const hideSidebar = isLandingPage || isImmersive || isMarketingPage;
   const hideHeader = isImmersive || isLandingPage;
   const hideNavigation = hideHeader; 
+
+  // Auto-logout when backend returns 401
+  React.useEffect(() => {
+    const handler = () => logout();
+    window.addEventListener('monteeq:session-expired', handler);
+    return () => window.removeEventListener('monteeq:session-expired', handler);
+  }, [logout]);
 
   // Redirection guard (Onboarding & Verification)
   React.useEffect(() => {
@@ -115,10 +138,10 @@ function AppContent() {
                 <Routes>
                   {/* Public Routes */}
                   <Route path="/" element={token ? <Home /> : <Landing />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/signup" element={<Signup />} />
-                  <Route path="/forgot-password" element={<ForgotPassword />} />
-                  <Route path="/reset-password" element={<ResetPassword />} />
+                  <Route path="/login" element={token ? <Navigate to="/" replace /> : <Login />} />
+                  <Route path="/signup" element={token ? <Navigate to="/" replace /> : <Signup />} />
+                  <Route path="/forgot-password" element={token ? <Navigate to="/" replace /> : <ForgotPassword />} />
+                  <Route path="/reset-password" element={token ? <Navigate to="/" replace /> : <ResetPassword />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/privacy" element={<Privacy />} />
                   <Route path="/terms" element={<Terms />} />
@@ -151,6 +174,9 @@ function AppContent() {
                   
                   {/* Admin Routes */}
                   <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminPortal /></ProtectedRoute>} />
+
+                  {/* 404 catch-all */}
+                  <Route path="*" element={<NotFound />} />
                 </Routes>
                 {!isImmersive && <Footer />}
               </React.Suspense>
@@ -168,8 +194,12 @@ function App() {
       <Router>
         <AuthProvider>
           <NotificationProvider>
-            <NotificationManager />
-            <AppContent />
+            <ErrorProvider>
+              <ErrorBoundary>
+                <NotificationManager />
+                <AppContent />
+              </ErrorBoundary>
+            </ErrorProvider>
           </NotificationProvider>
         </AuthProvider>
       </Router>
