@@ -15,7 +15,7 @@ app = FastAPI(title="Monteeq Video Platform")
 # CORS middleware - MUST be added before other middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://www.monteeq.com", "https://monteeq.com", "http://localhost:5173", "http://localhost:5174"],
+    allow_origins=["https://www.monteeq.com", "https://monteeq.com", "https://admin.monteeq.com", "https://www.admin.monteeq.com", "http://localhost:5173", "http://localhost:5174"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

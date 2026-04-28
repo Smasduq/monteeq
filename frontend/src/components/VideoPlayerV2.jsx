@@ -17,7 +17,7 @@ const VideoPlayerV2 = ({
   isTheaterMode = false,
   toggleTheaterMode 
 }) => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const hlsRef = useRef(null);
@@ -36,7 +36,14 @@ const VideoPlayerV2 = ({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [showControls, setShowControls] = useState(true);
-  const [isPreRollActive, setIsPreRollActive] = useState(true);
+  
+  const isPremium = user?.is_premium;
+  const [isPreRollActive, setIsPreRollActive] = useState(!isPremium);
+  
+  useEffect(() => {
+    if (isPremium) setIsPreRollActive(false);
+  }, [isPremium]);
+
   const [showTopCredits, setShowTopCredits] = useState(true);
   const controlsTimeout = useRef(null);
 
@@ -180,7 +187,7 @@ const VideoPlayerV2 = ({
       )}
 
       {/* Pause Ad */}
-      {!isPlaying && !isPreRollActive && currentTime > 0 && <PauseOverlayAd />}
+      {!isPlaying && !isPreRollActive && currentTime > 0 && !isPremium && <PauseOverlayAd />}
 
       {/* Top Credits Overlay */}
       <div className={`topOverlay ${showTopCredits || showControls ? 'visible' : ''}`}>

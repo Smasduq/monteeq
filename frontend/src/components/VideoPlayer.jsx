@@ -16,7 +16,7 @@ const VideoPlayer = ({
   toggleTheaterMode,
   videoId
 }) => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const hlsRef = useRef(null);
@@ -37,7 +37,14 @@ const VideoPlayer = ({
   const [hoverX, setHoverX] = useState(0);
   const [showControls, setShowControls] = useState(true);
   const [osd, setOsd] = useState({ icon: null, visible: false });
-  const [showPreRoll, setShowPreRoll] = useState(true); // Always show for demo, or logic based on views
+  
+  const isPremium = user?.is_premium;
+  const [showPreRoll, setShowPreRoll] = useState(!isPremium);
+  
+  useEffect(() => {
+    if (isPremium) setShowPreRoll(false);
+  }, [isPremium]);
+
   const controlsTimeout = useRef(null);
 
   // Use Proxy Stream to bypass CORS
@@ -283,7 +290,7 @@ const VideoPlayer = ({
         }} />
       )}
 
-      {!isPlaying && !showPreRoll && currentTime > 0 && <PauseOverlayAd />}
+      {!isPlaying && !showPreRoll && currentTime > 0 && !isPremium && <PauseOverlayAd />}
 
       {/* OSD */}
       <div className={`${styles.osd} ${osd.visible ? styles.osdActive : ''}`}>
