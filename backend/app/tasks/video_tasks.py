@@ -96,11 +96,19 @@ def process_video_task(self, source_key: str, video_type: str, title: str, video
         gcs_base = f"https://storage.googleapis.com/{config.GCS_BUCKET}/videos/{task_id}"
         
         video_url = f"{gcs_base}/master.m3u8"
-        url_480p = f"{gcs_base}/480p.m3u8"
-        url_720p = f"{gcs_base}/720p.m3u8"
-        url_1080p = f"{gcs_base}/1080p.m3u8"
-        url_2k = f"{gcs_base}/2k.m3u8"
-        url_4k = f"{gcs_base}/4k.m3u8"
+        
+        if video_type == "flash":
+            url_480p = None
+            url_720p = None
+            url_1080p = None
+            url_2k = None
+            url_4k = None
+        else:
+            url_480p = f"{gcs_base}/480p.m3u8"
+            url_720p = f"{gcs_base}/720p.m3u8"
+            url_1080p = f"{gcs_base}/1080p.m3u8"
+            url_2k = f"{gcs_base}/2k.m3u8"
+            url_4k = f"{gcs_base}/4k.m3u8"
         # In Rust, thumb_key = format!("thumbnails/{}.jpg", video_id);
         # Since we send source_key as video_id, it would be thumbnails/uploads/...
         # I will fix Rust to use task_id for thumbnails too.

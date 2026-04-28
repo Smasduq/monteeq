@@ -27,7 +27,7 @@ impl WeightedScheduler {
         let mut pro_count = self.pro_counter.lock().await;
 
         // Determine which list to check first based on weights
-        let (first, second) = if *pro_count < 7 {
+        let (first, second) = if *pro_count < 3 {
             (QUEUE_PRO, QUEUE_FREE)
         } else {
             (QUEUE_FREE, QUEUE_PRO)

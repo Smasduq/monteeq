@@ -16,7 +16,7 @@ impl TranscodingConfig {
     pub fn for_tier(tier: &UserTier) -> Self {
         match tier {
             UserTier::Free => Self {
-                preset: "superfast".to_string(),
+                preset: "ultrafast".to_string(),
                 max_height: 720,
                 crf: "26".to_string(), // Slightly lower quality for space/speed
             },
@@ -164,9 +164,9 @@ async fn transcode_tiered(
     // stream_map uses unique a:N per variant — sharing a:0 across variants is the
     // root cause of FFmpeg error "Same elementary stream found more than once".
     let (filter, stream_map, num_variants): (String, String, usize) = if format == "flash" {
-        // Single quality for flash (Vertical short-form)
-        let sm = if has_audio { "v:0,a:0,name:720p".to_string() } else { "v:0,name:720p".to_string() };
-        (format!("[0:v]scale=w=-2:h={}[vout]", target_height), sm, 1)
+        // Single quality for flash (Original resolution)
+        let sm = if has_audio { "v:0,a:0,name:original".to_string() } else { "v:0,name:original".to_string() };
+        (format!("[0:v]scale=w=-2:h={}[vout]", source_height), sm, 1)
     } else if config.max_height <= 720 {
         // Free tier — two quality levels, capped at 720p
         let sm = if has_audio {
